@@ -14,8 +14,10 @@ import {
   LogOut,
   X,
   Download,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { useTheme } from '../../contexts/ThemeContext';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
 import { IOSInstallModal } from '../pwa/IOSInstallModal';
@@ -38,6 +40,7 @@ const nav = [
 
 export function Sidebar({ open, onClose }: SidebarProps) {
   const { logout, userProfile } = useAuth();
+  const { isAdmin, isPublisher } = useAdminAuth();
   const { theme, toggleTheme } = useTheme();
   const { isInstallable, isInstalled, isIOS, promptInstall } = usePWAInstall();
   const [showIOSModal, setShowIOSModal] = useState(false);
@@ -101,6 +104,24 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               {label}
             </NavLink>
           ))}
+
+          {(isAdmin || isPublisher) && (
+            <NavLink
+              to="/admin/publish"
+              onClick={onClose}
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-bold'
+                    : 'text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/20'
+                )
+              }
+            >
+              <ShieldCheck className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              Publish Timetable
+            </NavLink>
+          )}
         </nav>
 
         <div className="p-4 border-t border-gray-200 dark:border-gray-800 space-y-2">

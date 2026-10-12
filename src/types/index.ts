@@ -209,3 +209,44 @@ export interface TimetableHistory {
   archivedAt: Timestamp;
   slots: TimetableSlot[];
 }
+
+export type TimetableChangeRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+
+export interface TimetableChangeRequest {
+  id: string;
+  submittedBy: string; // uid
+  submittedByEmail: string;
+  submittedByName: string;
+  institution: string;
+  program: string;
+  batch: string;
+  semester: number;
+  section: string;
+  groupId: string;
+  groupLabel: string;
+  effectiveDate: string;
+  sourceFilename: string;
+  contentHash: string;
+  slots: Array<{
+    id: string;
+    subjectCode: string;
+    subjectName: string;
+    faculty?: string;
+    room?: string;
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    color?: string;
+    group?: TimetableGroupScope;
+    requiresReview?: boolean;
+  }>;
+  slotCount: number;
+  hasGroupScopes: boolean;
+  status: TimetableChangeRequestStatus;
+  reviewNotes?: string;
+  reviewedBy?: string; // admin uid
+  reviewedByName?: string;
+  reviewedAt?: Timestamp;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}

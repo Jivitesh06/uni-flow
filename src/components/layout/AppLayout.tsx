@@ -12,6 +12,7 @@ const titles: Record<string, string> = {
   '/notifications': 'Notifications',
   '/email-sync': 'Gmail Sync',
   '/settings': 'Account Settings',
+  '/admin/publish': 'Timetable Publishing Console',
 };
 
 export function AppLayout() {

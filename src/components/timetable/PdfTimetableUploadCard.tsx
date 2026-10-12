@@ -52,6 +52,10 @@ interface PdfTimetableUploadCardProps {
     preserveManual: boolean
   ) => Promise<void>;
   disableManualUpload?: boolean;
+  actionButtonLabel?: string;
+  title?: string;
+  subtitle?: string;
+  skipProfileSectionMatch?: boolean;
 }
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -64,6 +68,10 @@ export function PdfTimetableUploadCard({
   externalBuffer,
   onApprove,
   disableManualUpload = true,
+  actionButtonLabel,
+  title,
+  subtitle,
+  skipProfileSectionMatch = false,
 }: PdfTimetableUploadCardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -247,30 +255,32 @@ export function PdfTimetableUploadCard({
       return;
     }
 
-    const isMatched = isSectionMatch(
-      selectedSection,
-      userSemester || 5,
-      userSection || 'A',
-      userProgram || 'BE-CSE'
-    );
-    if (!isMatched) {
-      const mismatchMsg = describeSectionMismatch(
+    if (!skipProfileSectionMatch) {
+      const isMatched = isSectionMatch(
         selectedSection,
         userSemester || 5,
         userSection || 'A',
         userProgram || 'BE-CSE'
       );
-      toast.error(
-        mismatchMsg || 'Cannot import: selected section does not match your academic profile.',
-        { duration: 6000 }
-      );
-      return;
+      if (!isMatched) {
+        const mismatchMsg = describeSectionMismatch(
+          selectedSection,
+          userSemester || 5,
+          userSection || 'A',
+          userProgram || 'BE-CSE'
+        );
+        toast.error(
+          mismatchMsg || 'Cannot import: selected section does not match your academic profile.',
+          { duration: 6000 }
+        );
+        return;
+      }
     }
 
     setApproving(true);
     try {
       await onApprove(editableLectures, effectiveDate, selectedSection, preserveManual);
-      toast.success(`Successfully updated timetable for ${selectedSection}!`);
+      toast.success(`Successfully processed timetable for ${selectedSection}!`);
       handleReset();
     } catch (err: unknown) {
       toast.error((err as Error).message || 'Failed to update timetable');
@@ -293,10 +303,10 @@ export function PdfTimetableUploadCard({
           <div>
             <CardTitle className="text-base font-bold flex items-center gap-2">
               <FileText className="w-5 h-5 text-blue-600" />
-              Chitkara Timetable PDF Import & Section Isolator
+              {title || 'Chitkara Timetable PDF Import & Section Isolator'}
             </CardTitle>
             <p className="text-xs text-gray-500 mt-0.5">
-              Processes official multi-page PDFs (e.g. 5A through 5G), isolates your section, and checks diffs in-memory
+              {subtitle || 'Processes official multi-page PDFs (e.g. 5A through 5G), isolates your section, and checks diffs in-memory'}
             </p>
           </div>
           <Badge variant="info" className="self-start sm:self-auto">
@@ -587,7 +597,8 @@ export function PdfTimetableUploadCard({
                   loading={approving}
                   className="font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
-                  <Check className="w-4 h-4 mr-1.5" /> Approve & Update Timetable
+                  <Check className="w-4 h-4 mr-1.5" />
+                  {actionButtonLabel || 'Approve & Update Timetable'}
                 </Button>
               </div>
             </div>

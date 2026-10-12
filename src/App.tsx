@@ -18,6 +18,8 @@ import { AttendancePage } from './pages/AttendancePage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { EmailSyncPage } from './pages/EmailSyncPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { AdminRoute } from './components/auth/AdminRoute';
+import { AdminPublishPage } from './pages/AdminPublishPage';
 
 export default function App() {
   return (
@@ -70,6 +72,11 @@ export default function App() {
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/email-sync" element={<EmailSyncPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+
+                {/* Protected Admin Publishing Console */}
+                <Route element={<AdminRoute />}>
+                  <Route path="/admin/publish" element={<AdminPublishPage />} />
+                </Route>
               </Route>
             </Route>
 

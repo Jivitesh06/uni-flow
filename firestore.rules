@@ -26,6 +26,12 @@ service cloud.firestore {
       return source in ['manual', 'email_import', 'baseline'];
     }
 
+    function isPublisher() {
+      return isSignedIn()
+        && (request.auth.token.role in ['admin', 'publisher']
+            || exists(/databases/$(database)/documents/authorizedPublishers/$(request.auth.uid)));
+    }
+
     // ============================================================
     // Users collection
     // ============================================================
@@ -158,16 +164,33 @@ service cloud.firestore {
       allow read: if isSignedIn();
       // Ordinary students must not publish global updates
       // Only authorized publishers (token.role in ['admin', 'publisher'] or listed in authorizedPublishers)
-      allow write: if isSignedIn()
-        && (request.auth.token.role in ['admin', 'publisher']
-            || exists(/databases/$(database)/documents/authorizedPublishers/$(request.auth.uid)));
+      allow write: if isPublisher();
 
       match /revisions/{revId} {
         allow read: if isSignedIn();
-        allow write: if isSignedIn()
-          && (request.auth.token.role in ['admin', 'publisher']
-              || exists(/databases/$(database)/documents/authorizedPublishers/$(request.auth.uid)));
+        allow write: if isPublisher();
       }
+    }
+
+    // ============================================================
+    // Timetable change requests (students submit pending, publishers review/decide)
+    // ============================================================
+    match /timetableChangeRequests/{requestId} {
+      // Students can read their own submissions; authorized publishers can read all submissions
+      allow read: if isSignedIn()
+        && (resource.data.submittedBy == request.auth.uid || isPublisher());
+
+      // Students can submit pending change requests
+      allow create: if isSignedIn()
+        && request.resource.data.submittedBy == request.auth.uid
+        && request.resource.data.status == 'pending';
+
+      // Only authorized publishers can approve, reject, or update change requests
+      allow update: if isPublisher();
+
+      // Students can cancel their own pending submission; publishers can delete if needed
+      allow delete: if (isSignedIn() && resource.data.submittedBy == request.auth.uid && resource.data.status == 'pending')
+        || isPublisher();
     }
 
     // Server/Admin managed authorized publishers directory

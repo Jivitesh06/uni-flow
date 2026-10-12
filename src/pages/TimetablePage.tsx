@@ -7,6 +7,7 @@ import {
   Calendar,
   List,
   Upload,
+  UploadCloud,
   FileSpreadsheet,
   Clock,
   Sparkles,
@@ -18,6 +19,8 @@ import {
   BookOpen,
   Users,
   ShieldCheck,
+  X,
+  FileText,
 } from 'lucide-react';
 import {
   collection,
@@ -43,11 +46,15 @@ import { useSharedTimetable } from '../hooks/useSharedTimetable';
 import {
   mergeSharedAndPersonalSlots,
   buildSharedGroupId,
+  buildSharedGroupLabel,
+  computeTimetableContentHash,
   TimetableGroupParams,
+  SharedSlot,
 } from '../lib/sharedTimetable';
-import { isSlotApplicableToStudent } from '../lib/collegeEmail';
+import { isSlotApplicableToStudent, normalizeSemester, normalizeSection } from '../lib/collegeEmail';
+import { PdfTimetableUploadCard } from '../components/timetable/PdfTimetableUploadCard';
 import toast from 'react-hot-toast';
-import type { TimetableSlot, Subject, TimetableRevision, TimetableGroupScope } from '../types';
+import type { TimetableSlot, Subject, TimetableRevision, TimetableGroupScope, TimetableChangeRequest } from '../types';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const SHORT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -130,6 +137,9 @@ export function TimetablePage() {
   const [deleting, setDeleting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showPdfRequestModal, setShowPdfRequestModal] = useState(false);
+  const [submittingRequest, setSubmittingRequest] = useState(false);
+  const [myChangeRequests, setMyChangeRequests] = useState<TimetableChangeRequest[]>([]);
   const [pendingRevisions, setPendingRevisions] = useState<TimetableRevision[]>([]);
   const [currentTime, setCurrentTime] = useState(() => new Date());
 
@@ -154,6 +164,95 @@ export function TimetablePage() {
     });
     return () => unsub();
   }, [uid]);
+
+  // Listen to student's pending timetable change requests
+  useEffect(() => {
+    if (!uid) return;
+    const q = query(
+      collection(db, 'timetableChangeRequests'),
+      where('submittedBy', '==', uid)
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      setMyChangeRequests(snap.docs.map((d) => ({ id: d.id, ...d.data() } as TimetableChangeRequest)));
+    });
+    return () => unsub();
+  }, [uid]);
+
+  async function handleSubmitUpdateRequest(
+    lectures: any[],
+    effectiveDate: string,
+    section: string
+  ) {
+    if (!currentUser) return;
+    if (!groupParams) {
+      toast.error('Please configure your section in Settings first');
+      return;
+    }
+
+    const targetGroupId = buildSharedGroupId({ ...groupParams, section });
+    const targetGroupLabel = buildSharedGroupLabel({ ...groupParams, section });
+
+    const sharedSlots: SharedSlot[] = lectures.map((l, idx) => ({
+      id: `req_${section.toLowerCase()}_${idx + 1}`,
+      subjectCode: l.subjectCode,
+      subjectName: l.subjectName,
+      faculty: l.faculty,
+      room: l.room,
+      dayOfWeek: l.dayOfWeek,
+      startTime: l.startTime,
+      endTime: l.endTime,
+      color: '#3b82f6',
+      group: l.group || 'ALL',
+      requiresReview: l.requiresReview || false,
+    }));
+
+    const contentHash = computeTimetableContentHash(sharedSlots, effectiveDate);
+
+    setSubmittingRequest(true);
+    try {
+      await addDoc(collection(db, 'timetableChangeRequests'), {
+        submittedBy: currentUser.uid,
+        submittedByEmail: currentUser.email || '',
+        submittedByName: userProfile?.displayName || currentUser.displayName || 'Student',
+        institution: groupParams.institution || 'Chitkara University',
+        program: groupParams.program || 'BE-CSE',
+        batch: groupParams.batch || '2024',
+        semester: normalizeSemester(groupParams.semester),
+        section: normalizeSection(section),
+        groupId: targetGroupId,
+        groupLabel: targetGroupLabel,
+        effectiveDate,
+        sourceFilename: 'Uploaded Student PDF',
+        contentHash,
+        slots: sharedSlots,
+        slotCount: sharedSlots.length,
+        hasGroupScopes: sharedSlots.some((s) => s.group === 'G1' || s.group === 'G2'),
+        status: 'pending',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      toast.success(
+        `Timetable update request submitted for Section ${section}! An administrator will review and publish it.`
+      );
+      setShowPdfRequestModal(false);
+    } catch (err: unknown) {
+      console.error('Failed to submit timetable request:', err);
+      toast.error(`Submission failed: ${(err as Error).message || 'Server error'}`);
+    } finally {
+      setSubmittingRequest(false);
+    }
+  }
+
+  async function handleCancelRequest(requestId: string) {
+    if (!confirm('Cancel this pending timetable update request?')) return;
+    try {
+      await deleteDoc(doc(db, 'timetableChangeRequests', requestId));
+      toast.success('Timetable update request cancelled');
+    } catch {
+      toast.error('Failed to cancel request');
+    }
+  }
 
   // Synchronize local storage cache whenever slots change
   useEffect(() => {
@@ -459,6 +558,11 @@ export function TimetablePage() {
             </button>
           </div>
 
+          <Button variant="outline" size="sm" onClick={() => setShowPdfRequestModal(true)}>
+            <UploadCloud className="w-4 h-4 mr-1.5 text-blue-600" />
+            Upload PDF / Request Update
+          </Button>
+
           <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
             <FileSpreadsheet className="w-4 h-4 mr-1.5 text-emerald-600" />
             Import Excel
@@ -496,6 +600,80 @@ export function TimetablePage() {
             </Link>
           </div>
         )}
+
+      {/* Student Timetable Change Request Status Banners */}
+      {myChangeRequests
+        .filter((r) => r.status === 'pending')
+        .map((req) => (
+          <div
+            key={req.id}
+            className="bg-blue-50/90 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/70 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm"
+          >
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 mt-0.5">
+                <UploadCloud className="w-5 h-5 animate-pulse" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="text-sm font-bold text-gray-900 dark:text-white">
+                    Timetable Update Request Pending Admin Review
+                  </h4>
+                  <Badge variant="warning" className="text-[10px]">
+                    Pending Approval
+                  </Badge>
+                  <span className="text-[11px] font-mono text-gray-500">
+                    Section {req.section}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 leading-relaxed">
+                  Submitted {req.slotCount} slots for Section {req.section} (Effective {req.effectiveDate}). An authorized administrator must review and approve this change before it is published to the shared database.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full sm:w-auto text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/50 dark:hover:bg-red-950/30 text-xs"
+                onClick={() => handleCancelRequest(req.id)}
+              >
+                Cancel Request
+              </Button>
+            </div>
+          </div>
+        ))}
+
+      {myChangeRequests
+        .filter((r) => r.status === 'rejected')
+        .slice(0, 1)
+        .map((req) => (
+          <div
+            key={req.id}
+            className="bg-red-50/80 dark:bg-red-950/20 border border-red-200 dark:border-red-800/60 rounded-2xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-sm"
+          >
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 mt-0.5">
+                <AlertCircle className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="font-bold text-red-900 dark:text-red-200">
+                  Timetable Update Request Declined
+                </p>
+                <p className="text-red-800 dark:text-red-300 mt-0.5">
+                  Your request for Section {req.section} was not approved{req.reviewNotes ? `: "${req.reviewNotes}"` : '.'}
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-xs text-red-600 hover:bg-red-100/50"
+              onClick={() => handleCancelRequest(req.id)}
+            >
+              Dismiss
+            </Button>
+          </div>
+        ))}
 
       {/* Pending Weekly Revisions Notification */}
       {pendingRevisions.length > 0 && (
@@ -1214,6 +1392,51 @@ export function TimetablePage() {
 
             <div className="flex justify-end gap-2 mt-6">
               <Button variant="outline" onClick={() => setShowImportModal(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* 6. STUDENT PDF UPLOAD / REQUEST MODAL                          */}
+      {/* ============================================================== */}
+      {showPdfRequestModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 w-full max-w-2xl shadow-2xl border border-gray-100 dark:border-gray-800 max-h-[90vh] overflow-y-auto my-8">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <UploadCloud className="w-5 h-5 text-blue-600" />
+                  Upload Timetable PDF
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  Upload your section's official Chitkara University timetable PDF. Review parsed lectures, groups, and diff before submitting for administrator approval.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowPdfRequestModal(false)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <PdfTimetableUploadCard
+              currentSlots={effectiveSlots}
+              userSection={userProfile?.section}
+              userSemester={userProfile?.semester}
+              userProgram={userProfile?.program}
+              disableManualUpload={false}
+              actionButtonLabel={submittingRequest ? "Submitting Request..." : "Submit Change Request for Approval"}
+              title="Official Chitkara PDF Parser"
+              subtitle="Extracts all lecture slots, groups (G1/G2/ALL), room codes, and effective dates for admin verification."
+              onApprove={handleSubmitUpdateRequest}
+            />
+
+            <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+              <Button variant="outline" onClick={() => setShowPdfRequestModal(false)}>
                 Close
               </Button>
             </div>
