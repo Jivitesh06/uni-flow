@@ -76,6 +76,7 @@ export default function App() {
                 {/* Protected Admin Publishing Console */}
                 <Route element={<AdminRoute />}>
                   <Route path="/admin/publish" element={<AdminPublishPage />} />
+                  <Route path="/dashboard/admin/publish" element={<Navigate to="/admin/publish" replace />} />
                 </Route>
               </Route>
             </Route>
