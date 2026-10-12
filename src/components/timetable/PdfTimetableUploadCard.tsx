@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   UploadCloud,
   FileText,
@@ -36,6 +36,7 @@ import type { TimetableSlot } from '../../types';
 interface PdfTimetableUploadCardProps {
   currentSlots: TimetableSlot[];
   userSection?: string;
+  externalBuffer?: { buffer: ArrayBuffer; name: string; timestamp?: number } | null;
   onApprove: (
     lectures: ExtractedLecture[],
     effectiveDate: string,
@@ -49,6 +50,7 @@ const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 
 export function PdfTimetableUploadCard({
   currentSlots,
   userSection,
+  externalBuffer,
   onApprove,
 }: PdfTimetableUploadCardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -119,6 +121,15 @@ export function PdfTimetableUploadCard({
       setProcessing(false);
     }
   }
+
+  // Reactive listener for external PDF buffer (e.g. from in-memory Gmail Sync)
+  useEffect(() => {
+    if (externalBuffer?.buffer) {
+      setFileBuffer(externalBuffer.buffer);
+      setFileName(externalBuffer.name || 'Gmail_Timetable.pdf');
+      processPdfBuffer(externalBuffer.buffer, externalBuffer.name || 'Gmail_Timetable.pdf');
+    }
+  }, [externalBuffer]);
 
   function handleFileSelected(file: File) {
     if (!file.name.toLowerCase().endsWith('.pdf')) {

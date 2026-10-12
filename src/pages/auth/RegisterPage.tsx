@@ -19,6 +19,12 @@ export function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<FormattedAuthError | null>(null);
 
+  // Structured Chitkara Student Details
+  const [section, setSection] = useState('BE-CSE-5A');
+  const [universityId, setUniversityId] = useState('');
+  const [batch, setBatch] = useState('2024');
+  const [expectedGraduationYear, setExpectedGraduationYear] = useState('2028');
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setAuthError(null);
@@ -30,9 +36,22 @@ export function RegisterPage() {
       toast.error('Password must be at least 8 characters');
       return;
     }
+
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail.endsWith('@chitkarauniversity.edu.in')) {
+      toast.error('Only @chitkarauniversity.edu.in emails are permitted to register.');
+      return;
+    }
+
     setLoading(true);
     try {
-      await signUp(email, password, name);
+      await signUp(trimmedEmail, password, name, {
+        section,
+        universityId: universityId.trim(),
+        batch: batch.trim(),
+        expectedGraduationYear: Number(expectedGraduationYear) || 2028,
+        college: 'Chitkara University',
+      });
       toast.success('Account created! A verification email has been sent to your inbox.');
       navigate('/verify-email');
     } catch (err: unknown) {
@@ -106,18 +125,88 @@ export function RegisterPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                College Email
+                Chitkara University Email
               </label>
               <Input
                 type="email"
-                placeholder="student@college.edu"
+                placeholder="e.g. roll.degree24@chitkarauniversity.edu.in"
                 value={email}
                 onChange={(e) => {
-                  setEmail(e.target.value);
+                  const val = e.target.value;
+                  setEmail(val);
                   if (authError) setAuthError(null);
+                  if (val.includes('@')) {
+                    const local = val.split('@')[0];
+                    const m = local.match(/(\d{3,6})\.([a-z]{2,4})(\d{2})/i);
+                    if (m) {
+                      if (!universityId) setUniversityId(m[1]);
+                      const yr = 2000 + parseInt(m[3], 10);
+                      setBatch(yr.toString());
+                      setExpectedGraduationYear((yr + 4).toString());
+                    }
+                  }
                 }}
                 required
               />
+              <p className="text-[11px] text-gray-400 mt-1">
+                Must end with <code>@chitkarauniversity.edu.in</code>
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Section
+                </label>
+                <select
+                  value={section}
+                  onChange={(e) => setSection(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                >
+                  <option value="BE-CSE-5A">BE-CSE-5A</option>
+                  <option value="BE-CSE-5B">BE-CSE-5B</option>
+                  <option value="BE-CSE-5C">BE-CSE-5C</option>
+                  <option value="BE-CSE-5D">BE-CSE-5D</option>
+                  <option value="BE-CSE-5E">BE-CSE-5E</option>
+                  <option value="BE-CSE-5F">BE-CSE-5F</option>
+                  <option value="BE-CSE-5G">BE-CSE-5G</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  University / Roll ID
+                </label>
+                <Input
+                  placeholder="e.g. 1260"
+                  value={universityId}
+                  onChange={(e) => setUniversityId(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Admission Batch
+                </label>
+                <Input
+                  placeholder="2024"
+                  value={batch}
+                  onChange={(e) => setBatch(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Expected Grad Year
+                </label>
+                <Input
+                  placeholder="2028"
+                  value={expectedGraduationYear}
+                  onChange={(e) => setExpectedGraduationYear(e.target.value)}
+                />
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Password</label>

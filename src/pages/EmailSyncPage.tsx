@@ -7,11 +7,14 @@ import {
   ShieldCheck,
   Calendar,
   FileCheck,
-  Filter,
   Check,
-  RotateCcw,
   Sparkles,
   Info,
+  Lock,
+  LogOut,
+  Download,
+  AlertTriangle,
+  ExternalLink,
 } from 'lucide-react';
 import {
   collection,
@@ -24,13 +27,21 @@ import {
   addDoc,
   serverTimestamp,
 } from 'firebase/firestore';
-import { httpsCallable } from 'firebase/functions';
-import { db, functions } from '../lib/firebase';
+import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useCollection } from '../hooks/useFirestore';
 import { RevisionReviewCard } from '../components/timetable/RevisionReviewCard';
 import { PdfTimetableUploadCard } from '../components/timetable/PdfTimetableUploadCard';
 import type { ExtractedLecture } from '../lib/chitkaraTimetableParser';
+import {
+  requestGmailAccessToken,
+  verifyGoogleAccount,
+  searchTimetableEmails,
+  downloadAttachmentBuffer,
+  DiscoveredTimetableAttachment,
+  DEFAULT_CHITKARA_CSED_SENDER,
+  DEFAULT_CHITKARA_SUBJECT_PREFIX,
+} from '../lib/gmailSyncClient';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -48,41 +59,34 @@ export function EmailSyncPage() {
   const [revisions, setRevisions] = useState<TimetableRevision[]>([]);
   const [importJobs, setImportJobs] = useState<TimetableImportJob[]>([]);
 
-  const [syncing, setSyncing] = useState(false);
+  // Client-Side GIS OAuth state (STRICTLY in-memory React state, never saved to localStorage or Firestore)
+  const [inMemoryToken, setInMemoryToken] = useState<string | null>(null);
+  const [connectedGoogleEmail, setConnectedGoogleEmail] = useState<string | null>(null);
+  const [discoveredAttachments, setDiscoveredAttachments] = useState<DiscoveredTimetableAttachment[]>([]);
+  const [accountMismatchError, setAccountMismatchError] = useState<string | null>(null);
+  const [gmailPdfBuffer, setGmailPdfBuffer] = useState<{
+    buffer: ArrayBuffer;
+    name: string;
+    timestamp: number;
+  } | null>(null);
+
+  // Loading states
   const [connecting, setConnecting] = useState(false);
-  const [savingFilters, setSavingFilters] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [downloadingAttachmentId, setDownloadingAttachmentId] = useState<string | null>(null);
 
-  // Check URL query parameters on return from OAuth callback
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('success') === 'true') {
-      toast.success('Gmail connected successfully! Scanning for timetables...');
-      window.history.replaceState({}, '', window.location.pathname);
-    } else if (params.get('error') === 'denied') {
-      toast.error('Gmail permission request was denied.');
-      window.history.replaceState({}, '', window.location.pathname);
-    } else if (params.get('error')) {
-      toast.error('Failed to complete Gmail authorization.');
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-  }, []);
+  // Custom client ID override modal (for development / testing before setting in .env)
+  const [customClientId, setCustomClientId] = useState('');
+  const [showConfigModal, setShowConfigModal] = useState(false);
 
-  const activeConn = connections[0];
+  // Filter configurations
+  const [senderFilter, setSenderFilter] = useState(DEFAULT_CHITKARA_CSED_SENDER);
+  const [subjectPrefix, setSubjectPrefix] = useState(DEFAULT_CHITKARA_SUBJECT_PREFIX);
 
-  // Configurable filters
-  const [senderFilter, setSenderFilter] = useState(activeConn?.senderFilter || '');
-  const [subjectKeywords, setSubjectKeywords] = useState(
-    activeConn?.subjectKeywords || 'timetable, schedule, time table, routine, class routine, weekly schedule'
-  );
-  const [filenameFilter, setFilenameFilter] = useState(activeConn?.filenameFilter || '*.pdf');
-
-  useEffect(() => {
-    if (activeConn) {
-      if (activeConn.senderFilter !== undefined) setSenderFilter(activeConn.senderFilter);
-      if (activeConn.subjectKeywords !== undefined) setSubjectKeywords(activeConn.subjectKeywords);
-      if (activeConn.filenameFilter !== undefined) setFilenameFilter(activeConn.filenameFilter);
-    }
-  }, [activeConn]);
+  const googleClientId =
+    customClientId.trim() ||
+    (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) ||
+    '';
 
   // Listen to timetableRevisions
   useEffect(() => {
@@ -112,110 +116,131 @@ export function EmailSyncPage() {
     return () => unsub();
   }, [uid]);
 
-  // Throttled check on page open (checks if last sync > 15 minutes ago)
-  useEffect(() => {
-    if (!activeConn || activeConn.status !== 'connected') return;
-    const lastSyncMs = activeConn.lastSyncAt?.toMillis ? activeConn.lastSyncAt.toMillis() : 0;
-    const fifteenMins = 15 * 60 * 1000;
-    if (Date.now() - lastSyncMs > fifteenMins && !syncing) {
-      // Gentle hint for student without aggressive automated polling
-      console.log('Sync interval elapsed; student can click Sync Now.');
+  /**
+   * Primary Gmail Sync Flow:
+   * 1. Initiates GIS Token Client popup
+   * 2. Receives short-lived access token in memory
+   * 3. Verifies token matches registered college email
+   * 4. Queries Gmail for office.cse messages with Time Table:
+   * 5. Downloads the attachment in memory and feeds into PDF parser
+   */
+  async function handleConnectAndSyncGmail(overrideToken?: string) {
+    const expectedEmail = userProfile?.email || currentUser?.email || '';
+    if (!expectedEmail) {
+      toast.error('You must be signed in to sync your Gmail account.');
+      return;
     }
-  }, [activeConn]);
 
-  async function handleConnectGmail() {
+    if (!googleClientId && !overrideToken) {
+      setShowConfigModal(true);
+      return;
+    }
+
     setConnecting(true);
+    setAccountMismatchError(null);
+
+    let token = overrideToken || inMemoryToken;
+
     try {
-      // 1. Try authenticated callable function (validates ID token, prevents uid forgery)
-      const getAuthUrlFn = httpsCallable<void, { authUrl: string }>(functions, 'getGmailAuthUrl');
-      const res = await getAuthUrlFn();
-      if (res.data?.authUrl) {
-        window.location.href = res.data.authUrl;
-        return;
+      if (!token) {
+        toast('Opening Google Account Picker...', { icon: '🔐' });
+        token = await requestGmailAccessToken(googleClientId);
+      }
+
+      // 1. Verify account matching
+      toast('Verifying college email identity...', { icon: '🔍' });
+      const { emailAddress } = await verifyGoogleAccount(token, expectedEmail);
+
+      // Successfully verified
+      setInMemoryToken(token);
+      setConnectedGoogleEmail(emailAddress);
+      setAccountMismatchError(null);
+
+      // 2. Search for Chitkara CSED Timetable emails
+      toast.success(`Connected as ${emailAddress}! Scanning mailbox...`);
+      setSyncing(true);
+
+      const queryStr = `from:${senderFilter} subject:"${subjectPrefix}" filename:pdf`;
+      const attachments = await searchTimetableEmails(token, queryStr);
+      setDiscoveredAttachments(attachments);
+
+      if (attachments.length === 0) {
+        toast('No emails found matching "' + queryStr + '". You can upload the PDF manually.', {
+          icon: 'ℹ️',
+          duration: 6000,
+        });
+      } else {
+        toast.success(`Found ${attachments.length} timetable email(s) from CSED Office!`);
+        // Automatically download the latest attachment
+        const latest = attachments[0];
+        await handleLoadAttachment(token, latest);
       }
     } catch (err: unknown) {
-      const msg = (err as Error).message || '';
-      // If function is not deployed on backend yet or backend URL is not configured
-      if (msg.includes('not-found') || msg.includes('INTERNAL') || msg.includes('failed-precondition')) {
-        toast.error(
-          'Cloud Function not deployed or OAuth credentials not set in functions/.env. See Setup Guide below.',
-          { duration: 6000 }
-        );
+      const msg = (err as Error).message || 'Gmail sync failed';
+      if (msg.includes('Account mismatch')) {
+        setAccountMismatchError(msg);
+        setInMemoryToken(null);
+        setConnectedGoogleEmail(null);
+        toast.error('Account mismatch detected! Sync cancelled for student privacy.', {
+          duration: 6000,
+        });
       } else {
-        toast.error(msg || 'Failed to start Gmail authentication. Please check setup guide.');
+        toast.error(msg, { duration: 6000 });
       }
     } finally {
       setConnecting(false);
-    }
-  }
-
-  async function handleSaveFilters() {
-    if (!activeConn) return;
-    setSavingFilters(true);
-    try {
-      await updateDoc(doc(db, `users/${uid}/emailConnections/${activeConn.id}`), {
-        senderFilter: senderFilter.trim(),
-        subjectKeywords: subjectKeywords.trim(),
-        filenameFilter: filenameFilter.trim(),
-      });
-      toast.success('Sync filter settings saved');
-    } catch {
-      toast.error('Failed to save filter settings');
-    } finally {
-      setSavingFilters(false);
-    }
-  }
-
-  async function handleManualSync() {
-    setSyncing(true);
-    try {
-      const backendUrl = import.meta.env.VITE_FUNCTIONS_BASE_URL;
-      if (!backendUrl || backendUrl.includes('YOUR_PROJECT')) {
-        // Fallback for development / mock verification when backend is not deployed
-        await new Promise((r) => setTimeout(r, 1200));
-        toast.success('Gmail sync scan complete. Discovered 0 new weekly revisions.');
-        return;
-      }
-
-      // Call Cloud Function syncGmailNow with automatic auth token handling
-      const syncFn = httpsCallable<void, { success: boolean; scannedCount?: number; newRevisionsCount?: number }>(
-        functions,
-        'syncGmailNow'
-      );
-      const res = await syncFn();
-      toast.success(
-        res.data?.newRevisionsCount !== undefined
-          ? `Sync complete! Found ${res.data.newRevisionsCount} new revisions.`
-          : 'Gmail sync completed successfully.'
-      );
-    } catch (err: unknown) {
-      toast.error((err as Error).message || 'Gmail sync failed. Check connection.');
-    } finally {
       setSyncing(false);
     }
   }
 
-  async function handleApplyRevision(revisionId: string) {
-    const rev = revisions.find((r) => r.id === revisionId);
-    if (!rev) return;
-
+  /**
+   * Downloads a specific discovered attachment into memory and passes it to the parser
+   */
+  async function handleLoadAttachment(token: string, attachment: DiscoveredTimetableAttachment) {
+    setDownloadingAttachmentId(attachment.attachmentId);
     try {
-      const backendUrl = import.meta.env.VITE_FUNCTIONS_BASE_URL;
-      if (backendUrl && !backendUrl.includes('YOUR_PROJECT')) {
-        // Cloud Function handles atomic archive to timetableHistory, subject creation, and active slot update
-        const applyFn = httpsCallable<{ revisionId: string }, { success: boolean; message?: string }>(
-          functions,
-          'applyTimetableRevision'
-        );
-        await applyFn({ revisionId });
-      } else {
-        // Client direct update matching firestore rules for preview / standalone mode
-        await updateDoc(doc(db, `timetableRevisions/${revisionId}`), {
-          status: 'applied',
-          appliedAt: serverTimestamp(),
-        });
-      }
-      toast.success(`Applied ${rev.weekLabel}!`);
+      toast(`Downloading ${attachment.filename}...`, { icon: '📥' });
+      const buffer = await downloadAttachmentBuffer(
+        token,
+        attachment.messageId,
+        attachment.attachmentId
+      );
+
+      // Pass buffer to PDF parser state
+      setGmailPdfBuffer({
+        buffer,
+        name: attachment.filename,
+        timestamp: Date.now(),
+      });
+
+      toast.success(
+        `Downloaded "${attachment.filename}"! Inspect sections and preview diff below.`
+      );
+    } catch (err: unknown) {
+      toast.error(`Failed to download attachment: ${(err as Error).message}`);
+    } finally {
+      setDownloadingAttachmentId(null);
+    }
+  }
+
+  /**
+   * Clears the short-lived access token from memory
+   */
+  function handleDisconnectSession() {
+    setInMemoryToken(null);
+    setConnectedGoogleEmail(null);
+    setDiscoveredAttachments([]);
+    setAccountMismatchError(null);
+    toast.success('Gmail session ended. Access token cleared from memory.');
+  }
+
+  async function handleApplyRevision(revisionId: string) {
+    try {
+      await updateDoc(doc(db, `timetableRevisions/${revisionId}`), {
+        status: 'applied',
+        appliedAt: serverTimestamp(),
+      });
+      toast.success('Applied revision!');
     } catch (err: unknown) {
       toast.error((err as Error).message || 'Failed to apply revision');
     }
@@ -344,7 +369,7 @@ export function EmailSyncPage() {
       await addDoc(collection(db, 'timetableImportJobs'), {
         uid,
         status: 'completed',
-        source: 'pdf',
+        source: inMemoryToken ? 'email' : 'pdf',
         attachmentFilename: `TimeTable_${section}_${effectiveDate.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`,
         parsedSlotsCount: lectures.length,
         createdAt: serverTimestamp(),
@@ -365,220 +390,229 @@ export function EmailSyncPage() {
           Timetable Import & Synchronization
         </h2>
         <p className="text-sm text-gray-500">
-          Upload official Chitkara PDFs, isolate your section, preview schedule diffs, and sync changes seamlessly
+          Sync directly from your Chitkara college Gmail or upload official PDFs to isolate your section and update classes
         </p>
       </div>
 
-      {/* PDF Timetable Upload Card - Primary Working Import Flow */}
-      <PdfTimetableUploadCard
-        currentSlots={currentSlots}
-        userSection={userProfile?.section}
-        onApprove={handleApprovePdfTimetable}
-      />
-
-      {/* Backend & Deployment Status Guide */}
-      {!activeConn && (
-        <Card className="border-amber-200 dark:border-amber-900/60 bg-amber-50/50 dark:bg-amber-950/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold flex items-center gap-2 text-amber-900 dark:text-amber-200">
-              <ShieldCheck className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-              Gmail OAuth Integration & Backend Deployment Setup
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-            <p>
-              To enable automatic Gmail timetable sync on your live Firebase project (<code>uniflow-b7a88</code>):
-            </p>
-            <ol className="list-decimal pl-5 space-y-1 text-gray-700 dark:text-gray-300">
-              <li>
-                <strong>Google Cloud Console:</strong> Enable the <em>Gmail API</em> and configure the OAuth consent screen with scope <code>https://www.googleapis.com/auth/gmail.readonly</code>.
-              </li>
-              <li>
-                <strong>OAuth 2.0 Client ID:</strong> Create Web credentials with authorized redirect URI:
-                <code className="block my-1 p-1 bg-white dark:bg-gray-800 rounded border border-amber-200 dark:border-amber-900 font-mono text-[11px]">
-                  https://us-central1-uniflow-b7a88.cloudfunctions.net/gmailOAuthCallback
-                </code>
-              </li>
-              <li>
-                <strong>Environment Secrets:</strong> Add <code>GMAIL_CLIENT_ID</code>, <code>GMAIL_CLIENT_SECRET</code>, <code>GMAIL_REDIRECT_URI</code>, and <code>APP_URL</code> into <code>functions/.env</code>.
-              </li>
-              <li>
-                <strong>Deploy Functions:</strong> Deploy via <code>firebase deploy --only functions</code> (requires Firebase Blaze plan).
-              </li>
-            </ol>
-            <p className="text-[11px] text-gray-500 dark:text-gray-400 pt-1">
-              💡 <em>Free-Tier Note:</em> If you are currently using the Firebase Free (Spark) tier, you can import and update timetables directly anytime via Excel/CSV on the <strong>Timetable</strong> page!
-            </p>
+      {/* Account Mismatch Error Banner */}
+      {accountMismatchError && (
+        <Card className="border-red-300 dark:border-red-900/60 bg-red-50/70 dark:bg-red-950/30">
+          <CardContent className="p-4 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+            <div className="text-xs text-red-900 dark:text-red-200 space-y-1">
+              <p className="font-bold text-sm text-red-950 dark:text-red-100">
+                Google Account Mismatch Detected
+              </p>
+              <p className="leading-relaxed">{accountMismatchError}</p>
+              <p className="text-[11px] text-red-700 dark:text-red-300 pt-1">
+                To protect student data privacy, UniFlow strictly ensures that Gmail sync tokens correspond directly to your authenticated college email profile (<code>{userProfile?.email || currentUser?.email}</code>).
+              </p>
+              <div className="pt-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleConnectAndSyncGmail()}
+                  className="bg-white dark:bg-gray-900 border-red-300 text-red-700 dark:text-red-300 text-xs"
+                >
+                  Switch Google Account & Retry
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Pending Revisions Banner / Section */}
-      {pendingRevisions.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-500" />
-              Pending Weekly Timetable Revisions ({pendingRevisions.length})
-            </h3>
-            <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold">
-              Action Required
-            </span>
-          </div>
-
-          <div className="space-y-4">
-            {pendingRevisions.map((rev) => (
-              <RevisionReviewCard
-                key={rev.id}
-                revision={rev}
-                onApply={handleApplyRevision}
-                onReject={handleRejectRevision}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Mailbox Status & Controls Card */}
-      <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
-        <CardHeader className="pb-3 border-b border-gray-100 dark:border-gray-800">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Mail className="w-4 h-4 text-blue-600" />
-              Mailbox Status
-            </CardTitle>
-            {activeConn && (
-              <Badge variant={activeConn.status === 'connected' ? 'success' : 'danger'}>
-                {activeConn.status === 'connected' ? 'Connected' : 'Error'}
+      {/* Client-Side Gmail OAuth Sync Card */}
+      <Card className="border-blue-100 dark:border-blue-900/40 shadow-sm overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-blue-50/50 to-indigo-50/30 dark:from-blue-950/20 dark:to-indigo-950/10 border-b border-gray-100 dark:border-gray-800 pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <CardTitle className="text-base font-bold flex items-center gap-2 text-gray-900 dark:text-white">
+                <Mail className="w-4 h-4 text-blue-600" />
+                Chitkara College Gmail Auto-Sync
+              </CardTitle>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Searches for messages from <code>{senderFilter}</code> with subject <code>{subjectPrefix}</code>
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant={inMemoryToken ? 'success' : 'default'} className="text-[11px]">
+                {inMemoryToken ? 'In-Memory Session Active' : 'Spark Free Tier (Zero Backend)'}
               </Badge>
-            )}
+            </div>
           </div>
         </CardHeader>
-        <CardContent className="p-6">
-          {!activeConn ? (
-            <div className="text-center py-8">
-              <Mail className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <h4 className="text-base font-bold text-gray-800 dark:text-gray-200">
-                No College Mailbox Linked
-              </h4>
-              <p className="text-xs text-gray-500 max-w-md mx-auto mt-1 mb-5 leading-relaxed">
-                Connect your college Gmail using Google OAuth to automatically search for weekly PDF schedules and timetable change notices.
-              </p>
-              <Button onClick={handleConnectGmail} loading={connecting}>
-                <Mail className="w-4 h-4 mr-2" /> Connect College Gmail
-              </Button>
+
+        <CardContent className="p-6 space-y-4">
+          {!inMemoryToken ? (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800">
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-emerald-600" />
+                  Connect Chitkara University Gmail
+                </h4>
+                <p className="text-xs text-gray-500 max-w-xl leading-relaxed">
+                  Uses Google Identity Services with read-only access. The temporary token is stored <strong>strictly in JavaScript RAM</strong> for this session and is never persisted to disk, localStorage, or Firestore.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  onClick={() => handleConnectAndSyncGmail()}
+                  loading={connecting || syncing}
+                  className="font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                >
+                  <Mail className="w-4 h-4 mr-2" /> Connect College Gmail
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40">
                 <div className="flex items-center gap-3.5">
-                  <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold">
                     <Mail className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-gray-900 dark:text-white">{activeConn.email}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      Last sync:{' '}
-                      <span className="font-semibold text-gray-700 dark:text-gray-300">
-                        {activeConn.lastSyncAt?.toDate
-                          ? format(activeConn.lastSyncAt.toDate(), 'EEE, MMM d, yyyy h:mm a')
-                          : 'Never synced'}
-                      </span>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-bold text-gray-900 dark:text-white">
+                        {connectedGoogleEmail}
+                      </p>
+                      <Badge variant="success" className="text-[10px]">Verified Match</Badge>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Target: <span className="font-semibold text-gray-700 dark:text-gray-300">CSED Office Timetables</span> &bull; Token in RAM only
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {activeConn.status === 'error' && (
-                    <Button variant="outline" size="sm" onClick={handleConnectGmail} className="text-xs font-semibold text-amber-600">
-                      <RotateCcw className="w-3.5 h-3.5 mr-1" /> Reconnect
-                    </Button>
-                  )}
-                  <Button size="sm" onClick={handleManualSync} loading={syncing} className="font-bold">
-                    <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Sync Now
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleConnectAndSyncGmail(inMemoryToken)}
+                    loading={syncing}
+                    className="font-semibold"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Re-scan Gmail
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleDisconnectSession}
+                    className="text-gray-500 hover:text-red-600"
+                    title="Clear access token from RAM"
+                  >
+                    <LogOut className="w-3.5 h-3.5 mr-1" /> End Session
                   </Button>
                 </div>
               </div>
 
-              {activeConn.lastSyncError && (
-                <div className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 flex items-start gap-2.5 text-xs text-red-700 dark:text-red-300">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-red-600" />
-                  <div>
-                    <p className="font-bold">Sync Error Encountered:</p>
-                    <p className="mt-0.5 leading-relaxed">{activeConn.lastSyncError}</p>
+              {/* Discovered attachments list */}
+              {discoveredAttachments.length > 0 && (
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                      Discovered Timetable Attachments ({discoveredAttachments.length})
+                    </label>
+                    <span className="text-xs text-gray-400">Click to parse into section isolator</span>
+                  </div>
+
+                  <div className="space-y-2 max-h-56 overflow-y-auto">
+                    {discoveredAttachments.map((att) => (
+                      <div
+                        key={att.attachmentId}
+                        className="p-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center justify-between gap-3 text-xs"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-gray-900 dark:text-white truncate">
+                            {att.filename}
+                          </p>
+                          <p className="text-gray-500 text-[11px] mt-0.5 truncate">
+                            Subject: "{att.subject}" &bull; {att.date}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={downloadingAttachmentId === att.attachmentId}
+                          onClick={() => handleLoadAttachment(inMemoryToken, att)}
+                          className="shrink-0 font-bold"
+                        >
+                          <Download className="w-3.5 h-3.5 mr-1" />
+                          {downloadingAttachmentId === att.attachmentId ? 'Loading...' : 'Load PDF'}
+                        </Button>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
             </div>
           )}
+
+          {/* Fallback Note */}
+          <div className="flex items-center justify-between text-xs text-gray-500 pt-1 border-t border-gray-100 dark:border-gray-800">
+            <span className="flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              100% Free Tier Compatible &bull; No Firebase Blaze billing &bull; Tokens never touch server
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowConfigModal(true)}
+              className="text-blue-600 dark:text-blue-400 hover:underline font-semibold"
+            >
+              Configure Google Client ID
+            </button>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Configurable Timetable Email Filters Card */}
-      {activeConn && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Filter className="w-4 h-4 text-blue-600" />
-              Configurable Timetable Discovery Filters
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-xs text-gray-500 leading-relaxed">
-              Every college uses distinct sender addresses and naming conventions. Configure your department's specific sender email or subject keywords below:
-            </p>
+      {/* PDF Timetable Upload Card - Primary Working Import Flow (Supports Drag & Drop AND Gmail Buffer) */}
+      <PdfTimetableUploadCard
+        currentSlots={currentSlots}
+        userSection={userProfile?.section}
+        externalBuffer={gmailPdfBuffer}
+        onApprove={handleApprovePdfTimetable}
+      />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-gray-500">
-                  Sender Email or Domain Filter (Optional)
-                </label>
-                <Input
-                  placeholder="e.g. academics@college.edu or @iitd.ac.in"
-                  value={senderFilter}
-                  onChange={(e) => setSenderFilter(e.target.value)}
-                  className="mt-1"
-                />
-                <p className="text-[11px] text-gray-400 mt-1">Leave blank to search all department emails.</p>
+      {/* Google Cloud Console Setup & Free Tier Guide Card */}
+      <Card className="border-gray-200 dark:border-gray-800">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-bold flex items-center gap-2 text-gray-900 dark:text-white">
+            <Info className="w-4 h-4 text-blue-600" />
+            Google Cloud Console OAuth Setup (Free-Tier Testing Mode)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+          <p>
+            To enable client-side Gmail access for Chitkara students without expensive third-party security audits (CASA Tier 2):
+          </p>
+          <ol className="list-decimal pl-5 space-y-1.5">
+            <li>
+              <strong>Google Cloud Console:</strong> In project <code>uniflow-b7a88</code>, enable the <em>Gmail API</em>.
+            </li>
+            <li>
+              <strong>OAuth Consent Screen:</strong> Set User Type to <strong>External</strong> and Publishing Status to <strong>Testing</strong>.
+            </li>
+            <li>
+              <strong>Authorized Test Users:</strong> Add student college emails (e.g. <code>*@chitkarauniversity.edu.in</code>). Google allows up to <strong>100 test users free of charge</strong> without verification.
+            </li>
+            <li>
+              <strong>OAuth 2.0 Web Client ID:</strong> Create credentials with Authorized JavaScript Origins:
+              <div className="flex gap-2 my-1 font-mono text-[11px]">
+                <code className="p-1 bg-gray-100 dark:bg-gray-800 rounded">http://localhost:5173</code>
+                <code className="p-1 bg-gray-100 dark:bg-gray-800 rounded">https://uniflow-b7a88.web.app</code>
               </div>
-
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-gray-500">
-                  Attachment Type
-                </label>
-                <Input
-                  value={filenameFilter}
-                  onChange={(e) => setFilenameFilter(e.target.value)}
-                  placeholder="*.pdf"
-                  className="mt-1"
-                />
-                <p className="text-[11px] text-gray-400 mt-1">Matches weekly PDF timetable attachments.</p>
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-gray-500">
-                Subject Keywords (Comma-Separated)
-              </label>
-              <Input
-                value={subjectKeywords}
-                onChange={(e) => setSubjectKeywords(e.target.value)}
-                placeholder="timetable, schedule, routine, class schedule, weekly routine"
-                className="mt-1"
-              />
-              <p className="text-[11px] text-gray-400 mt-1">
-                Gmail query searches for any matching subject keywords with PDF attachments.
-              </p>
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <Button size="sm" onClick={handleSaveFilters} loading={savingFilters} className="font-bold">
-                <Check className="w-4 h-4 mr-1.5" /> Save Filter Preferences
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </li>
+            <li>
+              <strong>Set Client ID:</strong> Add <code>VITE_GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com</code> into <code>.env</code> or via the configuration button above.
+            </li>
+          </ol>
+          <div className="p-3 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 text-[11px] text-blue-900 dark:text-blue-300">
+            💡 <strong>Zero-Setup Fallback:</strong> You can always drag and drop any official Chitkara timetable PDF into the card above without configuring any Google Cloud API keys!
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Discovered Attachments & Import Jobs Log */}
       <Card>
@@ -622,14 +656,14 @@ export function EmailSyncPage() {
                           ? 'Manual Review Needed'
                           : job.status}
                       </Badge>
+                      <span className="text-[10px] text-gray-400 uppercase font-bold">
+                        Source: {job.source}
+                      </span>
                     </div>
                     <p className="text-gray-400 mt-0.5">
-                      Subject: "{job.emailSubject || 'Weekly Schedule'}"
+                      Subject: "{job.emailSubject || 'Time Table: 5th Semester BE-CSE'}"
                       {job.rawSender && ` • From: ${job.rawSender}`}
                     </p>
-                    {job.warning && (
-                      <p className="text-amber-600 dark:text-amber-400 mt-1 font-medium">{job.warning}</p>
-                    )}
                   </div>
                   <div className="text-right text-[11px] text-gray-400 flex-shrink-0">
                     {job.createdAt?.toDate ? format(job.createdAt.toDate(), 'MMM d, h:mm a') : 'Recently'}
@@ -641,53 +675,51 @@ export function EmailSyncPage() {
         </CardContent>
       </Card>
 
-      {/* Historical Applied Revisions */}
-      {pastRevisions.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-blue-600" />
-              Historical Applied & Dismissed Revisions
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {pastRevisions.map((rev) => (
-              <RevisionReviewCard
-                key={rev.id}
-                revision={rev}
-                onApply={handleApplyRevision}
-                onReject={handleRejectRevision}
+      {/* Google Client ID Modal */}
+      {showConfigModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200 dark:border-gray-800 space-y-4">
+            <h3 className="text-base font-bold text-gray-900 dark:text-white">
+              Google OAuth Client ID Configuration
+            </h3>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Enter your Web Client ID from Google Cloud Console. You can also persist this in your <code>.env</code> file as <code>VITE_GOOGLE_CLIENT_ID</code>.
+            </p>
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                Web Client ID
+              </label>
+              <Input
+                placeholder="e.g. 123456789-abc.apps.googleusercontent.com"
+                value={customClientId}
+                onChange={(e) => setCustomClientId(e.target.value)}
+                className="mt-1 font-mono text-xs"
               />
-            ))}
-          </CardContent>
-        </Card>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowConfigModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                onClick={() => {
+                  setShowConfigModal(false);
+                  if (customClientId.trim()) {
+                    toast.success('Google Client ID set for this session!');
+                    handleConnectAndSyncGmail();
+                  }
+                }}
+              >
+                Save & Connect
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
-
-      {/* Free-Tier & Cloud Architecture Notice */}
-      <Card className="border-blue-100 dark:border-blue-950 bg-blue-50/20">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2 text-blue-900 dark:text-blue-300">
-            <Info className="w-4 h-4 text-blue-600" />
-            Free-Tier Compatibility & Synchronization Model
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-xs text-blue-900 dark:text-blue-300 leading-relaxed">
-          <p>
-            UniFlow runs seamlessly on the <strong>Firebase Free (Spark) Plan</strong> without requiring billing or Cloud Scheduler:
-          </p>
-          <ul className="list-disc pl-5 space-y-1.5">
-            <li>
-              <strong>Manual Sync & On-Open Throttling</strong>: Clicking "Sync Now" triggers the authorized Cloud Function to inspect the Gmail mailbox immediately.
-            </li>
-            <li>
-              <strong>Zero Attendance Tampering</strong>: When applying a new weekly timetable or revision, previous attendance history and marked statuses are strictly preserved.
-            </li>
-            <li>
-              <strong>Duplicate Protection</strong>: Identical PDF attachments are recognized via cryptographic SHA-256 fingerprinting to prevent redundant imports.
-            </li>
-          </ul>
-        </CardContent>
-      </Card>
     </div>
   );
 }

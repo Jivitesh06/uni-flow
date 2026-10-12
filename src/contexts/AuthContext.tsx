@@ -13,6 +13,11 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, googleProvider, db, ensureAuthPersistence } from '../lib/firebase';
+import {
+  CHITKARA_DOMAIN,
+  normalizeCollegeEmail,
+  parseStudentDetailsFromEmail,
+} from '../lib/collegeEmail';
 
 export interface UserProfile {
   uid: string;
@@ -22,6 +27,9 @@ export interface UserProfile {
   semester?: string;
   section?: string;
   college?: string;
+  universityId?: string;
+  batch?: string;
+  expectedGraduationYear?: number;
   attendanceTarget: number;
   emailVerified: boolean;
   createdAt: unknown;
@@ -34,7 +42,12 @@ interface AuthContextType {
   isOnline: boolean;
   isEmailVerified: boolean;
   signIn: (email: string, password: string) => Promise<User>;
-  signUp: (email: string, password: string, name: string) => Promise<User>;
+  signUp: (
+    email: string,
+    password: string,
+    name: string,
+    initialProfile?: Partial<UserProfile>
+  ) => Promise<User>;
   signInWithGoogle: () => Promise<User>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -77,39 +90,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  async function createOrFetchProfile(user: User): Promise<UserProfile> {
+  async function createOrFetchProfile(
+    user: User,
+    additionalData?: Partial<UserProfile>
+  ): Promise<UserProfile> {
     const ref = doc(db, 'users', user.uid);
     try {
       const snap = await getDoc(ref);
       if (snap.exists()) {
         const data = snap.data() as UserProfile;
+        if (additionalData && Object.keys(additionalData).length > 0) {
+          const merged = { ...data, ...additionalData };
+          await setDoc(ref, merged, { merge: true });
+          setUserProfile(merged);
+          return merged;
+        }
         setUserProfile(data);
         return data;
       }
 
-      // Create new profile if not found
+      // Automatically parse student details from email (e.g. jivitesh1260.be24@chitkarauniversity.edu.in)
+      const details = parseStudentDetailsFromEmail(user.email ?? '');
+
+      // Create new profile with structured student fields
       const profile: UserProfile = {
         uid: user.uid,
-        email: user.email ?? '',
+        email: normalizeCollegeEmail(user.email ?? ''),
         displayName: user.displayName ?? '',
         photoURL: user.photoURL ?? undefined,
         attendanceTarget: 75,
+        college: 'Chitkara University',
+        section: additionalData?.section || 'BE-CSE-5A',
+        universityId: additionalData?.universityId || details.universityId || '',
+        batch: additionalData?.batch || details.batch || '2024',
+        expectedGraduationYear:
+          additionalData?.expectedGraduationYear || details.expectedGraduationYear || 2028,
         emailVerified: user.emailVerified,
         createdAt: serverTimestamp(),
+        ...additionalData,
       };
       await setDoc(ref, profile);
       setUserProfile(profile);
       return profile;
     } catch (err) {
-      // If offline or network error occurs, generate fallback profile from Firebase User token
-      // so session remains intact without forcing logout
       console.warn('Network issue fetching user profile, using local session profile:', err);
+      const details = parseStudentDetailsFromEmail(user.email ?? '');
       const fallbackProfile: UserProfile = {
         uid: user.uid,
-        email: user.email ?? '',
+        email: normalizeCollegeEmail(user.email ?? ''),
         displayName: user.displayName || user.email?.split('@')[0] || 'Student',
         photoURL: user.photoURL ?? undefined,
         attendanceTarget: 75,
+        college: 'Chitkara University',
+        section: additionalData?.section || 'BE-CSE-5A',
+        universityId: additionalData?.universityId || details.universityId,
+        batch: additionalData?.batch || details.batch,
+        expectedGraduationYear:
+          additionalData?.expectedGraduationYear || details.expectedGraduationYear,
         emailVerified: user.emailVerified,
         createdAt: null,
       };
@@ -153,12 +190,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   function validateEmailDomain(email: string | null | undefined) {
-    const allowedDomain = import.meta.env.VITE_ALLOWED_EMAIL_DOMAIN;
+    const allowedDomain = import.meta.env.VITE_ALLOWED_EMAIL_DOMAIN || CHITKARA_DOMAIN;
     if (allowedDomain && email) {
-      const domain = email.split('@')[1];
+      const normalized = normalizeCollegeEmail(email);
+      const domain = normalized.split('@')[1];
       if (domain !== allowedDomain) {
         throw new Error(
-          `Unauthorized email domain. Only accounts with @${allowedDomain} are authorized.`
+          `Unauthorized email domain. Only official accounts ending in @${allowedDomain} are authorized.`
         );
       }
     }
@@ -166,7 +204,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signIn(email: string, password: string): Promise<User> {
     await ensureAuthPersistence();
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = normalizeCollegeEmail(email);
     validateEmailDomain(normalizedEmail);
     const { user } = await signInWithEmailAndPassword(auth, normalizedEmail, password);
     validateEmailDomain(user.email);
@@ -176,9 +214,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return user;
   }
 
-  async function signUp(email: string, password: string, name: string): Promise<User> {
+  async function signUp(
+    email: string,
+    password: string,
+    name: string,
+    initialProfile?: Partial<UserProfile>
+  ): Promise<User> {
     await ensureAuthPersistence();
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = normalizeCollegeEmail(email);
     validateEmailDomain(normalizedEmail);
     const { user } = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
     validateEmailDomain(user.email);
@@ -190,7 +233,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setCurrentUser(user);
     setIsEmailVerified(Boolean(user.emailVerified));
-    await createOrFetchProfile(user);
+    await createOrFetchProfile(user, initialProfile);
     return user;
   }
 
