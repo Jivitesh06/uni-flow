@@ -16,22 +16,27 @@ import { auth, googleProvider, db, ensureAuthPersistence } from '../lib/firebase
 import {
   CHITKARA_DOMAIN,
   normalizeCollegeEmail,
+  normalizeSection,
+  normalizeSemester,
+  deriveAcademicYears,
   parseStudentDetailsFromEmail,
-} from '../lib/collegeEmail';
+} from '../lib/collegeEmail.ts';
 
 export interface UserProfile {
   uid: string;
   email: string;
   displayName: string;
   photoURL?: string;
-  semester?: string;
+  semester?: number;
   section?: string;
   college?: string;
+  program?: string;
   universityId?: string;
   batch?: string;
   expectedGraduationYear?: number;
   attendanceTarget: number;
   emailVerified: boolean;
+  role?: string;
   createdAt: unknown;
 }
 
@@ -99,18 +104,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const snap = await getDoc(ref);
       if (snap.exists()) {
         const data = snap.data() as UserProfile;
+        // Normalize semester to number if string legacy
+        if (data.semester !== undefined) {
+          data.semester = normalizeSemester(data.semester);
+        }
+        // Only update if explicit non-empty additionalData is provided (e.g. during registration)
         if (additionalData && Object.keys(additionalData).length > 0) {
-          const merged = { ...data, ...additionalData };
+          const merged: UserProfile = { ...data, ...additionalData };
+          if (merged.semester !== undefined) {
+            merged.semester = normalizeSemester(merged.semester);
+          }
+          if (merged.section) {
+            merged.section = normalizeSection(merged.section);
+          }
           await setDoc(ref, merged, { merge: true });
           setUserProfile(merged);
           return merged;
         }
+        // Preserve existing profile information on every login
         setUserProfile(data);
         return data;
       }
 
-      // Automatically parse student details from email (e.g. jivitesh1260.be24@chitkarauniversity.edu.in)
-      const details = parseStudentDetailsFromEmail(user.email ?? '');
+      // Automatically derive academic years from universityId or email only when valid
+      const derived = deriveAcademicYears(additionalData?.universityId, user.email);
 
       // Create new profile with structured student fields
       const profile: UserProfile = {
@@ -119,12 +136,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         displayName: user.displayName ?? '',
         photoURL: user.photoURL ?? undefined,
         attendanceTarget: 75,
-        college: 'Chitkara University',
-        section: additionalData?.section || 'BE-CSE-5A',
-        universityId: additionalData?.universityId || details.universityId || '',
-        batch: additionalData?.batch || details.batch || '2024',
+        college: additionalData?.college || 'Chitkara University',
+        program: additionalData?.program || 'BE-CSE',
+        semester: additionalData?.semester !== undefined ? normalizeSemester(additionalData.semester) : 5,
+        section: additionalData?.section ? normalizeSection(additionalData.section) : 'BE-CSE-5A',
+        universityId: additionalData?.universityId ? String(additionalData.universityId) : '',
+        batch: additionalData?.batch || derived.admissionYear || '',
         expectedGraduationYear:
-          additionalData?.expectedGraduationYear || details.expectedGraduationYear || 2028,
+          additionalData?.expectedGraduationYear || derived.expectedGraduationYear || undefined,
         emailVerified: user.emailVerified,
         createdAt: serverTimestamp(),
         ...additionalData,
@@ -134,19 +153,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return profile;
     } catch (err) {
       console.warn('Network issue fetching user profile, using local session profile:', err);
-      const details = parseStudentDetailsFromEmail(user.email ?? '');
+      const derived = deriveAcademicYears(additionalData?.universityId, user.email);
       const fallbackProfile: UserProfile = {
         uid: user.uid,
         email: normalizeCollegeEmail(user.email ?? ''),
         displayName: user.displayName || user.email?.split('@')[0] || 'Student',
         photoURL: user.photoURL ?? undefined,
         attendanceTarget: 75,
-        college: 'Chitkara University',
-        section: additionalData?.section || 'BE-CSE-5A',
-        universityId: additionalData?.universityId || details.universityId,
-        batch: additionalData?.batch || details.batch,
+        college: additionalData?.college || 'Chitkara University',
+        program: additionalData?.program || 'BE-CSE',
+        semester: additionalData?.semester !== undefined ? normalizeSemester(additionalData.semester) : 5,
+        section: additionalData?.section ? normalizeSection(additionalData.section) : 'BE-CSE-5A',
+        universityId: additionalData?.universityId ? String(additionalData.universityId) : '',
+        batch: additionalData?.batch || derived.admissionYear || '',
         expectedGraduationYear:
-          additionalData?.expectedGraduationYear || details.expectedGraduationYear,
+          additionalData?.expectedGraduationYear || derived.expectedGraduationYear || undefined,
         emailVerified: user.emailVerified,
         createdAt: null,
       };
@@ -324,8 +345,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function updateUserProfile(data: Partial<UserProfile>) {
     if (!currentUser) return;
     const ref = doc(db, 'users', currentUser.uid);
-    await setDoc(ref, data, { merge: true });
-    setUserProfile((prev) => (prev ? { ...prev, ...data } : null));
+    const cleaned = { ...data };
+    if (cleaned.semester !== undefined) {
+      cleaned.semester = normalizeSemester(cleaned.semester);
+    }
+    if (cleaned.section !== undefined) {
+      cleaned.section = normalizeSection(cleaned.section);
+    }
+    await setDoc(ref, cleaned, { merge: true });
+    setUserProfile((prev) => (prev ? { ...prev, ...cleaned } : null));
   }
 
   async function deleteAccount() {

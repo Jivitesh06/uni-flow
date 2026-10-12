@@ -34,6 +34,8 @@ export interface TimetableSlot {
   color: string;
   isActive: boolean;
   isManual?: boolean;
+  isShared?: boolean;
+  sharedGroupId?: string;
   section?: string;
   effectiveDate?: string;
   createdAt?: Timestamp;

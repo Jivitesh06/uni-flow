@@ -20,7 +20,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
-import { CHITKARA_SECTIONS } from '../lib/collegeEmail';
+import {
+  normalizeSection,
+  normalizeSemester,
+  deriveAcademicYears,
+} from '../lib/collegeEmail.ts';
 import toast from 'react-hot-toast';
 
 export function SettingsPage() {
@@ -29,28 +33,34 @@ export function SettingsPage() {
   const { isOnline } = useNetworkStatus();
 
   const [displayName, setDisplayName] = useState(userProfile?.displayName ?? '');
-  const [semester, setSemester] = useState(userProfile?.semester ?? '');
+  const [semester, setSemester] = useState<number>(() =>
+    normalizeSemester(userProfile?.semester ?? 5)
+  );
   const [section, setSection] = useState(userProfile?.section ?? 'BE-CSE-5A');
   const [universityId, setUniversityId] = useState(userProfile?.universityId ?? '');
-  const [batch, setBatch] = useState(userProfile?.batch ?? '2024');
-  const [expectedGraduationYear, setExpectedGraduationYear] = useState(
-    userProfile?.expectedGraduationYear?.toString() ?? '2028'
-  );
   const [college, setCollege] = useState(userProfile?.college ?? 'Chitkara University');
   const [target, setTarget] = useState(userProfile?.attendanceTarget ?? 75);
   const [saving, setSaving] = useState(false);
   const [showIOSModal, setShowIOSModal] = useState(false);
+
+  // Derive admission batch and expected graduation year automatically
+  const derived = deriveAcademicYears(universityId, userProfile?.email);
+  const currentBatch = userProfile?.batch || derived.admissionYear || '2024';
+  const currentGradYear =
+    userProfile?.expectedGraduationYear?.toString() ||
+    derived.expectedGraduationYear?.toString() ||
+    '2028';
 
   async function handleSave() {
     setSaving(true);
     try {
       await updateUserProfile({
         displayName: displayName.trim(),
-        semester: semester.trim(),
-        section: section.trim(),
+        semester: Number(semester),
+        section: normalizeSection(section),
         universityId: universityId.trim(),
-        batch: batch.trim(),
-        expectedGraduationYear: Number(expectedGraduationYear) || 2028,
+        batch: currentBatch,
+        expectedGraduationYear: Number(currentGradYear),
         college: college.trim(),
         attendanceTarget: Number(target),
       });
@@ -123,68 +133,76 @@ export function SettingsPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-gray-500">Section</label>
-              <select
-                value={section}
-                onChange={(e) => setSection(e.target.value)}
-                className="w-full mt-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {CHITKARA_SECTIONS.map((sec) => (
-                  <option key={sec} value={sec}>
-                    {sec}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
               <label className="text-xs font-bold uppercase tracking-wider text-gray-500">University / Roll ID</label>
               <Input
-                placeholder="e.g. 1260"
+                placeholder="e.g. 2411981260"
                 value={universityId}
                 onChange={(e) => setUniversityId(e.target.value)}
                 className="mt-1"
               />
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-gray-500">Admission Batch</label>
-              <Input
-                placeholder="e.g. 2024"
-                value={batch}
-                onChange={(e) => setBatch(e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-gray-500">Graduation Year</label>
-              <Input
-                placeholder="e.g. 2028"
-                value={expectedGraduationYear}
-                onChange={(e) => setExpectedGraduationYear(e.target.value)}
-                className="mt-1"
-              />
-            </div>
             <div>
               <label className="text-xs font-bold uppercase tracking-wider text-gray-500">Current Semester</label>
-              <Input
-                placeholder="e.g. 5th Semester"
+              <select
                 value={semester}
-                onChange={(e) => setSemester(e.target.value)}
+                onChange={(e) => setSemester(Number(e.target.value))}
+                className="w-full mt-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
+                  <option key={s} value={s}>
+                    Semester {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-gray-500">Section</label>
+              <Input
+                placeholder="e.g. BE-CSE-5A"
+                value={section}
+                onChange={(e) => setSection(e.target.value)}
+                className="mt-1"
+              />
+              <p className="text-[11px] text-gray-400 mt-1">Free-form section identifier (e.g. BE-CSE-5A, ECE-3B)</p>
+            </div>
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-gray-500">College / Institution</label>
+              <Input
+                placeholder="e.g. Chitkara University"
+                value={college}
+                onChange={(e) => setCollege(e.target.value)}
                 className="mt-1"
               />
             </div>
           </div>
 
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-gray-500">College / Institution</label>
-            <Input
-              placeholder="e.g. Chitkara University"
-              value={college}
-              onChange={(e) => setCollege(e.target.value)}
-              className="mt-1"
-            />
+          {/* Automatic Academic Years Display */}
+          <div className="p-3.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300">
+                Admission Batch
+              </p>
+              <p className="text-base font-bold text-gray-900 dark:text-white mt-0.5">
+                {currentBatch}
+              </p>
+              <p className="text-[10px] text-gray-400 mt-0.5">
+                Auto-derived from University ID ({universityId || 'Not provided'})
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300">
+                Expected Graduation Year
+              </p>
+              <p className="text-base font-bold text-gray-900 dark:text-white mt-0.5">
+                {currentGradYear}
+              </p>
+              <p className="text-[10px] text-gray-400 mt-0.5">
+                Based on confirmed 4-year engineering duration
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>

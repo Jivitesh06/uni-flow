@@ -152,6 +152,31 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // Shared timetables (read by all signed-in students, write restricted)
+    // ============================================================
+    match /sharedTimetables/{groupId} {
+      allow read: if isSignedIn();
+      // Ordinary students must not publish global updates
+      // Only authorized publishers (token.role in ['admin', 'publisher'] or listed in authorizedPublishers)
+      allow write: if isSignedIn()
+        && (request.auth.token.role in ['admin', 'publisher']
+            || exists(/databases/$(database)/documents/authorizedPublishers/$(request.auth.uid)));
+
+      match /revisions/{revId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn()
+          && (request.auth.token.role in ['admin', 'publisher']
+              || exists(/databases/$(database)/documents/authorizedPublishers/$(request.auth.uid)));
+      }
+    }
+
+    // Server/Admin managed authorized publishers directory
+    match /authorizedPublishers/{uid} {
+      allow read: if isSignedIn();
+      allow write: if false; // Write only via Firebase Admin SDK / Console
+    }
+
+    // ============================================================
     // Audit logs (backend only)
     // ============================================================
     match /auditLogs/{logId} {

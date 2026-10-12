@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Plus,
@@ -16,6 +16,8 @@ import {
   AlertCircle,
   CheckCircle2,
   BookOpen,
+  Users,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   collection,
@@ -37,6 +39,12 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
 import { timeToMinutes } from '../lib/timetableCalculations';
+import { useSharedTimetable } from '../hooks/useSharedTimetable';
+import {
+  mergeSharedAndPersonalSlots,
+  buildSharedGroupId,
+  TimetableGroupParams,
+} from '../lib/sharedTimetable';
 import toast from 'react-hot-toast';
 import type { TimetableSlot, Subject, TimetableRevision } from '../types';
 
@@ -74,10 +82,33 @@ const defaultForm: SlotFormData = {
 };
 
 export function TimetablePage() {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const uid = currentUser?.uid ?? '';
   const { data: slots, loading: slotsLoading } = useCollection<TimetableSlot>(`users/${uid}/timetable`);
   const { data: subjects, loading: subjectsLoading } = useCollection<Subject>(`users/${uid}/subjects`);
+
+  // Shared Timetable Group subscription
+  const groupParams: TimetableGroupParams | null = useMemo(() => {
+    if (!userProfile?.section) return null;
+    return {
+      institution: userProfile.college || 'Chitkara University',
+      program: userProfile.program || 'BE-CSE',
+      batch: userProfile.batch || '2024',
+      semester: userProfile.semester || 5,
+      section: userProfile.section,
+    };
+  }, [userProfile?.college, userProfile?.program, userProfile?.batch, userProfile?.semester, userProfile?.section]);
+
+  const { sharedDoc } = useSharedTimetable(groupParams);
+
+  // Merge shared published timetable with personal student additions (preserving manual classes)
+  const effectiveSlots = useMemo(() => {
+    return mergeSharedAndPersonalSlots(
+      sharedDoc?.slots || [],
+      slots,
+      groupParams ? buildSharedGroupId(groupParams) : undefined
+    );
+  }, [sharedDoc?.slots, slots, groupParams]);
 
   const [view, setView] = useState<'weekly' | 'daily'>('weekly');
   const [selectedDay, setSelectedDay] = useState(() => new Date().getDay());
@@ -195,6 +226,7 @@ export function TimetablePage() {
         endTime: form.endTime,
         color: form.color,
         isActive: true,
+        isManual: true,
         updatedAt: serverTimestamp(),
       };
 
@@ -289,6 +321,7 @@ export function TimetablePage() {
           endTime: String(endTime).padStart(5, '0'),
           color: COLORS[Math.floor(Math.random() * COLORS.length)],
           isActive: true,
+          isManual: true,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
@@ -304,7 +337,7 @@ export function TimetablePage() {
     }
   }
 
-  const activeSlots = slots.filter((s) => s.isActive);
+  const activeSlots = effectiveSlots.filter((s) => s.isActive);
 
   // Free intervals calculation for daily view
   function getDailyFreeSlots(day: number) {
@@ -402,6 +435,47 @@ export function TimetablePage() {
         </div>
       )}
 
+      {/* Shared Section Schedule Info Banner */}
+      {sharedDoc ? (
+        <div className="bg-gradient-to-r from-blue-600/10 via-blue-500/5 to-transparent border border-blue-200 dark:border-blue-800/60 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 mt-0.5">
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="text-sm font-bold text-gray-900 dark:text-white">
+                  Shared Section Schedule
+                </h4>
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold font-mono">
+                  v{sharedDoc.version}
+                </span>
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 font-semibold">
+                  Section {sharedDoc.section}
+                </span>
+              </div>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 leading-relaxed">
+                {sharedDoc.groupLabel} · Effective: {sharedDoc.effectiveDate || 'Current Semester'} ({sharedDoc.slots.length} departmental lectures)
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Synced in real-time</span>
+          </div>
+        </div>
+      ) : userProfile?.section ? (
+        <div className="bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-800 rounded-2xl p-3 px-4 flex items-center justify-between text-xs text-gray-500">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-blue-500" />
+            <span>
+              Academic Section: <strong>{userProfile.section}</strong> (Semester {userProfile.semester || 1})
+            </span>
+          </div>
+          <span className="text-[11px] text-gray-400">Personal & Shared views merged</span>
+        </div>
+      ) : null}
+
       {/* Empty State when no slots configured */}
       {!slotsLoading && activeSlots.length === 0 && (
         <div className="text-center py-16 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-8 shadow-sm">
@@ -484,6 +558,7 @@ export function TimetablePage() {
                       const endMins = timeToMinutes(slot.endTime);
                       const isNow = isToday && currentMinutes >= startMins && currentMinutes < endMins;
                       const isPast = isToday && currentMinutes >= endMins;
+                      const isShared = !slot.isManual || slot.id.startsWith('shared_');
 
                       return (
                         <div
@@ -500,7 +575,18 @@ export function TimetablePage() {
                           <div className="flex items-start justify-between gap-1 pr-6">
                             <div>
                               <p className="font-extrabold text-xs leading-snug">{slot.subjectName}</p>
-                              <p className="text-[10px] opacity-90 font-mono font-semibold mt-0.5">{slot.subjectCode}</p>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-[10px] opacity-90 font-mono font-semibold">{slot.subjectCode}</span>
+                                {isShared ? (
+                                  <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-blue-500/30 text-blue-100 font-semibold border border-blue-300/30">
+                                    Shared
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-purple-500/30 text-purple-100 font-semibold border border-purple-300/30">
+                                    Personal
+                                  </span>
+                                )}
+                              </div>
                             </div>
                             {isNow && (
                               <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full bg-white text-emerald-700 font-black uppercase tracking-wider animate-pulse flex-shrink-0">
@@ -527,20 +613,31 @@ export function TimetablePage() {
 
                           {/* Quick edit / delete actions */}
                           <div className="absolute top-2 right-2 hidden group-hover:flex items-center gap-1 bg-black/40 backdrop-blur-md rounded-lg p-1">
-                            <button
-                              onClick={() => openEdit(slot)}
-                              className="p-1 hover:bg-white/20 rounded text-white transition-colors"
-                              title="Edit slot"
-                            >
-                              <Edit2 className="w-3 h-3" />
-                            </button>
-                            <button
-                              onClick={() => setSlotToDelete(slot)}
-                              className="p-1 hover:bg-white/20 rounded text-red-300 transition-colors"
-                              title="Delete slot"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
+                            {isShared ? (
+                              <span
+                                title="Department-managed shared class"
+                                className="p-1 text-white/80"
+                              >
+                                <ShieldCheck className="w-3.5 h-3.5 text-blue-300" />
+                              </span>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => openEdit(slot)}
+                                  className="p-1 hover:bg-white/20 rounded text-white transition-colors"
+                                  title="Edit slot"
+                                >
+                                  <Edit2 className="w-3 h-3" />
+                                </button>
+                                <button
+                                  onClick={() => setSlotToDelete(slot)}
+                                  className="p-1 hover:bg-white/20 rounded text-red-300 transition-colors"
+                                  title="Delete slot"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </div>
                       );
@@ -640,6 +737,15 @@ export function TimetablePage() {
                           <span className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-md font-mono font-semibold text-gray-600 dark:text-gray-300">
                             {slot.subjectCode}
                           </span>
+                          {!slot.isManual || slot.id.startsWith('shared_') ? (
+                            <Badge variant="default" className="text-[10px] bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                              <Users className="w-3 h-3 mr-1" /> Shared
+                            </Badge>
+                          ) : (
+                            <Badge variant="default" className="text-[10px] bg-purple-50 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                              Personal
+                            </Badge>
+                          )}
                           {isNow && (
                             <Badge variant="success" className="animate-pulse">
                               ● Live Now
@@ -667,18 +773,27 @@ export function TimetablePage() {
                       </div>
 
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <Button variant="ghost" size="sm" onClick={() => openEdit(slot)} title="Edit lecture slot">
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSlotToDelete(slot)}
-                          className="text-red-500 hover:text-red-600"
-                          title="Delete lecture slot"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {!slot.isManual || slot.id.startsWith('shared_') ? (
+                          <div className="flex items-center gap-1 text-[11px] text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/60 px-2.5 py-1.5 rounded-xl border border-gray-100 dark:border-gray-800">
+                            <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
+                            <span className="hidden sm:inline font-medium">Synced</span>
+                          </div>
+                        ) : (
+                          <>
+                            <Button variant="ghost" size="sm" onClick={() => openEdit(slot)} title="Edit lecture slot">
+                              <Edit2 className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setSlotToDelete(slot)}
+                              className="text-red-500 hover:text-red-600"
+                              title="Delete lecture slot"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

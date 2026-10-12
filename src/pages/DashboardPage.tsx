@@ -26,6 +26,12 @@ import { Progress } from '../components/ui/progress';
 import { calculateAttendanceStats, calculateSubjectAttendance } from '../lib/attendanceCalculations';
 import { calculateLiveClassState } from '../lib/timetableCalculations';
 import { LiveClassCard } from '../components/timetable/LiveClassCard';
+import { useSharedTimetable } from '../hooks/useSharedTimetable.ts';
+import {
+  mergeSharedAndPersonalSlots,
+  buildSharedGroupId,
+  TimetableGroupParams,
+} from '../lib/sharedTimetable.ts';
 import type { Subject, TimetableSlot, AttendanceRecord, EmailConnection, TimetableRevision } from '../types';
 
 export function DashboardPage() {
@@ -166,8 +172,31 @@ export function DashboardPage() {
     };
   }, [currentUser]);
 
+  // Shared Timetable Group subscription
+  const groupParams: TimetableGroupParams | null = useMemo(() => {
+    if (!userProfile?.section) return null;
+    return {
+      institution: userProfile.college || 'Chitkara University',
+      program: userProfile.program || 'BE-CSE',
+      batch: userProfile.batch || '2024',
+      semester: userProfile.semester || 5,
+      section: userProfile.section,
+    };
+  }, [userProfile?.college, userProfile?.program, userProfile?.batch, userProfile?.semester, userProfile?.section]);
+
+  const { sharedDoc } = useSharedTimetable(groupParams);
+
+  // Merge shared published timetable with personal student additions (preserving manual classes)
+  const effectiveSlots = useMemo(() => {
+    return mergeSharedAndPersonalSlots(
+      sharedDoc?.slots || [],
+      slots,
+      groupParams ? buildSharedGroupId(groupParams) : undefined
+    );
+  }, [sharedDoc?.slots, slots, groupParams]);
+
   const todayDay = now.getDay();
-  const todaySlots = slots
+  const todaySlots = effectiveSlots
     .filter((s) => s.dayOfWeek === todayDay)
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
@@ -230,10 +259,10 @@ export function DashboardPage() {
   });
 
   const liveState = useMemo(() => {
-    return calculateLiveClassState(slots, now);
-  }, [slots, now]);
+    return calculateLiveClassState(effectiveSlots, now);
+  }, [effectiveSlots, now]);
 
-  const isStale = (!isFirestoreLoaded && slots.length > 0) || isOffline;
+  const isStale = (!isFirestoreLoaded && effectiveSlots.length > 0) || isOffline;
   const dateFormatted = format(now, 'EEEE, MMMM d, yyyy');
   const timeFormatted = format(now, 'h:mm:ss a');
 
