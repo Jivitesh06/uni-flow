@@ -27,6 +27,8 @@ import { calculateAttendanceStats, calculateSubjectAttendance } from '../lib/att
 import { calculateLiveClassState } from '../lib/timetableCalculations';
 import { LiveClassCard } from '../components/timetable/LiveClassCard';
 import { useSharedTimetable } from '../hooks/useSharedTimetable.ts';
+import { useClassReminder } from '../hooks/useClassReminder';
+import { ClassReminderBanner } from '../components/notifications/ClassReminderBanner';
 import {
   mergeSharedAndPersonalSlots,
   buildSharedGroupId,
@@ -316,6 +318,9 @@ export function DashboardPage() {
 
   const gmailConnected = connections.some((c) => c.status === 'connected');
 
+  // Smart 10-Minute Class Reminder Engine (with sound chime & push)
+  const reminder = useClassReminder(studentApplicableSlots, userProfile);
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Top greeting banner */}
@@ -355,6 +360,9 @@ export function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* 10-Minute Class Reminders Banner */}
+      <ClassReminderBanner reminder={reminder} />
 
       {/* Prominent Timetable-Aware Live Class Dashboard Hero */}
       <LiveClassCard

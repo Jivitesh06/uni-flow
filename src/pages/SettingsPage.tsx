@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   User,
   Bell,
+  BellRing,
   Shield,
   Trash2,
   CheckCircle2,
@@ -15,11 +16,15 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import { useCollection } from '../hooks/useFirestore';
+import { useClassReminder } from '../hooks/useClassReminder';
+import { ClassReminderBanner } from '../components/notifications/ClassReminderBanner';
 import { IOSInstallModal } from '../components/pwa/IOSInstallModal';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
+import type { TimetableSlot } from '../types';
 import {
   normalizeSection,
   normalizeSemester,
@@ -30,7 +35,11 @@ import {
 import toast from 'react-hot-toast';
 
 export function SettingsPage() {
-  const { userProfile, updateUserProfile, deleteAccount } = useAuth();
+  const { currentUser, userProfile, updateUserProfile, deleteAccount } = useAuth();
+  const uid = currentUser?.uid ?? '';
+  const { data: slots } = useCollection<TimetableSlot>(`users/${uid}/timetable`);
+  const reminder = useClassReminder(slots, userProfile);
+
   const { isInstallable, isInstalled, isIOS, promptInstall } = usePWAInstall();
   const { isOnline } = useNetworkStatus();
 
@@ -278,6 +287,46 @@ export function SettingsPage() {
               <span>50%</span>
               <span>75% (Standard)</span>
               <span>95% (High Honor)</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Smart Class Reminders (10 Mins Before) Card */}
+      <Card className="border-blue-100 dark:border-blue-950/60 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <BellRing className="w-4 h-4 text-blue-600" /> Push Notifications & Class Reminders
+            </span>
+            <Badge variant={reminder.permission === 'granted' ? 'success' : reminder.permission === 'denied' ? 'danger' : 'warning'}>
+              {reminder.permission === 'granted' ? 'Active' : reminder.permission === 'denied' ? 'Blocked' : 'Action Needed'}
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <ClassReminderBanner reminder={reminder} variant="card" />
+
+          <div className="space-y-2 text-xs pt-2 border-t border-gray-100 dark:border-gray-800">
+            <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800">
+              <span className="text-gray-500">Advance Notification Timing</span>
+              <span className="font-semibold text-gray-800 dark:text-gray-200">10 minutes before class start (T - 10)</span>
+            </div>
+            <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800">
+              <span className="text-gray-500">Audio Chime Synth</span>
+              <span className="font-semibold text-emerald-600">Dual-Tone Web Audio Chime (Active)</span>
+            </div>
+            <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800">
+              <span className="text-gray-500">Group Isolation</span>
+              <span className="font-semibold text-gray-800 dark:text-gray-200">
+                {userProfile?.studentGroup ? `Group ${userProfile.studentGroup} & Combined Only` : 'All Section Classes'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between py-1.5">
+              <span className="text-gray-500">Background Mechanism</span>
+              <span className="font-semibold text-gray-800 dark:text-gray-200 text-right">
+                Workbox Service Worker + Notification Triggers
+              </span>
             </div>
           </div>
         </CardContent>

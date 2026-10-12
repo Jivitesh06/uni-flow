@@ -1,4 +1,5 @@
 import { Timestamp } from 'firebase/firestore';
+export type { UserProfile } from '../contexts/AuthContext';
 
 export type AttendanceStatus = 'present' | 'absent' | 'not_marked' | 'cancelled';
 export type AttendanceSource = 'manual' | 'email_import' | 'baseline';

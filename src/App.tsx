@@ -20,6 +20,22 @@ import { EmailSyncPage } from './pages/EmailSyncPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { AdminRoute } from './components/auth/AdminRoute';
 import { AdminPublishPage } from './pages/AdminPublishPage';
+import { useAuth } from './contexts/AuthContext';
+
+function RootLandingRoute() {
+  const { currentUser, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-white dark:bg-gray-950">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent" />
+      </div>
+    );
+  }
+  if (currentUser) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <LandingPage />;
+}
 
 export default function App() {
   return (
@@ -39,8 +55,8 @@ export default function App() {
             }}
           />
           <Routes>
-            {/* Public landing page */}
-            <Route path="/" element={<LandingPage />} />
+            {/* Public landing page with direct redirect for authenticated students */}
+            <Route path="/" element={<RootLandingRoute />} />
 
             {/* Public auth routes with auto-redirect if already authenticated */}
             <Route

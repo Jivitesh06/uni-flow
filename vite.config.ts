@@ -16,7 +16,7 @@ export default defineConfig({
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/',
+        start_url: '/dashboard',
         scope: '/',
         icons: [
           {
@@ -40,6 +40,7 @@ export default defineConfig({
         ],
       },
       workbox: {
+        importScripts: ['/sw-push-handler.js'],
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,woff}'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [

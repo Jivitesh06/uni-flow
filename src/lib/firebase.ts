@@ -11,7 +11,14 @@ import { getStorage } from 'firebase/storage';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import { getMessaging, isSupported } from 'firebase/messaging';
 
-const rawApiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+const env: Record<string, string | undefined> =
+  typeof import.meta !== 'undefined' && import.meta && import.meta.env
+    ? import.meta.env
+    : typeof process !== 'undefined' && process.env
+    ? process.env
+    : {};
+
+const rawApiKey = env.VITE_FIREBASE_API_KEY;
 export const isFirebaseConfigured = Boolean(
   rawApiKey &&
   rawApiKey !== 'your_api_key' &&
@@ -22,12 +29,12 @@ export const isFirebaseConfigured = Boolean(
 // Resilient configuration prevents synchronous app crash on local machines before .env is populated
 const firebaseConfig = {
   apiKey: isFirebaseConfigured ? rawApiKey : 'AIzaSyDemoKeyForLocalTesting12345',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'uniflow-demo.firebaseapp.com',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'uniflow-demo',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'uniflow-demo.appspot.com',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '1234567890',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:1234567890:web:abcdef123456',
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || 'G-XXXXXXXXXX',
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || 'uniflow-demo.firebaseapp.com',
+  projectId: env.VITE_FIREBASE_PROJECT_ID || 'uniflow-demo',
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || 'uniflow-demo.appspot.com',
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || '1234567890',
+  appId: env.VITE_FIREBASE_APP_ID || '1:1234567890:web:abcdef123456',
+  measurementId: env.VITE_FIREBASE_MEASUREMENT_ID || 'G-XXXXXXXXXX',
 };
 
 // Ensure single Firebase app initialization
@@ -55,7 +62,7 @@ export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 // Connect to local Firebase Emulators when VITE_USE_FIREBASE_EMULATOR is enabled
-if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true') {
+if (env.VITE_USE_FIREBASE_EMULATOR === 'true') {
   try {
     connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
     connectFirestoreEmulator(db, 'localhost', 8080);

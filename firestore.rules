@@ -95,13 +95,20 @@ service cloud.firestore {
         allow write: if false; // Written only by Admin SDK
       }
 
-      // Notifications (read and mark-read from client; created by backend)
+      // Notifications (read, mark-read, and client class reminder logs)
       match /notifications/{notifId} {
         allow read: if isSignedIn() && isOwner(uid);
         allow update: if isSignedIn() && isOwner(uid)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
-        allow create: if false; // Created only by backend
+        allow create: if isSignedIn() && isOwner(uid)
+          && request.resource.data.uid == uid
+          && request.resource.data.type in ['class_reminder', 'attendance_alert', 'timetable_revision', 'sync_failure'];
         allow delete: if isSignedIn() && isOwner(uid);
+      }
+
+      // Push Subscriptions subcollection (Web Push endpoints & device tokens)
+      match /pushSubscriptions/{subId} {
+        allow read, write: if isSignedIn() && isOwner(uid);
       }
 
       // Email connections (status & filter settings readable by owner; tokens NEVER stored here)
