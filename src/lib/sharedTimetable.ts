@@ -19,7 +19,7 @@ import {
   Timestamp,
   Firestore,
 } from 'firebase/firestore';
-import { normalizeSection, normalizeSemester } from './collegeEmail.ts';
+import { normalizeSection, normalizeSemester, formatFullSection } from './collegeEmail.ts';
 import type { TimetableSlot } from '../types';
 
 export interface TimetableGroupParams {
@@ -83,9 +83,9 @@ export function buildSharedGroupLabel(params: TimetableGroupParams): string {
   const program = (params.program || 'BE-CSE').trim().toUpperCase();
   const batch = (params.batch || '2024').trim();
   const semester = normalizeSemester(params.semester);
-  const section = normalizeSection(params.section) || 'BE-CSE-5A';
+  const fullSec = formatFullSection(program, semester, params.section || 'A');
 
-  return `${institution} / ${program} / ${batch} / Semester ${semester} / ${section}`;
+  return `${institution} / ${program} / ${batch} / Semester ${semester} / ${fullSec}`;
 }
 
 /**
@@ -108,9 +108,11 @@ export function buildSharedGroupId(params: TimetableGroupParams): string {
     .trim()
     .replace(/[^a-z0-9]+/g, '');
 
-  const semSlug = `sem${normalizeSemester(params.semester)}`;
+  const semNum = normalizeSemester(params.semester);
+  const semSlug = `sem${semNum}`;
 
-  const cleanSec = normalizeSection(params.section || 'BE-CSE-5A')
+  const fullSec = formatFullSection(params.program || 'BE-CSE', semNum, params.section || 'A');
+  const cleanSec = fullSec
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');

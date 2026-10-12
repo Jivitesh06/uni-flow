@@ -57,12 +57,156 @@ export function validateCollegeEmail(email: string | null | undefined): void {
 }
 
 /**
+ * Checks whether an input string is strictly a single alphabetic section letter (e.g. "A", "a", "B").
+ * Rejects full labels such as "5A", "BE-CSE-5A", "AB", "1", or empty strings.
+ */
+export function isValidSectionLetter(section: string | null | undefined): boolean {
+  if (!section) return false;
+  return /^[a-zA-Z]$/.test(section.trim());
+}
+
+/**
+ * Validates that the input is strictly a single alphabetic section letter.
+ * Throws a clear educational Error if invalid (does not silently extract a letter).
+ * Returns the normalized uppercase single letter (e.g. "a" -> "A").
+ */
+export function validateSectionLetter(section: string | null | undefined): string {
+  if (!section || !section.trim()) {
+    throw new Error('Section is required. Please enter your section letter only (e.g. A).');
+  }
+  const trimmed = section.trim();
+  if (!/^[a-zA-Z]$/.test(trimmed)) {
+    throw new Error(
+      `Invalid section "${trimmed}". Enter your section letter only (e.g. A, B). Full labels such as "5A" or "BE-CSE-5A" are not accepted.`
+    );
+  }
+  return trimmed.toUpperCase();
+}
+
+/**
  * Normalizes section string by trimming whitespace, uppercase conversion, and collapsing multiple spaces.
- * Supports arbitrary section codes (e.g., "be-cse-5a" -> "BE-CSE-5A", "ece-3b" -> "ECE-3B").
+ * If input is a single letter, returns uppercase letter (e.g. "a" -> "A").
+ * Preserves existing legacy section strings (e.g. "be-cse-5a" -> "BE-CSE-5A").
  */
 export function normalizeSection(section: string | null | undefined): string {
   if (!section) return '';
   return section.trim().toUpperCase().replace(/\s+/g, ' ');
+}
+
+/**
+ * Combines program, numeric semester, and section letter into the full canonical section identifier.
+ * Example:
+ * - formatFullSection('BE-CSE', 5, 'A') -> 'BE-CSE-5A'
+ * - formatFullSection('BE-CSE', 5, 'B') -> 'BE-CSE-5B'
+ * - formatFullSection('BE-CSE', 6, 'A') -> 'BE-CSE-6A'
+ * - formatFullSection('BE-CSE', 5, 'BE-CSE-5A') -> 'BE-CSE-5A' (backward compatibility)
+ */
+export function formatFullSection(
+  program: string = 'BE-CSE',
+  semester: number | string = 5,
+  sectionLetter: string = 'A'
+): string {
+  const cleanProg = (program || 'BE-CSE').trim().toUpperCase();
+  const cleanSem = normalizeSemester(semester);
+  const cleanSec = (sectionLetter || 'A').trim().toUpperCase();
+  // If already a full canonical or hyphenated label (e.g. "BE-CSE-5A" or "ME-2B")
+  if (cleanSec.includes('-')) {
+    return cleanSec;
+  }
+  // If string contains number + letter like "5A", extract the letter
+  const letterMatch = cleanSec.match(/[A-Z]$/);
+  const letter = letterMatch ? letterMatch[0] : cleanSec;
+  return `${cleanProg}-${cleanSem}${letter}`;
+}
+
+/**
+ * Parses program, semester, and section letter from an arbitrary section identifier.
+ * Examples:
+ * - "BE-CSE-5A" -> { program: "BE-CSE", semester: 5, sectionLetter: "A" }
+ * - "5A" -> { semester: 5, sectionLetter: "A" }
+ * - "A" -> { sectionLetter: "A" }
+ */
+export function parseSectionDetails(
+  sectionStr: string | null | undefined
+): { program?: string; semester?: number; sectionLetter?: string } {
+  if (!sectionStr) return {};
+  const cleaned = sectionStr.trim().toUpperCase();
+
+  // Pattern: [PROGRAM]-[SEMESTER][LETTER] e.g. "BE-CSE-5A"
+  const fullMatch = cleaned.match(/^([A-Z0-9_-]+)-(\d+)([A-Z])$/);
+  if (fullMatch) {
+    return {
+      program: fullMatch[1],
+      semester: parseInt(fullMatch[2], 10),
+      sectionLetter: fullMatch[3],
+    };
+  }
+
+  // Pattern: [SEMESTER][LETTER] e.g. "5A"
+  const semSecMatch = cleaned.match(/^(\d+)([A-Z])$/);
+  if (semSecMatch) {
+    return {
+      semester: parseInt(semSecMatch[1], 10),
+      sectionLetter: semSecMatch[2],
+    };
+  }
+
+  // Single letter e.g. "A"
+  if (/^[A-Z]$/.test(cleaned)) {
+    return {
+      sectionLetter: cleaned,
+    };
+  }
+
+  return {};
+}
+
+/**
+ * Compares a PDF section string (e.g. "BE-CSE-5A") against the student's numeric semester and section letter.
+ * Does NOT do naive raw string comparison.
+ */
+export function isSectionMatch(
+  pdfSectionStr: string,
+  studentSemester: number | string,
+  studentSectionLetter: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _program?: string
+): boolean {
+  if (!pdfSectionStr || !studentSectionLetter) return false;
+  const parsedPdf = parseSectionDetails(pdfSectionStr);
+  const targetSem = normalizeSemester(studentSemester);
+  const targetLetter = studentSectionLetter.trim().toUpperCase();
+
+  // If PDF section has parsed semester and section letter
+  if (parsedPdf.semester !== undefined && parsedPdf.sectionLetter !== undefined) {
+    return parsedPdf.semester === targetSem && parsedPdf.sectionLetter === targetLetter;
+  }
+
+  // If PDF section is just a letter
+  if (parsedPdf.sectionLetter !== undefined) {
+    return parsedPdf.sectionLetter === targetLetter;
+  }
+
+  // Fallback: check if the string ends with the target semester + letter (e.g. "5A")
+  return pdfSectionStr.toUpperCase().endsWith(`${targetSem}${targetLetter}`);
+}
+
+/**
+ * Returns a descriptive error message if a PDF section does not match the student's group, or null if it matches.
+ */
+export function describeSectionMismatch(
+  pdfSectionStr: string,
+  studentSemester: number | string,
+  studentSectionLetter: string,
+  program: string = 'BE-CSE'
+): string | null {
+  if (isSectionMatch(pdfSectionStr, studentSemester, studentSectionLetter, program)) {
+    return null;
+  }
+  const targetSem = normalizeSemester(studentSemester);
+  const targetLetter = studentSectionLetter.trim().toUpperCase();
+  const expectedLabel = formatFullSection(program, targetSem, targetLetter);
+  return `Section mismatch: Your profile is configured for Semester ${targetSem}, Section ${targetLetter} (${expectedLabel}), but the selected timetable section is "${pdfSectionStr}".`;
 }
 
 /**

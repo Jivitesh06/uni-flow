@@ -24,6 +24,8 @@ import {
   normalizeSection,
   normalizeSemester,
   deriveAcademicYears,
+  validateSectionLetter,
+  formatFullSection,
 } from '../lib/collegeEmail.ts';
 import toast from 'react-hot-toast';
 
@@ -36,7 +38,14 @@ export function SettingsPage() {
   const [semester, setSemester] = useState<number>(() =>
     normalizeSemester(userProfile?.semester ?? 5)
   );
-  const [section, setSection] = useState(userProfile?.section ?? 'BE-CSE-5A');
+  const [section, setSection] = useState(() => {
+    const raw = userProfile?.section || 'A';
+    if (raw.includes('-')) {
+      const match = raw.match(/[A-Za-z]$/);
+      return match ? match[0].toUpperCase() : 'A';
+    }
+    return raw.toUpperCase();
+  });
   const [universityId, setUniversityId] = useState(userProfile?.universityId ?? '');
   const [college, setCollege] = useState(userProfile?.college ?? 'Chitkara University');
   const [target, setTarget] = useState(userProfile?.attendanceTarget ?? 75);
@@ -52,12 +61,20 @@ export function SettingsPage() {
     '2028';
 
   async function handleSave() {
+    let validatedSection: string;
+    try {
+      validatedSection = validateSectionLetter(section);
+    } catch (err) {
+      toast.error((err as Error).message);
+      return;
+    }
+
     setSaving(true);
     try {
       await updateUserProfile({
         displayName: displayName.trim(),
         semester: Number(semester),
-        section: normalizeSection(section),
+        section: validatedSection,
         universityId: universityId.trim(),
         batch: currentBatch,
         expectedGraduationYear: Number(currentGradYear),
@@ -150,7 +167,7 @@ export function SettingsPage() {
               >
                 {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
                   <option key={s} value={s}>
-                    Semester {s}
+                    {s}
                   </option>
                 ))}
               </select>
@@ -161,12 +178,15 @@ export function SettingsPage() {
             <div>
               <label className="text-xs font-bold uppercase tracking-wider text-gray-500">Section</label>
               <Input
-                placeholder="e.g. BE-CSE-5A"
+                placeholder="e.g. A"
                 value={section}
                 onChange={(e) => setSection(e.target.value)}
+                maxLength={2}
                 className="mt-1"
               />
-              <p className="text-[11px] text-gray-400 mt-1">Free-form section identifier (e.g. BE-CSE-5A, ECE-3B)</p>
+              <p className="text-[11px] text-gray-400 mt-1">
+                Enter your section letter only. Derived: <strong>{formatFullSection(college.includes('CSE') ? 'BE-CSE' : 'BE-CSE', semester, section || 'A')}</strong>
+              </p>
             </div>
             <div>
               <label className="text-xs font-bold uppercase tracking-wider text-gray-500">College / Institution</label>

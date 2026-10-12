@@ -165,7 +165,7 @@ export function EmailSyncPage() {
       setDiscoveredAttachments(attachments);
 
       if (attachments.length === 0) {
-        toast('No emails found matching "' + queryStr + '". You can upload the PDF manually.', {
+        toast('No emails found matching "' + queryStr + '". Please verify with your CSED coordinator or re-scan after new emails arrive.', {
           icon: 'ℹ️',
           duration: 6000,
         });
@@ -387,10 +387,10 @@ export function EmailSyncPage() {
     <div className="space-y-6 max-w-5xl mx-auto">
       <div>
         <h2 className="text-2xl font-black text-gray-900 dark:text-white">
-          Timetable Import & Synchronization
+          Timetable Import &amp; Synchronization
         </h2>
         <p className="text-sm text-gray-500">
-          Sync directly from your Chitkara college Gmail or upload official PDFs to isolate your section and update classes
+          Sync directly from your Chitkara college Gmail to automatically detect official timetables, isolate your section, and update classes
         </p>
       </div>
 
@@ -414,7 +414,7 @@ export function EmailSyncPage() {
                   onClick={() => handleConnectAndSyncGmail()}
                   className="bg-white dark:bg-gray-900 border-red-300 text-red-700 dark:text-red-300 text-xs"
                 >
-                  Switch Google Account & Retry
+                  Switch Google Account &amp; Retry
                 </Button>
               </div>
             </div>
@@ -567,11 +567,14 @@ export function EmailSyncPage() {
         </CardContent>
       </Card>
 
-      {/* PDF Timetable Upload Card - Primary Working Import Flow (Supports Drag & Drop AND Gmail Buffer) */}
+      {/* PDF Timetable Card - Section Isolator & Revision Review (Fed via Gmail Sync) */}
       <PdfTimetableUploadCard
         currentSlots={currentSlots}
         userSection={userProfile?.section}
+        userSemester={typeof userProfile?.semester === 'number' ? userProfile.semester : 5}
+        userProgram={userProfile?.program || 'BE-CSE'}
         externalBuffer={gmailPdfBuffer}
+        disableManualUpload={true}
         onApprove={handleApprovePdfTimetable}
       />
 
@@ -609,7 +612,7 @@ export function EmailSyncPage() {
             </li>
           </ol>
           <div className="p-3 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 text-[11px] text-blue-900 dark:text-blue-300">
-            💡 <strong>Zero-Setup Fallback:</strong> You can always drag and drop any official Chitkara timetable PDF into the card above without configuring any Google Cloud API keys!
+            💡 <strong>User-Initiated Sync:</strong> Gmail sync is entirely user-initiated client-side when you click "Connect College Gmail" or "Re-scan Gmail". No automated background pollers run while the app is closed.
           </div>
         </CardContent>
       </Card>

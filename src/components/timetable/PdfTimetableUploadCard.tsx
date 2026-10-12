@@ -26,16 +26,24 @@ import {
   TimetableDiffSummary,
   CHITKARA_SUBJECT_NAMES,
 } from '../../lib/chitkaraTimetableParser';
+import {
+  isSectionMatch,
+  describeSectionMismatch,
+  formatFullSection,
+} from '../../lib/collegeEmail';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
+import { AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { TimetableSlot } from '../../types';
 
 interface PdfTimetableUploadCardProps {
   currentSlots: TimetableSlot[];
   userSection?: string;
+  userSemester?: number;
+  userProgram?: string;
   externalBuffer?: { buffer: ArrayBuffer; name: string; timestamp?: number } | null;
   onApprove: (
     lectures: ExtractedLecture[],
@@ -43,6 +51,7 @@ interface PdfTimetableUploadCardProps {
     section: string,
     preserveManual: boolean
   ) => Promise<void>;
+  disableManualUpload?: boolean;
 }
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -50,8 +59,11 @@ const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 
 export function PdfTimetableUploadCard({
   currentSlots,
   userSection,
+  userSemester,
+  userProgram,
   externalBuffer,
   onApprove,
+  disableManualUpload = true,
 }: PdfTimetableUploadCardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -93,7 +105,12 @@ export function PdfTimetableUploadCard({
   async function processPdfBuffer(buffer: ArrayBuffer, name: string, sectionTarget?: string) {
     setProcessing(true);
     try {
-      const target = sectionTarget || selectedSection || userSection || 'BE-CSE-5A';
+      const userCanonicalSection = formatFullSection(
+        userProgram || 'BE-CSE',
+        userSemester || 5,
+        userSection || 'A'
+      );
+      const target = sectionTarget || selectedSection || userCanonicalSection;
       const result = await parseChitkaraPdf(buffer, target, name);
 
       if (!result.success && result.isScanned) {
@@ -225,6 +242,27 @@ export function PdfTimetableUploadCard({
       toast.error('No classes available to import');
       return;
     }
+
+    const isMatched = isSectionMatch(
+      selectedSection,
+      userSemester || 5,
+      userSection || 'A',
+      userProgram || 'BE-CSE'
+    );
+    if (!isMatched) {
+      const mismatchMsg = describeSectionMismatch(
+        selectedSection,
+        userSemester || 5,
+        userSection || 'A',
+        userProgram || 'BE-CSE'
+      );
+      toast.error(
+        mismatchMsg || 'Cannot import: selected section does not match your academic profile.',
+        { duration: 6000 }
+      );
+      return;
+    }
+
     setApproving(true);
     try {
       await onApprove(editableLectures, effectiveDate, selectedSection, preserveManual);
@@ -264,52 +302,71 @@ export function PdfTimetableUploadCard({
       </CardHeader>
 
       <CardContent className="p-6 space-y-6">
-        {/* Upload Dropzone */}
+        {/* Upload Dropzone / Coming Soon Card */}
         {!fileBuffer ? (
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              setIsDragging(true);
-            }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
-              isDragging
-                ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/20'
-                : 'border-gray-300 dark:border-gray-700 hover:border-blue-400 bg-gray-50/50 dark:bg-gray-800/30'
-            }`}
-          >
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept=".pdf,application/pdf"
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files && e.target.files.length > 0) {
-                  handleFileSelected(e.target.files[0]);
-                }
+          disableManualUpload ? (
+            <div className="rounded-2xl p-8 text-center border border-dashed border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/40 space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto shadow-sm">
+                <UploadCloud className="w-6 h-6" />
+              </div>
+              <div className="flex items-center justify-center gap-2">
+                <h4 className="text-sm font-bold text-gray-900 dark:text-white">
+                  Manual Timetable PDF Upload
+                </h4>
+                <Badge variant="default" className="text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 font-bold">
+                  Coming Soon
+                </Badge>
+              </div>
+              <p className="text-xs text-gray-500 max-w-md mx-auto leading-relaxed">
+                Manual PDF uploads are temporarily disabled. UniFlow prioritizes automated, zero-friction synchronization via your college Gmail. Connect your college Gmail above to automatically detect, parse, and verify your section&apos;s official timetable.
+              </p>
+            </div>
+          ) : (
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragging(true);
               }}
-            />
-            <div className="w-14 h-14 rounded-2xl bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto mb-3 shadow-inner">
-              <UploadCloud className="w-7 h-7" />
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
+                isDragging
+                  ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/20'
+                  : 'border-gray-300 dark:border-gray-700 hover:border-blue-400 bg-gray-50/50 dark:bg-gray-800/30'
+              }`}
+            >
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept=".pdf,application/pdf"
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    handleFileSelected(e.target.files[0]);
+                  }
+                }}
+              />
+              <div className="w-14 h-14 rounded-2xl bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto mb-3 shadow-inner">
+                <UploadCloud className="w-7 h-7" />
+              </div>
+              <h4 className="text-sm font-bold text-gray-900 dark:text-white">
+                Drop Chitkara Timetable PDF here, or click to browse
+              </h4>
+              <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
+                Supports official 7-page PDFs (BE-CSE-5A to 5G). Isolates your specific section automatically.
+              </p>
+              <div className="flex items-center justify-center gap-3 mt-4 text-[11px] text-gray-400">
+                <span className="flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> Private in memory
+                </span>
+                <span>&bull;</span>
+                <span>Max 15 MB</span>
+                <span>&bull;</span>
+                <span>Instant preview</span>
+              </div>
             </div>
-            <h4 className="text-sm font-bold text-gray-900 dark:text-white">
-              Drop Chitkara Timetable PDF here, or click to browse
-            </h4>
-            <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
-              Supports official 7-page PDFs (BE-CSE-5A to 5G). Isolates your specific section automatically.
-            </p>
-            <div className="flex items-center justify-center gap-3 mt-4 text-[11px] text-gray-400">
-              <span className="flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> Private in memory
-              </span>
-              <span>&bull;</span>
-              <span>Max 15 MB</span>
-              <span>&bull;</span>
-              <span>Instant preview</span>
-            </div>
-          </div>
+          )
         ) : (
           /* File Loaded Header & Section Switcher */
           <div className="space-y-4">
@@ -329,10 +386,26 @@ export function PdfTimetableUploadCard({
 
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={handleReset} disabled={approving}>
-                  Upload Different PDF
+                  Reset
                 </Button>
               </div>
             </div>
+
+            {/* Section Mismatch Alert */}
+            {!isSectionMatch(selectedSection, userSemester || 5, userSection || 'A', userProgram || 'BE-CSE') && (
+              <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 flex items-start gap-2.5 text-xs text-amber-900 dark:text-amber-200">
+                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold">Academic Group Mismatch</p>
+                  <p className="mt-0.5">
+                    {describeSectionMismatch(selectedSection, userSemester || 5, userSection || 'A', userProgram || 'BE-CSE')}
+                  </p>
+                  <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1">
+                    Please select your matching section from the section buttons below before importing.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Section Picker Pill Row */}
             {parseResult && parseResult.sectionsFound.length > 0 && (

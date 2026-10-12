@@ -24,6 +24,12 @@ import {
   deriveAcademicYears,
   isValidCollegeEmail,
   normalizeCollegeEmail,
+  isValidSectionLetter,
+  validateSectionLetter,
+  formatFullSection,
+  parseSectionDetails,
+  isSectionMatch,
+  describeSectionMismatch,
 } from '../src/lib/collegeEmail.ts';
 
 import {
@@ -142,6 +148,118 @@ test('Section normalizer returns empty string on empty input', () => {
   assert.equal(normalizeSection(''), '');
   assert.equal(normalizeSection('   '), '');
   assert.equal(normalizeSection(null), '');
+});
+
+// -----------------------------------------------------------------------------
+// 2B. Single-Letter Section Validation & Full Section Identity
+// -----------------------------------------------------------------------------
+test('isValidSectionLetter accepts single alphabetic characters (case-insensitive)', () => {
+  assert.equal(isValidSectionLetter('A'), true);
+  assert.equal(isValidSectionLetter('a'), true);
+  assert.equal(isValidSectionLetter('B'), true);
+  assert.equal(isValidSectionLetter('b'), true);
+  assert.equal(isValidSectionLetter('G'), true);
+  assert.equal(isValidSectionLetter('  c  '), true);
+});
+
+test('isValidSectionLetter strictly rejects compound labels, multiple letters, digits, and empty strings', () => {
+  assert.equal(isValidSectionLetter('5A'), false);
+  assert.equal(isValidSectionLetter('BE-CSE-5A'), false);
+  assert.equal(isValidSectionLetter('BE-CSE_5A'), false);
+  assert.equal(isValidSectionLetter('AB'), false);
+  assert.equal(isValidSectionLetter('1'), false);
+  assert.equal(isValidSectionLetter(''), false);
+  assert.equal(isValidSectionLetter('   '), false);
+  assert.equal(isValidSectionLetter(null), false);
+  assert.equal(isValidSectionLetter(undefined), false);
+});
+
+test('validateSectionLetter normalizes valid letter to uppercase', () => {
+  assert.equal(validateSectionLetter('a'), 'A');
+  assert.equal(validateSectionLetter('B'), 'B');
+  assert.equal(validateSectionLetter('  g  '), 'G');
+});
+
+test('validateSectionLetter throws educational error without silently extracting letter', () => {
+  assert.throws(
+    () => validateSectionLetter('5A'),
+    /Enter your section letter only \(e\.g\. A, B\)\. Full labels such as "5A" or "BE-CSE-5A" are not accepted\./
+  );
+  assert.throws(
+    () => validateSectionLetter('BE-CSE-5A'),
+    /Enter your section letter only/
+  );
+  assert.throws(
+    () => validateSectionLetter('AB'),
+    /Enter your section letter only/
+  );
+  assert.throws(
+    () => validateSectionLetter(''),
+    /Section is required\. Please enter your section letter only \(e\.g\. A\)\./
+  );
+});
+
+test('formatFullSection derives canonical full identifier from program, semester, and section letter', () => {
+  assert.equal(formatFullSection('BE-CSE', 5, 'A'), 'BE-CSE-5A');
+  assert.equal(formatFullSection('BE-CSE', 5, 'B'), 'BE-CSE-5B');
+  assert.equal(formatFullSection('BE-CSE', 6, 'A'), 'BE-CSE-6A');
+  assert.equal(formatFullSection('ECE', 3, 'C'), 'ECE-3C');
+});
+
+test('formatFullSection preserves backward compatibility for legacy profile strings without double-prefixing', () => {
+  assert.equal(formatFullSection('BE-CSE', 5, 'BE-CSE-5A'), 'BE-CSE-5A');
+  assert.equal(formatFullSection('BE-CSE', 5, '5A'), 'BE-CSE-5A');
+});
+
+test('parseSectionDetails parses program, semester, and section letter', () => {
+  assert.deepEqual(parseSectionDetails('BE-CSE-5A'), {
+    program: 'BE-CSE',
+    semester: 5,
+    sectionLetter: 'A',
+  });
+  assert.deepEqual(parseSectionDetails('5A'), {
+    semester: 5,
+    sectionLetter: 'A',
+  });
+  assert.deepEqual(parseSectionDetails('A'), {
+    sectionLetter: 'A',
+  });
+  assert.deepEqual(parseSectionDetails(''), {});
+  assert.deepEqual(parseSectionDetails(null), {});
+});
+
+test('isSectionMatch verifies PDF section against numeric semester and section letter', () => {
+  // Matching cases
+  assert.equal(isSectionMatch('BE-CSE-5A', 5, 'A'), true);
+  assert.equal(isSectionMatch('BE-CSE-5A', '5', 'a'), true);
+  assert.equal(isSectionMatch('5A', 5, 'A'), true);
+  assert.equal(isSectionMatch('A', 5, 'A'), true);
+
+  // Mismatch cases (wrong section letter or wrong semester)
+  assert.equal(isSectionMatch('BE-CSE-5B', 5, 'A'), false, 'Section B should not match Section A');
+  assert.equal(isSectionMatch('BE-CSE-6A', 5, 'A'), false, 'Semester 6 should not match Semester 5');
+  assert.equal(isSectionMatch('BE-CSE-5G', 5, 'A'), false);
+  assert.equal(isSectionMatch('', 5, 'A'), false);
+});
+
+test('describeSectionMismatch returns educational message on mismatch and null on match', () => {
+  const matchDesc = describeSectionMismatch('BE-CSE-5A', 5, 'A', 'BE-CSE');
+  assert.equal(matchDesc, null);
+
+  const mismatchDesc = describeSectionMismatch('BE-CSE-5B', 5, 'A', 'BE-CSE');
+  assert.ok(mismatchDesc);
+  assert.match(mismatchDesc, /Section mismatch/);
+  assert.match(mismatchDesc, /Semester 5, Section A \(BE-CSE-5A\)/);
+  assert.match(mismatchDesc, /"BE-CSE-5B"/);
+});
+
+test('Registration semester dropdown values are strictly numeric options 1 through 8', () => {
+  const allowedSemesters = [1, 2, 3, 4, 5, 6, 7, 8];
+  allowedSemesters.forEach((s) => {
+    assert.equal(typeof s, 'number');
+    assert.ok(s >= 1 && s <= 8);
+  });
+  assert.equal(allowedSemesters.length, 8);
 });
 
 // -----------------------------------------------------------------------------

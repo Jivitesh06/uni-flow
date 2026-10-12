@@ -7,7 +7,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import toast from 'react-hot-toast';
 
-import { deriveAcademicYears, normalizeSection } from '../../lib/collegeEmail.ts';
+import { deriveAcademicYears, normalizeSection, validateSectionLetter } from '../../lib/collegeEmail.ts';
 
 export function RegisterPage() {
   const { signUp } = useAuth();
@@ -23,7 +23,7 @@ export function RegisterPage() {
 
   // Structured Academic Student Details
   const [semester, setSemester] = useState<number>(5);
-  const [section, setSection] = useState('BE-CSE-5A');
+  const [section, setSection] = useState('A');
   const [universityId, setUniversityId] = useState('');
 
   async function handleSubmit(e: React.FormEvent) {
@@ -44,6 +44,14 @@ export function RegisterPage() {
       return;
     }
 
+    let validatedSection: string;
+    try {
+      validatedSection = validateSectionLetter(section);
+    } catch (err) {
+      toast.error((err as Error).message);
+      return;
+    }
+
     const trimmedRoll = universityId.trim();
     const derived = deriveAcademicYears(trimmedRoll, trimmedEmail);
 
@@ -52,7 +60,7 @@ export function RegisterPage() {
       await signUp(trimmedEmail, password, name, {
         universityId: trimmedRoll,
         semester: Number(semester) || 1,
-        section: normalizeSection(section),
+        section: validatedSection,
         batch: derived.admissionYear,
         expectedGraduationYear: derived.expectedGraduationYear,
         college: 'Chitkara University',
@@ -172,7 +180,7 @@ export function RegisterPage() {
                 >
                   {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
                     <option key={s} value={s}>
-                      Semester {s}
+                      {s}
                     </option>
                   ))}
                 </select>
@@ -183,11 +191,13 @@ export function RegisterPage() {
                   Section
                 </label>
                 <Input
-                  placeholder="e.g. BE-CSE-5A"
+                  placeholder="e.g. A"
                   value={section}
                   onChange={(e) => setSection(e.target.value)}
+                  maxLength={2}
                   required
                 />
+                <p className="text-[11px] text-gray-400 mt-1">Enter your section letter only.</p>
               </div>
             </div>
             <div>
