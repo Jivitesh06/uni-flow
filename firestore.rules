@@ -1,0 +1,161 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // Helper functions
+    // ============================================================
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+
+    function hasField(data, field) {
+      return field in data;
+    }
+
+    function isValidAttendanceStatus(status) {
+      return status in ['present', 'absent', 'not_marked', 'cancelled'];
+    }
+
+    function isValidAttendanceSource(source) {
+      return source in ['manual', 'email_import', 'baseline'];
+    }
+
+    // ============================================================
+    // Users collection
+    // ============================================================
+    match /users/{uid} {
+      allow read: if isSignedIn() && isOwner(uid);
+      allow create: if isSignedIn() && isOwner(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.attendanceTarget is number
+        && request.resource.data.attendanceTarget >= 50
+        && request.resource.data.attendanceTarget <= 100;
+      allow update: if isSignedIn() && isOwner(uid)
+        // Clients must not write privileged fields
+        && !('role' in request.resource.data)
+        && !('gmailAccessToken' in request.resource.data)
+        && !('gmailRefreshToken' in request.resource.data)
+        && !('refreshToken' in request.resource.data)
+        && !('_refreshToken' in request.resource.data)
+        && request.resource.data.attendanceTarget is number
+        && request.resource.data.attendanceTarget >= 50
+        && request.resource.data.attendanceTarget <= 100;
+      allow delete: if false; // Deletion only via Admin SDK
+
+      // Subjects subcollection
+      match /subjects/{subjectId} {
+        allow read, write: if isSignedIn() && isOwner(uid);
+      }
+
+      // Timetable subcollection
+      match /timetable/{slotId} {
+        allow read: if isSignedIn() && isOwner(uid);
+        allow create: if isSignedIn() && isOwner(uid)
+          && request.resource.data.uid == uid
+          && request.resource.data.dayOfWeek is int
+          && request.resource.data.dayOfWeek >= 0
+          && request.resource.data.dayOfWeek <= 6;
+        allow update: if isSignedIn() && isOwner(uid)
+          && request.resource.data.uid == uid;
+        allow delete: if isSignedIn() && isOwner(uid);
+      }
+
+      // Attendance subcollection
+      match /attendance/{recordId} {
+        allow read: if isSignedIn() && isOwner(uid);
+        allow create: if isSignedIn() && isOwner(uid)
+          && request.resource.data.uid == uid
+          && isValidAttendanceStatus(request.resource.data.status)
+          && isValidAttendanceSource(request.resource.data.source)
+          // Only manual source allowed from client
+          && request.resource.data.source == 'manual';
+        allow update: if isSignedIn() && isOwner(uid)
+          && request.resource.data.uid == uid
+          && isValidAttendanceStatus(request.resource.data.status)
+          // source must not change
+          && request.resource.data.source == resource.data.source;
+        allow delete: if isSignedIn() && isOwner(uid);
+      }
+
+      // Attendance baselines (read-only from client; written by backend)
+      match /attendanceBaselines/{baselineId} {
+        allow read: if isSignedIn() && isOwner(uid);
+        allow write: if false; // Written only by Admin SDK
+      }
+
+      // Notifications (read and mark-read from client; created by backend)
+      match /notifications/{notifId} {
+        allow read: if isSignedIn() && isOwner(uid);
+        allow update: if isSignedIn() && isOwner(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+        allow create: if false; // Created only by backend
+        allow delete: if isSignedIn() && isOwner(uid);
+      }
+
+      // Email connections (status & filter settings readable by owner; tokens NEVER stored here)
+      match /emailConnections/{connId} {
+        allow read: if isSignedIn() && isOwner(uid);
+        allow create: if false; // Created strictly by backend OAuth flow
+        // Clients can update only configurable filter preferences
+        allow update: if isSignedIn() && isOwner(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['senderFilter', 'subjectKeywords', 'filenameFilter'])
+          && !('refreshToken' in request.resource.data)
+          && !('_refreshToken' in request.resource.data);
+        allow delete: if isSignedIn() && isOwner(uid);
+      }
+
+      // Email secrets (private server-only; client reads and writes strictly forbidden)
+      match /emailSecrets/{secretId} {
+        allow read, write: if false; // Accessible ONLY via Cloud Functions (Admin SDK)
+      }
+
+      // Email sync settings subcollection
+      match /emailSyncSettings/{settingId} {
+        allow read, write: if isSignedIn() && isOwner(uid);
+      }
+
+      // Timetable history subcollection (archived schedules)
+      match /timetableHistory/{historyId} {
+        allow read: if isSignedIn() && isOwner(uid);
+        allow write: if false; // Created via backend / apply function
+      }
+    }
+
+    // ============================================================
+    // Timetable import jobs (created by client, processed by backend)
+    // ============================================================
+    match /timetableImportJobs/{jobId} {
+      allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create: if isSignedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status in ['pending', 'completed', 'requires_manual_review'];
+      allow update: if false; // Updated by backend only
+      allow delete: if false;
+    }
+
+    // ============================================================
+    // Timetable revisions (backend-managed, student can review/decide)
+    // ============================================================
+    match /timetableRevisions/{revId} {
+      allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
+      // Client can only update status (applied / rejected) and review notes
+      allow update: if isSignedIn()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewNotes', 'appliedAt', 'rejectedAt']);
+      allow create, delete: if false; // Backend only
+    }
+
+    // ============================================================
+    // Audit logs (backend only)
+    // ============================================================
+    match /auditLogs/{logId} {
+      allow read, write: if false;
+    }
+  }
+}

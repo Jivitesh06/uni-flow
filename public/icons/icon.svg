@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#1d4ed8" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="115" fill="url(#bg)"/>
+  <!-- Graduation Cap -->
+  <polygon points="256,120 440,210 256,300 72,210" fill="#ffffff"/>
+  <path d="M140,245 L140,320 C140,365 372,365 372,320 L372,245 C340,270 295,285 256,285 C217,285 172,270 140,245 Z" fill="#ffffff"/>
+  <!-- Tassel -->
+  <circle cx="256" cy="210" r="14" fill="#f59e0b"/>
+  <path d="M256,210 Q380,215 425,275 L425,340" stroke="#f59e0b" stroke-width="12" fill="none" stroke-linecap="round"/>
+  <polygon points="418,340 432,340 435,370 415,370" fill="#f59e0b"/>
+</svg>
