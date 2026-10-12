@@ -21,6 +21,7 @@ import {
   onSnapshot,
   doc,
   updateDoc,
+  addDoc,
   serverTimestamp,
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
@@ -28,18 +29,22 @@ import { db, functions } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useCollection } from '../hooks/useFirestore';
 import { RevisionReviewCard } from '../components/timetable/RevisionReviewCard';
+import { PdfTimetableUploadCard } from '../components/timetable/PdfTimetableUploadCard';
+import type { ExtractedLecture } from '../lib/chitkaraTimetableParser';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
-import type { EmailConnection, TimetableImportJob, TimetableRevision } from '../types';
+import type { EmailConnection, TimetableImportJob, TimetableRevision, TimetableSlot, Subject } from '../types';
 
 export function EmailSyncPage() {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile, updateUserProfile } = useAuth();
   const uid = currentUser?.uid ?? '';
   const { data: connections } = useCollection<EmailConnection>(`users/${uid}/emailConnections`);
+  const { data: currentSlots } = useCollection<TimetableSlot>(`users/${uid}/timetable`);
+  const { data: subjects } = useCollection<Subject>(`users/${uid}/subjects`);
   const [revisions, setRevisions] = useState<TimetableRevision[]>([]);
   const [importJobs, setImportJobs] = useState<TimetableImportJob[]>([]);
 
@@ -229,6 +234,127 @@ export function EmailSyncPage() {
     }
   }
 
+  async function handleApprovePdfTimetable(
+    lectures: ExtractedLecture[],
+    effectiveDate: string,
+    section: string,
+    preserveManual: boolean
+  ) {
+    if (!uid) {
+      toast.error('You must be signed in to save your timetable.');
+      return;
+    }
+
+    // 1. Ensure all extracted subjects exist in /users/{uid}/subjects
+    const existingSubjectMap = new Map<string, Subject>();
+    subjects.forEach((s) => existingSubjectMap.set(s.code.toUpperCase(), s));
+
+    for (const lec of lectures) {
+      const codeUpper = lec.subjectCode.toUpperCase();
+      if (!existingSubjectMap.has(codeUpper)) {
+        const newSubRef = await addDoc(collection(db, `users/${uid}/subjects`), {
+          uid,
+          code: codeUpper,
+          name: lec.subjectName || codeUpper,
+          faculty: lec.faculty || undefined,
+          credits: 4,
+          color: lec.color || '#3b82f6',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+        existingSubjectMap.set(codeUpper, {
+          id: newSubRef.id,
+          uid,
+          code: codeUpper,
+          name: lec.subjectName || codeUpper,
+          faculty: lec.faculty,
+          credits: 4,
+          color: lec.color || '#3b82f6',
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          createdAt: serverTimestamp() as any,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          updatedAt: serverTimestamp() as any,
+        });
+      }
+    }
+
+    // 2. Deactivate previous non-manual timetable slots
+    const slotsToDeactivate = currentSlots.filter(
+      (s) => s.isActive && !(preserveManual && s.isManual)
+    );
+    for (const slot of slotsToDeactivate) {
+      await updateDoc(doc(db, `users/${uid}/timetable/${slot.id}`), {
+        isActive: false,
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    // 3. Add new parsed slots
+    for (const lec of lectures) {
+      const sub = existingSubjectMap.get(lec.subjectCode.toUpperCase());
+      await addDoc(collection(db, `users/${uid}/timetable`), {
+        uid,
+        subjectId: sub?.id || 'gen',
+        subjectName: lec.subjectName,
+        subjectCode: lec.subjectCode,
+        faculty: lec.faculty || undefined,
+        room: lec.room || undefined,
+        dayOfWeek: lec.dayOfWeek,
+        startTime: lec.startTime,
+        endTime: lec.endTime,
+        color: lec.color || sub?.color || '#3b82f6',
+        isActive: true,
+        isManual: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    // 4. Update student profile section if necessary
+    if (userProfile?.section !== section) {
+      await updateUserProfile({ section });
+    }
+
+    // 5. Update local dashboard cache for instant startup
+    try {
+      const updatedSlotsForCache = [
+        ...(preserveManual ? currentSlots.filter((s) => s.isActive && s.isManual) : []),
+        ...lectures.map((l) => ({
+          id: l.id,
+          uid,
+          subjectId: existingSubjectMap.get(l.subjectCode.toUpperCase())?.id || 'gen',
+          subjectName: l.subjectName,
+          subjectCode: l.subjectCode,
+          faculty: l.faculty,
+          room: l.room,
+          dayOfWeek: l.dayOfWeek,
+          startTime: l.startTime,
+          endTime: l.endTime,
+          color: l.color || '#3b82f6',
+          isActive: true,
+        })),
+      ];
+      localStorage.setItem(`uniflow_timetable_cache_${uid}`, JSON.stringify(updatedSlotsForCache));
+    } catch (e) {
+      console.warn('Could not update localStorage cache:', e);
+    }
+
+    // 6. Record import job in /timetableImportJobs
+    try {
+      await addDoc(collection(db, 'timetableImportJobs'), {
+        uid,
+        status: 'completed',
+        source: 'pdf',
+        attachmentFilename: `TimeTable_${section}_${effectiveDate.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`,
+        parsedSlotsCount: lectures.length,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    } catch (e) {
+      console.warn('Could not create timetableImportJob record:', e);
+    }
+  }
+
   const pendingRevisions = revisions.filter((r) => r.status === 'pending_review');
   const pastRevisions = revisions.filter((r) => r.status !== 'pending_review');
 
@@ -236,12 +362,19 @@ export function EmailSyncPage() {
     <div className="space-y-6 max-w-5xl mx-auto">
       <div>
         <h2 className="text-2xl font-black text-gray-900 dark:text-white">
-          Weekly Timetable Email Sync & Revisions
+          Timetable Import & Synchronization
         </h2>
         <p className="text-sm text-gray-500">
-          Scans weekly PDF timetable emails, automatically detects revisions, and protects past attendance records
+          Upload official Chitkara PDFs, isolate your section, preview schedule diffs, and sync changes seamlessly
         </p>
       </div>
+
+      {/* PDF Timetable Upload Card - Primary Working Import Flow */}
+      <PdfTimetableUploadCard
+        currentSlots={currentSlots}
+        userSection={userProfile?.section}
+        onApprove={handleApprovePdfTimetable}
+      />
 
       {/* Backend & Deployment Status Guide */}
       {!activeConn && (

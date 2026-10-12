@@ -33,6 +33,9 @@ export interface TimetableSlot {
   endTime: string;   // HH:mm
   color: string;
   isActive: boolean;
+  isManual?: boolean;
+  section?: string;
+  effectiveDate?: string;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

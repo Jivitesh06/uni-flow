@@ -1,0 +1,468 @@
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configure pdfjs worker for Vite / browser environment
+if (typeof window !== 'undefined' && pdfjsLib.GlobalWorkerOptions) {
+  try {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+      'pdfjs-dist/build/pdf.worker.min.mjs',
+      import.meta.url
+    ).toString();
+  } catch {
+    // Fallback if URL constructor fails in test environment
+  }
+}
+
+export interface ExtractedLecture {
+  id: string;
+  dayOfWeek: number; // 0=Sun, 1=Mon, 2=Tue, ..., 6=Sat
+  dayName: string;
+  startTime: string; // HH:mm 24h
+  endTime: string;   // HH:mm 24h
+  subjectCode: string;
+  subjectName: string;
+  faculty: string;
+  room: string;
+  section: string;
+  color?: string;
+}
+
+export interface ChitkaraTimetableParseResult {
+  success: boolean;
+  sectionsFound: string[];
+  selectedSection: string;
+  generationDate?: string;
+  effectiveDate?: string;
+  totalLectures: number;
+  lectures: ExtractedLecture[];
+  isScanned?: boolean;
+  warnings: string[];
+}
+
+export const CHITKARA_SUBJECT_NAMES: Record<string, string> = {
+  'ADI': 'Applied Design & Innovation',
+  'ADI-FA': 'Applied Design & Innovation (Financial Apps)',
+  'NALR-I': 'Numerical Analysis & Linear Reasoning I',
+  'SD': 'System Design & Architecture',
+  'AAIPD': 'Applied AI Product Development',
+};
+
+const SUBJECT_COLORS: Record<string, string> = {
+  'ADI': '#3b82f6',     // Blue
+  'ADI-FA': '#6366f1',  // Indigo
+  'NALR-I': '#8b5cf6',  // Purple
+  'SD': '#10b981',      // Emerald
+  'AAIPD': '#f59e0b',   // Amber
+};
+
+const DAY_MAP = [
+  { code: 'Mo', name: 'Monday', dayOfWeek: 1 },
+  { code: 'Tu', name: 'Tuesday', dayOfWeek: 2 },
+  { code: 'We', name: 'Wednesday', dayOfWeek: 3 },
+  { code: 'Th', name: 'Thursday', dayOfWeek: 4 },
+  { code: 'Fr', name: 'Friday', dayOfWeek: 5 },
+  { code: 'Sa', name: 'Saturday', dayOfWeek: 6 },
+];
+
+/**
+ * Normalizes 12h time strings like "1:40" or "9:30" to standard 24h "HH:mm"
+ */
+export function normalizeTimeString24(raw: string): string {
+  const match = raw.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return raw.trim();
+  let h = parseInt(match[1], 10);
+  const m = match[2];
+  // College classes starting at 1, 2, 3, 4 are in the afternoon PM (13:00 to 16:00)
+  if (h >= 1 && h <= 7) {
+    h += 12;
+  }
+  return `${h.toString().padStart(2, '0')}:${m}`;
+}
+
+/**
+ * Parses effective date from filename or string
+ */
+export function extractEffectiveDate(filename: string, textContent: string = ''): string | undefined {
+  // Check filename first for (wef DD.MM.YYYY) or (wef DD-MM-YYYY)
+  const fnMatch = filename.match(/wef\s*[:\-]?\s*(\d{1,2}[./-]\d{1,2}[./-]\d{2,4})/i);
+  if (fnMatch) {
+    return fnMatch[1].replace(/[./]/g, '-');
+  }
+
+  // Check text content for w.e.f. date
+  const textMatch = textContent.match(/w\.?e\.?f\.?\s*:?\s*(\d{1,2}[./-]\d{1,2}[./-]\d{2,4})/i);
+  if (textMatch) {
+    return textMatch[1].replace(/[./]/g, '-');
+  }
+
+  // Check for textual month date e.g. "October 12, 2026"
+  const monthMatch = (filename + ' ' + textContent).match(
+    /\b((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}(?:st|nd|rd|th)?,\s*\d{4})\b/i
+  );
+  if (monthMatch) {
+    return monthMatch[1];
+  }
+
+  return undefined;
+}
+
+interface RawTextItem {
+  str: string;
+  x: number;
+  y: number;
+}
+
+/**
+ * Core Parser: Parses a Chitkara aSc Timetables PDF document.
+ * Operates 100% in-browser using pdfjs-dist. Zero server uploads.
+ */
+export async function parseChitkaraPdf(
+  dataBuffer: ArrayBuffer | Uint8Array,
+  targetSection?: string,
+  filename: string = ''
+): Promise<ChitkaraTimetableParseResult> {
+  const warnings: string[] = [];
+  
+  // Always slice a fresh copy so pdfjs worker does not detach the caller's original buffer
+  const uint8 = new Uint8Array(
+    dataBuffer instanceof Uint8Array
+      ? dataBuffer.slice().buffer
+      : dataBuffer.slice(0)
+  );
+
+  let doc: pdfjsLib.PDFDocumentProxy;
+  try {
+    const loadingTask = pdfjsLib.getDocument({
+      data: uint8,
+      useSystemFonts: true,
+    });
+    doc = await loadingTask.promise;
+  } catch (err) {
+    return {
+      success: false,
+      sectionsFound: [],
+      selectedSection: targetSection || '',
+      totalLectures: 0,
+      lectures: [],
+      isScanned: true,
+      warnings: [`Failed to read PDF document: ${(err as Error).message}. Ensure it is a valid PDF file.`],
+    };
+  }
+
+  const numPages = doc.numPages;
+  if (numPages === 0) {
+    return {
+      success: false,
+      sectionsFound: [],
+      selectedSection: targetSection || '',
+      totalLectures: 0,
+      lectures: [],
+      warnings: ['PDF contains 0 pages.'],
+    };
+  }
+
+  // Pass 1: Scan all pages to identify available sections and generation date
+  const pageSections: { pageNum: number; section: string; generationDate?: string; rawItems: RawTextItem[] }[] = [];
+  let detectedGenDate: string | undefined;
+
+  for (let pNum = 1; pNum <= numPages; pNum++) {
+    const page = await doc.getPage(pNum);
+    const tc = await page.getTextContent();
+    const rawItems: RawTextItem[] = tc.items
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((it: any) => ({
+        str: (it.str || '').trim(),
+        x: Math.round(it.transform?.[4] || 0),
+        y: Math.round(it.transform?.[5] || 0),
+      }))
+      .filter((it) => it.str.length > 0);
+
+    // Identify Section
+    const secItem = rawItems.find((it) => /BE-CSE-[0-9A-Z]+/i.test(it.str));
+    const secMatch = secItem?.str.match(/BE-CSE-[0-9A-Z]+/i);
+    const section = secMatch ? secMatch[0].toUpperCase() : `Page ${pNum}`;
+
+    // Identify Generation Date
+    const genItem = rawItems.find((it) => it.str.includes('Timetable generated:'));
+    const genDate = genItem ? genItem.str.replace('Timetable generated:', '').trim() : undefined;
+    if (genDate && !detectedGenDate) {
+      detectedGenDate = genDate;
+    }
+
+    pageSections.push({ pageNum: pNum, section, generationDate: genDate, rawItems });
+  }
+
+  const sectionsFound = pageSections.map((p) => p.section);
+
+  // If user selected a section, find that page. Otherwise default to user selection or Page 1.
+  let selectedPage = pageSections[0];
+  if (targetSection) {
+    const found = pageSections.find((p) => p.section.toUpperCase() === targetSection.toUpperCase());
+    if (found) {
+      selectedPage = found;
+    } else {
+      warnings.push(`Section "${targetSection}" was not found in the PDF. Defaulting to ${selectedPage.section}.`);
+    }
+  }
+
+  const effectiveDate = extractEffectiveDate(filename) || detectedGenDate;
+
+  // Pass 2: Extract timetable grid on the selected page
+  const items = selectedPage.rawItems;
+
+  // Check if page has sufficient text content (isScanned detection)
+  if (items.length < 15) {
+    return {
+      success: false,
+      sectionsFound,
+      selectedSection: selectedPage.section,
+      generationDate: detectedGenDate,
+      effectiveDate,
+      totalLectures: 0,
+      lectures: [],
+      isScanned: true,
+      warnings: ['This page appears to be a scanned image without selectable text. Text extraction cannot proceed.'],
+    };
+  }
+
+  // 1. Dynamic Period Detection from Time Headers
+  const periodHeaderItems = items.filter((it) => /(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/.test(it.str));
+  periodHeaderItems.sort((a, b) => a.x - b.x);
+
+  const periods = periodHeaderItems.map((p, idx) => {
+    const match = p.str.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
+    const rawStart = match ? match[1] : '09:00';
+    const rawEnd = match ? match[2] : '10:00';
+    const prevX = idx > 0 ? (periodHeaderItems[idx - 1].x + p.x) / 2 : p.x - 45;
+    const nextX = idx < periodHeaderItems.length - 1 ? (p.x + periodHeaderItems[idx + 1].x) / 2 : p.x + 45;
+
+    return {
+      num: idx + 1,
+      startTime: normalizeTimeString24(rawStart),
+      endTime: normalizeTimeString24(rawEnd),
+      minX: prevX,
+      maxX: nextX,
+      centerX: p.x,
+    };
+  });
+
+  // Fallback if period headers were not matched by regex
+  if (periods.length === 0) {
+    warnings.push('Period time headers could not be determined automatically. Using standard 8-period timetable slots.');
+    const standardPeriods = [
+      { num: 1, startTime: '09:30', endTime: '10:20', minX: 85, maxX: 178 },
+      { num: 2, startTime: '10:20', endTime: '11:10', minX: 178, maxX: 270 },
+      { num: 3, startTime: '11:10', endTime: '12:00', minX: 270, maxX: 362 },
+      { num: 4, startTime: '12:00', endTime: '12:50', minX: 362, maxX: 454 },
+      { num: 5, startTime: '12:50', endTime: '13:40', minX: 454, maxX: 546 },
+      { num: 6, startTime: '13:40', endTime: '14:30', minX: 546, maxX: 638 },
+      { num: 7, startTime: '14:30', endTime: '15:20', minX: 638, maxX: 730 },
+      { num: 8, startTime: '15:20', endTime: '16:10', minX: 730, maxX: 825 },
+    ];
+    periods.push(...standardPeriods.map(p => ({ ...p, centerX: (p.minX + p.maxX) / 2 })));
+  }
+
+  // 2. Dynamic Day Detection from Day Labels
+  const detectedDays: { code: string; name: string; dayOfWeek: number; y: number }[] = [];
+  DAY_MAP.forEach((d) => {
+    const item = items.find((it) => it.str === d.code);
+    if (item) {
+      detectedDays.push({ ...d, y: item.y });
+    }
+  });
+  detectedDays.sort((a, b) => b.y - a.y); // top to bottom
+
+  const daysWithBounds = detectedDays.map((d, idx) => {
+    const prevY = idx > 0 ? (detectedDays[idx - 1].y + d.y) / 2 : d.y + 38;
+    const nextY = idx < detectedDays.length - 1 ? (d.y + detectedDays[idx + 1].y) / 2 : d.y - 38;
+    return { ...d, maxY: prevY, minY: nextY };
+  });
+
+  // 3. Grid Extraction per Day Band
+  const lectures: ExtractedLecture[] = [];
+
+  daysWithBounds.forEach((day) => {
+    // Exclude Saturday if no academic items exist
+    if (day.dayOfWeek === 6) return;
+
+    // Filter items inside this day row (exclusive of lower border to prevent bleeding from the day below)
+    const itemsInDay = items.filter(
+      (it) =>
+        it.y > day.minY &&
+        it.y <= day.maxY &&
+        it.x > 60 &&
+        !it.str.includes('aSc Timetables') &&
+        !it.str.includes('Timetable generated:')
+    );
+
+    // Group items into Period Columns
+    const rawBlocks = periods.map((p) => {
+      const inP = itemsInDay.filter((it) => it.x >= p.minX && it.x < p.maxX);
+      let subject = '';
+      let faculty = '';
+      let room = '';
+
+      inP.forEach((it) => {
+        const s = it.str.trim();
+        if (/^(?:Dr|Mr|Ms|Prof)\.?\s+/i.test(s)) {
+          faculty = s;
+        } else if (/^(?:RJ|CVR|LH|CR|LAB)[0-9A-Z]+/i.test(s)) {
+          room = s;
+        } else if (/^[A-Z0-9\-_]{2,12}$/.test(s) && !['MO', 'TU', 'WE', 'TH', 'FR', 'SA'].includes(s.toUpperCase())) {
+          subject = s;
+        }
+      });
+
+      return { period: p, items: inP, subject, faculty, room };
+    });
+
+    // Merge multi-period classes across consecutive blocks
+    let i = 0;
+    while (i < rawBlocks.length) {
+      const cur = rawBlocks[i];
+      if (cur.items.length === 0) {
+        i++;
+        continue;
+      }
+
+      const startP = cur.period;
+      let endP = cur.period;
+      let subject = cur.subject;
+      let faculty = cur.faculty;
+      let room = cur.room;
+
+      // Check if consecutive block belongs to this same lecture (merged consecutive cell)
+      if (i + 1 < rawBlocks.length && rawBlocks[i + 1].items.length > 0) {
+        const next = rawBlocks[i + 1];
+        const isSplitCard =
+          (!subject && cur.room && next.subject) ||
+          (!next.room && next.subject && cur.room) ||
+          (!faculty && cur.subject && next.faculty) ||
+          (!next.subject && !next.room && next.faculty);
+
+        if (isSplitCard) {
+          endP = next.period;
+          subject = subject || next.subject;
+          faculty = faculty || next.faculty;
+          room = room || next.room;
+          i++; // Consume merged block
+        }
+      }
+
+      if (subject || room || faculty) {
+        const code = subject || 'LEC';
+        const fullName = CHITKARA_SUBJECT_NAMES[code] || code;
+        const color = SUBJECT_COLORS[code] || '#3b82f6';
+
+        lectures.push({
+          id: `slot_${day.dayOfWeek}_${startP.startTime.replace(':', '')}`,
+          dayOfWeek: day.dayOfWeek,
+          dayName: day.name,
+          startTime: startP.startTime,
+          endTime: endP.endTime,
+          subjectCode: code,
+          subjectName: fullName,
+          faculty: faculty || 'Department Faculty',
+          room: room || 'TBD',
+          section: selectedPage.section,
+          color,
+        });
+      }
+      i++;
+    }
+  });
+
+  return {
+    success: lectures.length > 0,
+    sectionsFound,
+    selectedSection: selectedPage.section,
+    generationDate: detectedGenDate,
+    effectiveDate,
+    totalLectures: lectures.length,
+    lectures,
+    warnings,
+  };
+}
+
+export interface TimetableSlotLike {
+  id?: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  subjectCode: string;
+  subjectName?: string;
+  faculty?: string;
+  room?: string;
+  isManual?: boolean;
+}
+
+export interface TimetableDiffSummary {
+  added: ExtractedLecture[];
+  changed: {
+    oldSlot: TimetableSlotLike;
+    newSlot: ExtractedLecture;
+    changeReason: string;
+  }[];
+  cancelled: TimetableSlotLike[];
+  unchanged: ExtractedLecture[];
+}
+
+/**
+ * Computes side-by-side diff between existing timetable slots and extracted lectures
+ */
+export function computeLectureDiff(
+  currentSlots: TimetableSlotLike[],
+  newLectures: ExtractedLecture[],
+  preserveManual: boolean = true
+): TimetableDiffSummary {
+  const added: ExtractedLecture[] = [];
+  const changed: { oldSlot: TimetableSlotLike; newSlot: ExtractedLecture; changeReason: string }[] = [];
+  const cancelled: TimetableSlotLike[] = [];
+  const unchanged: ExtractedLecture[] = [];
+
+  const activeExisting = currentSlots.filter((s) => !(preserveManual && s.isManual));
+  const existingMap = new Map<string, TimetableSlotLike>();
+  activeExisting.forEach((s) => {
+    existingMap.set(`${s.dayOfWeek}_${s.startTime}`, s);
+  });
+
+  const matchedKeys = new Set<string>();
+
+  newLectures.forEach((newSlot) => {
+    const key = `${newSlot.dayOfWeek}_${newSlot.startTime}`;
+    matchedKeys.add(key);
+    const oldSlot = existingMap.get(key);
+
+    if (!oldSlot) {
+      added.push(newSlot);
+    } else {
+      const reasons: string[] = [];
+      if (oldSlot.subjectCode.toUpperCase() !== newSlot.subjectCode.toUpperCase()) {
+        reasons.push(`Subject: ${oldSlot.subjectCode} ➔ ${newSlot.subjectCode}`);
+      }
+      if ((oldSlot.room || '') !== (newSlot.room || '') && (oldSlot.room || newSlot.room)) {
+        reasons.push(`Room: ${oldSlot.room || 'None'} ➔ ${newSlot.room || 'None'}`);
+      }
+      if ((oldSlot.faculty || '') !== (newSlot.faculty || '') && (oldSlot.faculty || newSlot.faculty)) {
+        reasons.push(`Faculty: ${oldSlot.faculty || 'None'} ➔ ${newSlot.faculty || 'None'}`);
+      }
+      if (oldSlot.endTime !== newSlot.endTime) {
+        reasons.push(`End time: ${oldSlot.endTime} ➔ ${newSlot.endTime}`);
+      }
+
+      if (reasons.length > 0) {
+        changed.push({ oldSlot, newSlot, changeReason: reasons.join('; ') });
+      } else {
+        unchanged.push(newSlot);
+      }
+    }
+  });
+
+  existingMap.forEach((oldSlot, key) => {
+    if (!matchedKeys.has(key)) {
+      cancelled.push(oldSlot);
+    }
+  });
+
+  return { added, changed, cancelled, unchanged };
+}
+

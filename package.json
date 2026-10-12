@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "node src/lib/testRunner.mjs && node scripts/test-weekly-sync.mjs && node scripts/test-email-verification.mjs && node scripts/test-auth-errors.mjs && node scripts/test-auth-scenarios.mjs && node scripts/test-live-dashboard.mjs && node scripts/test-attendance-baseline.mjs"
+    "test": "node src/lib/testRunner.mjs && node scripts/test-weekly-sync.mjs && node scripts/test-email-verification.mjs && node scripts/test-auth-errors.mjs && node scripts/test-auth-scenarios.mjs && node scripts/test-live-dashboard.mjs && node scripts/test-attendance-baseline.mjs && node --experimental-strip-types scripts/test-pdf-parser.mjs"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.1",
@@ -30,6 +30,7 @@
     "firebase": "^10.14.1",
     "framer-motion": "^11.11.17",
     "lucide-react": "^0.460.0",
+    "pdfjs-dist": "^6.4.299",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hot-toast": "^2.4.1",
