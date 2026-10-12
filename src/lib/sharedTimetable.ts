@@ -20,6 +20,7 @@ import {
   Firestore,
 } from 'firebase/firestore';
 import { normalizeSection, normalizeSemester, formatFullSection } from './collegeEmail.ts';
+import { SEEDED_5TH_SEM_TIMETABLES } from '../data/seededSharedTimetables.ts';
 import type { TimetableSlot, TimetableGroupScope } from '../types';
 
 export interface TimetableGroupParams {
@@ -149,15 +150,23 @@ export function computeTimetableContentHash(slots: SharedSlot[], effectiveDate: 
  * Local offline cache helpers for shared timetables
  */
 export function getSharedTimetableCache(groupId: string): SharedTimetableDoc | null {
-  if (typeof window === 'undefined' || !window.localStorage) return null;
-  try {
-    const raw = window.localStorage.getItem(`uniflow_shared_tt_${groupId}`);
-    if (raw) {
-      return JSON.parse(raw) as SharedTimetableDoc;
+  // 1. Check local storage cache (offline copy or updated version from Firestore)
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const raw = window.localStorage.getItem(`uniflow_shared_tt_${groupId}`);
+      if (raw) {
+        return JSON.parse(raw) as SharedTimetableDoc;
+      }
+    } catch {
+      // Ignore cache parse error safely
     }
-  } catch {
-    // Ignore cache parse error
   }
+
+  // 2. Fall back to pre-seeded common dataset for this exact group ID if available
+  if (SEEDED_5TH_SEM_TIMETABLES && SEEDED_5TH_SEM_TIMETABLES[groupId]) {
+    return SEEDED_5TH_SEM_TIMETABLES[groupId];
+  }
+
   return null;
 }
 

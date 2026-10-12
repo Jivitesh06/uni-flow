@@ -131,7 +131,7 @@ export function loadGisScript(): Promise<void> {
 export async function requestGmailAccessToken(clientId: string): Promise<string> {
   if (!clientId || clientId.trim() === '' || clientId.includes('YOUR_GOOGLE_CLIENT_ID')) {
     throw new Error(
-      'Google Client ID is not configured. Set VITE_GOOGLE_CLIENT_ID in your .env file or use direct PDF upload below.'
+      'Gmail OAuth is optional and not currently configured by the administrator. Your timetable is automatically provided via the central shared database.'
     );
   }
 

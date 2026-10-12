@@ -75,18 +75,12 @@ export function EmailSyncPage() {
   const [syncing, setSyncing] = useState(false);
   const [downloadingAttachmentId, setDownloadingAttachmentId] = useState<string | null>(null);
 
-  // Custom client ID override modal (for development / testing before setting in .env)
-  const [customClientId, setCustomClientId] = useState('');
-  const [showConfigModal, setShowConfigModal] = useState(false);
-
   // Filter configurations
   const [senderFilter, setSenderFilter] = useState(DEFAULT_CHITKARA_CSED_SENDER);
   const [subjectPrefix, setSubjectPrefix] = useState(DEFAULT_CHITKARA_SUBJECT_PREFIX);
 
-  const googleClientId =
-    customClientId.trim() ||
-    (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) ||
-    '';
+  // Developer-configured OAuth Web Client ID (from environment)
+  const googleClientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || '';
 
   // Listen to timetableRevisions
   useEffect(() => {
@@ -132,7 +126,10 @@ export function EmailSyncPage() {
     }
 
     if (!googleClientId && !overrideToken) {
-      setShowConfigModal(true);
+      toast(
+        'Gmail auto-sync is an optional developer feature. Your official timetable is already synced and active via Shared Timetable.',
+        { icon: 'ℹ️', duration: 5000 }
+      );
       return;
     }
 
@@ -394,6 +391,27 @@ export function EmailSyncPage() {
         </p>
       </div>
 
+      {/* Shared Timetable Primary Source Banner */}
+      <Card className="border-blue-200 dark:border-blue-900/50 bg-gradient-to-r from-blue-50/80 via-indigo-50/50 to-white dark:from-gray-900 dark:via-blue-950/20 dark:to-gray-900 shadow-sm">
+        <CardContent className="p-4 sm:p-5 flex items-start gap-3.5">
+          <div className="p-2.5 rounded-xl bg-blue-600 text-white shadow-sm shrink-0 mt-0.5">
+            <CheckCircle2 className="w-5 h-5" />
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+                Shared Timetable Active (Primary Source)
+              </h3>
+              <Badge variant="success" className="text-[10px]">Zero Student Setup</Badge>
+            </div>
+            <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+              Your official section timetable is provided automatically from the common university database.
+              Students do not need to configure Google Cloud Console, enter Google Client IDs, or connect Gmail to view and manage their class timetable.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Account Mismatch Error Banner */}
       {accountMismatchError && (
         <Card className="border-red-300 dark:border-red-900/60 bg-red-50/70 dark:bg-red-950/30">
@@ -550,19 +568,15 @@ export function EmailSyncPage() {
             </div>
           )}
 
-          {/* Fallback Note */}
+          {/* Architecture Status Note */}
           <div className="flex items-center justify-between text-xs text-gray-500 pt-1 border-t border-gray-100 dark:border-gray-800">
             <span className="flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              100% Free Tier Compatible &bull; No Firebase Blaze billing &bull; Tokens never touch server
+              100% Free Tier Compatible &bull; Zero Student Configuration &bull; Secure Shared Database
             </span>
-            <button
-              type="button"
-              onClick={() => setShowConfigModal(true)}
-              className="text-blue-600 dark:text-blue-400 hover:underline font-semibold"
-            >
-              Configure Google Client ID
-            </button>
+            <span className="text-gray-400 font-mono text-[11px]">
+              {googleClientId ? 'Admin OAuth Configured' : 'Optional Discovery Mode'}
+            </span>
           </div>
         </CardContent>
       </Card>
@@ -578,42 +592,29 @@ export function EmailSyncPage() {
         onApprove={handleApprovePdfTimetable}
       />
 
-      {/* Google Cloud Console Setup & Free Tier Guide Card */}
+      {/* Shared Timetable Architecture Overview Card */}
       <Card className="border-gray-200 dark:border-gray-800">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-bold flex items-center gap-2 text-gray-900 dark:text-white">
             <Info className="w-4 h-4 text-blue-600" />
-            Google Cloud Console OAuth Setup (Free-Tier Testing Mode)
+            Timetable Synchronization Architecture
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
           <p>
-            To enable client-side Gmail access for Chitkara students without expensive third-party security audits (CASA Tier 2):
+            UniFlow operates on a shared-timetable-first model designed for frictionless student onboarding:
           </p>
-          <ol className="list-decimal pl-5 space-y-1.5">
+          <ul className="list-disc pl-5 space-y-1.5">
             <li>
-              <strong>Google Cloud Console:</strong> In project <code>uniflow-b7a88</code>, enable the <em>Gmail API</em>.
+              <strong>Instant Common Database:</strong> Timetables for registered sections (e.g. BE-CSE-5A through 5G) are maintained in the central university database and load automatically upon login.
             </li>
             <li>
-              <strong>OAuth Consent Screen:</strong> Set User Type to <strong>External</strong> and Publishing Status to <strong>Testing</strong>.
+              <strong>Zero Student Setup:</strong> Students never need to register Google Cloud projects, manage API keys, or configure OAuth credentials.
             </li>
             <li>
-              <strong>Authorized Test Users:</strong> Add student college emails (e.g. <code>*@chitkarauniversity.edu.in</code>). Google allows up to <strong>100 test users free of charge</strong> without verification.
+              <strong>Optional Departmental Auto-Discovery:</strong> University IT administrators can optionally configure <code>VITE_GOOGLE_CLIENT_ID</code> in the deployment environment to enable direct in-memory email parsing for revision notices.
             </li>
-            <li>
-              <strong>OAuth 2.0 Web Client ID:</strong> Create credentials with Authorized JavaScript Origins:
-              <div className="flex gap-2 my-1 font-mono text-[11px]">
-                <code className="p-1 bg-gray-100 dark:bg-gray-800 rounded">http://localhost:5173</code>
-                <code className="p-1 bg-gray-100 dark:bg-gray-800 rounded">https://uniflow-b7a88.web.app</code>
-              </div>
-            </li>
-            <li>
-              <strong>Set Client ID:</strong> Add <code>VITE_GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com</code> into <code>.env</code> or via the configuration button above.
-            </li>
-          </ol>
-          <div className="p-3 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 text-[11px] text-blue-900 dark:text-blue-300">
-            💡 <strong>User-Initiated Sync:</strong> Gmail sync is entirely user-initiated client-side when you click "Connect College Gmail" or "Re-scan Gmail". No automated background pollers run while the app is closed.
-          </div>
+          </ul>
         </CardContent>
       </Card>
 
@@ -677,52 +678,6 @@ export function EmailSyncPage() {
           )}
         </CardContent>
       </Card>
-
-      {/* Google Client ID Modal */}
-      {showConfigModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200 dark:border-gray-800 space-y-4">
-            <h3 className="text-base font-bold text-gray-900 dark:text-white">
-              Google OAuth Client ID Configuration
-            </h3>
-            <p className="text-xs text-gray-500 leading-relaxed">
-              Enter your Web Client ID from Google Cloud Console. You can also persist this in your <code>.env</code> file as <code>VITE_GOOGLE_CLIENT_ID</code>.
-            </p>
-            <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-gray-500">
-                Web Client ID
-              </label>
-              <Input
-                placeholder="e.g. 123456789-abc.apps.googleusercontent.com"
-                value={customClientId}
-                onChange={(e) => setCustomClientId(e.target.value)}
-                className="mt-1 font-mono text-xs"
-              />
-            </div>
-            <div className="flex gap-2 pt-2">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setShowConfigModal(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold"
-                onClick={() => {
-                  setShowConfigModal(false);
-                  if (customClientId.trim()) {
-                    toast.success('Google Client ID set for this session!');
-                    handleConnectAndSyncGmail();
-                  }
-                }}
-              >
-                Save & Connect
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

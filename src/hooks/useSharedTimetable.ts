@@ -10,32 +10,66 @@ import {
   setSharedTimetableCache,
 } from '../lib/sharedTimetable.ts';
 
-export function useSharedTimetable(params: TimetableGroupParams | null) {
-  const groupId = params ? buildSharedGroupId(params) : null;
-  const groupLabel = params ? buildSharedGroupLabel(params) : '';
+export type SharedTimetableStatus =
+  | 'loading'
+  | 'loaded'
+  | 'cached'
+  | 'not_published'
+  | 'invalid_profile'
+  | 'error';
 
-  // Synchronous cache hydration for 0ms offline rendering
+export interface UseSharedTimetableResult {
+  sharedDoc: SharedTimetableDoc | null;
+  loading: boolean;
+  status: SharedTimetableStatus;
+  isOfflineCached: boolean;
+  error: Error | null;
+  groupId: string | null;
+  groupLabel: string;
+}
+
+export function useSharedTimetable(
+  params: TimetableGroupParams | null
+): UseSharedTimetableResult {
+  const isProfileValid = Boolean(params && params.section && params.semester);
+  const groupId = isProfileValid && params ? buildSharedGroupId(params) : null;
+  const groupLabel = isProfileValid && params ? buildSharedGroupLabel(params) : '';
+
+  // Synchronous cache hydration for 0ms startup
   const [sharedDoc, setSharedDoc] = useState<SharedTimetableDoc | null>(() => {
     if (!groupId) return null;
     return getSharedTimetableCache(groupId);
   });
 
   const [loading, setLoading] = useState<boolean>(!sharedDoc && !!groupId);
+  const [status, setStatus] = useState<SharedTimetableStatus>(() => {
+    if (!isProfileValid) return 'invalid_profile';
+    if (sharedDoc) return 'cached';
+    return 'loading';
+  });
+  const [isOfflineCached, setIsOfflineCached] = useState<boolean>(Boolean(sharedDoc));
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!groupId) {
+    if (!isProfileValid || !groupId) {
       setSharedDoc(null);
       setLoading(false);
+      setStatus('invalid_profile');
+      setIsOfflineCached(false);
       return;
     }
 
-    // Try loading latest from cache if switching groups
-    const cached = getSharedTimetableCache(groupId);
-    if (cached) {
-      setSharedDoc(cached);
+    // Check synchronous cache / seed when groupId changes
+    const initialCache = getSharedTimetableCache(groupId);
+    if (initialCache) {
+      setSharedDoc(initialCache);
+      setStatus('cached');
+      setIsOfflineCached(true);
       setLoading(false);
     } else {
+      setSharedDoc(null);
+      setStatus('loading');
+      setIsOfflineCached(false);
       setLoading(true);
     }
 
@@ -47,25 +81,49 @@ export function useSharedTimetable(params: TimetableGroupParams | null) {
           const data = { id: snap.id, ...snap.data() } as SharedTimetableDoc;
           setSharedDoc(data);
           setSharedTimetableCache(groupId, data);
+          setStatus('loaded');
+          setIsOfflineCached(false);
         } else {
-          setSharedDoc(null);
+          // If not in Firestore, check if we have a valid offline cache or pre-seeded dataset
+          const fallback = getSharedTimetableCache(groupId);
+          if (fallback) {
+            setSharedDoc(fallback);
+            setStatus('cached');
+            setIsOfflineCached(true);
+          } else {
+            setSharedDoc(null);
+            setStatus('not_published');
+            setIsOfflineCached(false);
+          }
         }
         setLoading(false);
         setError(null);
       },
       (err) => {
-        console.warn('Shared timetable listener note (falling back to local cache/personal):', err);
+        console.warn('Shared timetable listener note (falling back to local cache/seed):', err);
+        const fallback = getSharedTimetableCache(groupId);
+        if (fallback) {
+          setSharedDoc(fallback);
+          setStatus('cached');
+          setIsOfflineCached(true);
+        } else {
+          setSharedDoc(null);
+          setStatus('error');
+          setIsOfflineCached(false);
+        }
         setError(err);
         setLoading(false);
       }
     );
 
     return () => unsubscribe();
-  }, [groupId]);
+  }, [groupId, isProfileValid]);
 
   return {
     sharedDoc,
     loading,
+    status,
+    isOfflineCached,
     error,
     groupId,
     groupLabel,

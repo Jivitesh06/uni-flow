@@ -15,8 +15,8 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { Link } from 'react-router-dom';
+import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -253,17 +253,44 @@ export function DashboardPage() {
 
   const target = userProfile?.attendanceTarget ?? 75;
 
+  // Derive subjects list automatically from user subjects and authoritative shared slots
+  const displaySubjects = useMemo(() => {
+    const map = new Map<string, Subject>();
+    for (const sub of subjects) {
+      map.set(sub.code.toUpperCase(), sub);
+    }
+    for (const slot of effectiveSlots) {
+      const code = slot.subjectCode.toUpperCase();
+      if (!map.has(code)) {
+        map.set(code, {
+          id: `shared_${code.toLowerCase()}`,
+          uid: currentUser?.uid || 'shared',
+          name: slot.subjectName || code,
+          code,
+          faculty: slot.faculty,
+          credits: 3,
+          color: slot.color || '#3b82f6',
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        });
+      }
+    }
+    return Array.from(map.values());
+  }, [subjects, effectiveSlots, currentUser?.uid]);
+
   const subjectAttendanceMap = useMemo(() => {
     const map = new Map<string, ReturnType<typeof calculateSubjectAttendance>>();
-    for (const sub of subjects) {
-      const subRecords = attendance.filter((a) => a.subjectId === sub.id);
+    for (const sub of displaySubjects) {
+      const subRecords = attendance.filter(
+        (a) => a.subjectId === sub.id || a.subjectId === sub.code || a.subjectId === `shared_${sub.code.toLowerCase()}`
+      );
       map.set(
         sub.id,
         calculateSubjectAttendance(sub, subRecords, target / 100, null, studentGroup)
       );
     }
     return map;
-  }, [subjects, attendance, target, studentGroup]);
+  }, [displaySubjects, attendance, target, studentGroup]);
 
   let overallAttended = 0;
   let overallConducted = 0;
@@ -273,7 +300,7 @@ export function DashboardPage() {
   }
   const overallPct = overallConducted > 0 ? (overallAttended / overallConducted) * 100 : 0;
 
-  const atRisk = subjects.filter((sub) => {
+  const atRisk = displaySubjects.filter((sub) => {
     const agg = subjectAttendanceMap.get(sub.id);
     return agg ? !agg.stats.isOnTrack : false;
   });
@@ -339,7 +366,7 @@ export function DashboardPage() {
       />
 
       {/* First-time Student Onboarding Guide */}
-      {subjects.length === 0 && !dismissOnboarding && (
+      {effectiveSlots.length === 0 && !dismissOnboarding && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -634,7 +661,7 @@ export function DashboardPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {subjects.length === 0 ? (
+              {displaySubjects.length === 0 ? (
                 <div className="text-center py-6">
                   <p className="text-xs text-gray-400">No subjects added yet.</p>
                   <Link to="/subjects">
@@ -644,7 +671,7 @@ export function DashboardPage() {
                   </Link>
                 </div>
               ) : (
-                subjects.slice(0, 5).map((sub) => {
+                displaySubjects.slice(0, 5).map((sub) => {
                   const agg = subjectAttendanceMap.get(sub.id) || calculateSubjectAttendance(sub, [], target / 100);
                   const { totalAttended, totalConducted, stats } = agg;
 

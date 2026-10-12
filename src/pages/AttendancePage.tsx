@@ -20,6 +20,7 @@ import {
   collection,
   addDoc,
   updateDoc,
+  setDoc,
   deleteDoc,
   doc,
   query,
@@ -33,6 +34,12 @@ import { Link } from 'react-router-dom';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useCollection } from '../hooks/useFirestore';
+import { useSharedTimetable } from '../hooks/useSharedTimetable.ts';
+import {
+  mergeSharedAndPersonalSlots,
+  buildSharedGroupId,
+  TimetableGroupParams,
+} from '../lib/sharedTimetable.ts';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -45,13 +52,61 @@ import {
   type SubjectAttendanceAggregate,
 } from '../lib/attendanceCalculations';
 import toast from 'react-hot-toast';
-import type { Subject, AttendanceRecord, AttendanceBaseline } from '../types';
+import type { Subject, AttendanceRecord, AttendanceBaseline, TimetableSlot } from '../types';
 
 export function AttendancePage() {
   const { currentUser, userProfile } = useAuth();
   const uid = currentUser?.uid ?? '';
   const { data: subjects, loading: subjectsLoading } = useCollection<Subject>(`users/${uid}/subjects`);
   const { data: legacyBaselines } = useCollection<AttendanceBaseline>(`users/${uid}/attendanceBaselines`);
+
+  // Shared Timetable Group subscription
+  const groupParams: TimetableGroupParams | null = useMemo(() => {
+    if (!userProfile?.section) return null;
+    return {
+      institution: userProfile.college || 'Chitkara University',
+      program: userProfile.program || 'BE-CSE',
+      batch: userProfile.batch || '2024',
+      semester: userProfile.semester || 5,
+      section: userProfile.section,
+    };
+  }, [userProfile?.college, userProfile?.program, userProfile?.batch, userProfile?.semester, userProfile?.section]);
+
+  const { sharedDoc } = useSharedTimetable(groupParams);
+  const { data: personalSlots } = useCollection<TimetableSlot>(`users/${uid}/timetable`);
+
+  const effectiveSlots = useMemo(() => {
+    return mergeSharedAndPersonalSlots(
+      sharedDoc?.slots || [],
+      personalSlots,
+      groupParams ? buildSharedGroupId(groupParams) : undefined
+    );
+  }, [sharedDoc?.slots, personalSlots, groupParams]);
+
+  // Derive subjects list automatically from user subjects and authoritative shared slots
+  const allSubjects = useMemo(() => {
+    const map = new Map<string, Subject>();
+    for (const sub of subjects) {
+      map.set(sub.code.toUpperCase(), sub);
+    }
+    for (const slot of effectiveSlots) {
+      const code = slot.subjectCode.toUpperCase();
+      if (!map.has(code)) {
+        map.set(code, {
+          id: `shared_${code.toLowerCase()}`,
+          uid: currentUser?.uid || 'shared',
+          name: slot.subjectName || code,
+          code,
+          faculty: slot.faculty,
+          credits: 3,
+          color: slot.color || '#3b82f6',
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        });
+      }
+    }
+    return Array.from(map.values());
+  }, [subjects, effectiveSlots, currentUser?.uid]);
 
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
@@ -91,16 +146,18 @@ export function AttendancePage() {
   // Map each subject to its comprehensive aggregate attendance (group-aware)
   const subjectAggregates = useMemo(() => {
     const map = new Map<string, SubjectAttendanceAggregate>();
-    for (const sub of subjects) {
-      const subRecords = attendance.filter((a) => a.subjectId === sub.id);
-      const fallback = legacyBaselines.find((b) => b.subjectId === sub.id) || null;
+    for (const sub of allSubjects) {
+      const subRecords = attendance.filter(
+        (a) => a.subjectId === sub.id || a.subjectId === sub.code || a.subjectId === `shared_${sub.code.toLowerCase()}`
+      );
+      const fallback = legacyBaselines.find((b) => b.subjectId === sub.id || b.subjectId === sub.code) || null;
       map.set(
         sub.id,
         calculateSubjectAttendance(sub, subRecords, target, fallback, studentGroup)
       );
     }
     return map;
-  }, [subjects, attendance, legacyBaselines, target, studentGroup]);
+  }, [allSubjects, attendance, legacyBaselines, target, studentGroup]);
 
   // Overall attendance statistics across all subjects
   const overallStats = useMemo(() => {
@@ -133,14 +190,23 @@ export function AttendancePage() {
 
     setBaselineSaving(true);
     try {
-      await updateDoc(doc(db, `users/${uid}/subjects/${baselineModalSubject.id}`), {
-        initialAttended: validation.attended,
-        initialConducted: validation.conducted,
-        baselineAttended: validation.attended,
-        baselineConducted: validation.conducted,
-        baselineUpdatedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
+      await setDoc(
+        doc(db, `users/${uid}/subjects/${baselineModalSubject.id}`),
+        {
+          name: baselineModalSubject.name,
+          code: baselineModalSubject.code,
+          faculty: baselineModalSubject.faculty || null,
+          credits: baselineModalSubject.credits || 3,
+          color: baselineModalSubject.color || '#3b82f6',
+          initialAttended: validation.attended,
+          initialConducted: validation.conducted,
+          baselineAttended: validation.attended,
+          baselineConducted: validation.conducted,
+          baselineUpdatedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
       toast.success(`Updated attendance baseline for ${baselineModalSubject.name}`);
       setBaselineModalSubject(null);
     } catch (err) {
@@ -157,10 +223,12 @@ export function AttendancePage() {
     const targetDate = new Date(year, month - 1, day, 0, 0, 0, 0);
     const dateTs = Timestamp.fromDate(targetDate);
 
+    const sub = allSubjects.find((s) => s.id === subjectId);
+
     // Prevent duplicate attendance records for the same lecture/date
     const existing = attendance.find(
       (a) =>
-        a.subjectId === subjectId &&
+        (a.subjectId === subjectId || (sub && (a.subjectId === sub.code || a.subjectId === `shared_${sub.code.toLowerCase()}`))) &&
         a.date.toDate().toDateString() === targetDate.toDateString() &&
         a.status !== 'cancelled'
     );
@@ -222,7 +290,7 @@ export function AttendancePage() {
 
   // Filter subjects for display
   const filteredSubjects = useMemo(() => {
-    let list = subjects;
+    let list = allSubjects;
     if (selectedSubjectId) {
       list = list.filter((s) => s.id === selectedSubjectId);
     }
@@ -233,7 +301,7 @@ export function AttendancePage() {
       });
     }
     return list;
-  }, [subjects, selectedSubjectId, filterMode, subjectAggregates]);
+  }, [allSubjects, selectedSubjectId, filterMode, subjectAggregates]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -272,7 +340,7 @@ export function AttendancePage() {
       </div>
 
       {/* Aggregate Overview Card */}
-      {subjects.length > 0 && (
+      {allSubjects.length > 0 && (
         <Card className="bg-gradient-to-r from-blue-500/10 via-indigo-500/5 to-purple-500/10 border-blue-200 dark:border-blue-900/50 shadow-sm">
           <CardContent className="p-5 sm:p-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -285,7 +353,7 @@ export function AttendancePage() {
                     {overallStats.conducted > 0 ? `${overallStats.percentage.toFixed(1)}%` : '0.0%'}
                   </h3>
                   <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    ({overallStats.attended} attended / {overallStats.conducted} conducted across {subjects.length} subjects)
+                    ({overallStats.attended} attended / {overallStats.conducted} conducted across {allSubjects.length} subjects)
                   </span>
                 </div>
               </div>
@@ -333,7 +401,7 @@ export function AttendancePage() {
                 : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-800 hover:border-blue-400'
             }`}
           >
-            All Subjects ({subjects.length})
+            All Subjects ({allSubjects.length})
           </button>
 
           <button
@@ -350,7 +418,7 @@ export function AttendancePage() {
             ⚠️ At Risk Only ({Array.from(subjectAggregates.values()).filter((a) => !a.stats.isOnTrack).length})
           </button>
 
-          {subjects.map((s) => (
+          {allSubjects.map((s) => (
             <button
               key={s.id}
               onClick={() => {
@@ -376,7 +444,7 @@ export function AttendancePage() {
           <div className="animate-spin h-8 w-8 rounded-full border-2 border-blue-600 border-t-transparent mx-auto mb-3" />
           <p className="text-xs text-gray-400">Loading your attendance records...</p>
         </div>
-      ) : subjects.length === 0 ? (
+      ) : allSubjects.length === 0 ? (
         <div className="text-center py-20 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-8">
           <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 flex items-center justify-center mx-auto mb-4">
             <BookOpen className="w-7 h-7" />
@@ -881,7 +949,7 @@ export function AttendancePage() {
                 </h3>
                 <p className="text-xs text-gray-500">
                   {historySubjectFilter
-                    ? `Showing records for ${subjects.find((s) => s.id === historySubjectFilter)?.name}`
+                    ? `Showing records for ${allSubjects.find((s) => s.id === historySubjectFilter)?.name}`
                     : 'All individual recorded lecture sessions'}
                 </p>
               </div>
@@ -891,7 +959,7 @@ export function AttendancePage() {
             </div>
 
             {/* Filter in History */}
-            {subjects.length > 0 && (
+            {allSubjects.length > 0 && (
               <div className="flex gap-1.5 flex-wrap pb-3 mb-3 border-b border-gray-100 dark:border-gray-800">
                 <button
                   onClick={() => setHistorySubjectFilter(null)}
@@ -901,7 +969,7 @@ export function AttendancePage() {
                 >
                   All ({attendance.length})
                 </button>
-                {subjects.map((s) => (
+                {allSubjects.map((s) => (
                   <button
                     key={s.id}
                     onClick={() => setHistorySubjectFilter(s.id === historySubjectFilter ? null : s.id)}
@@ -932,7 +1000,7 @@ export function AttendancePage() {
               return (
                 <div className="divide-y divide-gray-100 dark:divide-gray-800">
                   {displayLogs.map((rec) => {
-                    const sub = subjects.find((s) => s.id === rec.subjectId);
+                    const sub = allSubjects.find((s) => s.id === rec.subjectId || s.code === rec.subjectId || `shared_${s.code.toLowerCase()}` === rec.subjectId);
                     return (
                       <div key={rec.id} className="py-3 flex items-center justify-between">
                         <div>
