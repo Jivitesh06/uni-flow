@@ -23,7 +23,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
-import { calculateAttendanceStats, calculateSubjectAttendance } from '../lib/attendanceCalculations';
+import {
+  calculateAttendanceStats,
+  calculateSubjectAttendance,
+  canonicalizeSubjectsForAttendance,
+  matchesSubjectRecord,
+} from '../lib/attendanceCalculations';
 import { calculateLiveClassState } from '../lib/timetableCalculations';
 import { LiveClassCard } from '../components/timetable/LiveClassCard';
 import { useSharedTimetable } from '../hooks/useSharedTimetable.ts';
@@ -255,37 +260,16 @@ export function DashboardPage() {
 
   const target = userProfile?.attendanceTarget ?? 75;
 
-  // Derive subjects list automatically from user subjects and authoritative shared slots
+  // Derive subjects list automatically from user subjects and authoritative shared slots,
+  // canonicalizing -FA suffixes (e.g. ADI-FA -> ADI) under their unified attendance subject
   const displaySubjects = useMemo(() => {
-    const map = new Map<string, Subject>();
-    for (const sub of subjects) {
-      map.set(sub.code.toUpperCase(), sub);
-    }
-    for (const slot of effectiveSlots) {
-      const code = slot.subjectCode.toUpperCase();
-      if (!map.has(code)) {
-        map.set(code, {
-          id: `shared_${code.toLowerCase()}`,
-          uid: currentUser?.uid || 'shared',
-          name: slot.subjectName || code,
-          code,
-          faculty: slot.faculty,
-          credits: 3,
-          color: slot.color || '#3b82f6',
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now(),
-        });
-      }
-    }
-    return Array.from(map.values());
+    return canonicalizeSubjectsForAttendance(subjects, effectiveSlots, currentUser?.uid);
   }, [subjects, effectiveSlots, currentUser?.uid]);
 
   const subjectAttendanceMap = useMemo(() => {
     const map = new Map<string, ReturnType<typeof calculateSubjectAttendance>>();
     for (const sub of displaySubjects) {
-      const subRecords = attendance.filter(
-        (a) => a.subjectId === sub.id || a.subjectId === sub.code || a.subjectId === `shared_${sub.code.toLowerCase()}`
-      );
+      const subRecords = attendance.filter((a) => matchesSubjectRecord(sub, a.subjectId));
       map.set(
         sub.id,
         calculateSubjectAttendance(sub, subRecords, target / 100, null, studentGroup)

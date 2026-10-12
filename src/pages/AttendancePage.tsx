@@ -49,6 +49,8 @@ import {
   calculateAttendanceStats,
   calculateSubjectAttendance,
   validateAttendanceBaseline,
+  canonicalizeSubjectsForAttendance,
+  matchesSubjectRecord,
   type SubjectAttendanceAggregate,
 } from '../lib/attendanceCalculations';
 import toast from 'react-hot-toast';
@@ -83,29 +85,10 @@ export function AttendancePage() {
     );
   }, [sharedDoc?.slots, personalSlots, groupParams]);
 
-  // Derive subjects list automatically from user subjects and authoritative shared slots
+  // Derive subjects list automatically from user subjects and authoritative shared slots,
+  // canonicalizing -FA suffixes (e.g. ADI-FA -> ADI) under their unified attendance subject
   const allSubjects = useMemo(() => {
-    const map = new Map<string, Subject>();
-    for (const sub of subjects) {
-      map.set(sub.code.toUpperCase(), sub);
-    }
-    for (const slot of effectiveSlots) {
-      const code = slot.subjectCode.toUpperCase();
-      if (!map.has(code)) {
-        map.set(code, {
-          id: `shared_${code.toLowerCase()}`,
-          uid: currentUser?.uid || 'shared',
-          name: slot.subjectName || code,
-          code,
-          faculty: slot.faculty,
-          credits: 3,
-          color: slot.color || '#3b82f6',
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now(),
-        });
-      }
-    }
-    return Array.from(map.values());
+    return canonicalizeSubjectsForAttendance(subjects, effectiveSlots, currentUser?.uid);
   }, [subjects, effectiveSlots, currentUser?.uid]);
 
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
@@ -147,10 +130,8 @@ export function AttendancePage() {
   const subjectAggregates = useMemo(() => {
     const map = new Map<string, SubjectAttendanceAggregate>();
     for (const sub of allSubjects) {
-      const subRecords = attendance.filter(
-        (a) => a.subjectId === sub.id || a.subjectId === sub.code || a.subjectId === `shared_${sub.code.toLowerCase()}`
-      );
-      const fallback = legacyBaselines.find((b) => b.subjectId === sub.id || b.subjectId === sub.code) || null;
+      const subRecords = attendance.filter((a) => matchesSubjectRecord(sub, a.subjectId));
+      const fallback = legacyBaselines.find((b) => matchesSubjectRecord(sub, b.subjectId)) || null;
       map.set(
         sub.id,
         calculateSubjectAttendance(sub, subRecords, target, fallback, studentGroup)
@@ -218,20 +199,23 @@ export function AttendancePage() {
   }
 
   // Mark attendance for a subject (either today or selected custom date)
-  async function markAttendance(subjectId: string, status: 'present' | 'absent') {
+  async function markAttendance(subjectId: string, status: 'present' | 'absent', lectureSlotId?: string) {
     const [year, month, day] = customDate.split('-').map(Number);
     const targetDate = new Date(year, month - 1, day, 0, 0, 0, 0);
     const dateTs = Timestamp.fromDate(targetDate);
 
-    const sub = allSubjects.find((s) => s.id === subjectId);
+    const sub = allSubjects.find((s) => s.id === subjectId) || allSubjects.find((s) => matchesSubjectRecord(s, subjectId));
 
     // Prevent duplicate attendance records for the same lecture/date
-    const existing = attendance.find(
-      (a) =>
-        (a.subjectId === subjectId || (sub && (a.subjectId === sub.code || a.subjectId === `shared_${sub.code.toLowerCase()}`))) &&
-        a.date.toDate().toDateString() === targetDate.toDateString() &&
-        a.status !== 'cancelled'
-    );
+    const existing = attendance.find((a) => {
+      if (!matchesSubjectRecord(sub || subjectId, a.subjectId)) return false;
+      if (a.date.toDate().toDateString() !== targetDate.toDateString()) return false;
+      if (a.status === 'cancelled') return false;
+      if (lectureSlotId && a.lectureSlotId) {
+        return a.lectureSlotId === lectureSlotId;
+      }
+      return !lectureSlotId;
+    });
 
     if (existing) {
       toast.error(`Attendance already marked (${existing.status}) for ${format(targetDate, 'MMM d')}. Use correction instead.`);
@@ -242,8 +226,9 @@ export function AttendancePage() {
     try {
       await addDoc(collection(db, `users/${uid}/attendance`), {
         uid,
-        subjectId,
+        subjectId: sub?.id || subjectId,
         date: dateTs,
+        lectureSlotId: lectureSlotId || null,
         status,
         group: userProfile?.studentGroup || 'ALL',
         source: 'manual',
@@ -488,7 +473,7 @@ export function AttendancePage() {
               hasBaseline: false,
             };
             const { stats, baselineAttended, baselineConducted, loggedAttended, loggedConducted, totalAttended, totalConducted, hasBaseline } = agg;
-            const subAtt = attendance.filter((a) => a.subjectId === sub.id);
+            const subAtt = attendance.filter((a) => matchesSubjectRecord(sub, a.subjectId));
             const isMarking = markingSubjectId === sub.id;
 
             return (
@@ -756,7 +741,7 @@ export function AttendancePage() {
                     );
                   }
 
-                  const subRecords = attendance.filter((a) => a.subjectId === baselineModalSubject.id);
+                  const subRecords = attendance.filter((a) => matchesSubjectRecord(baselineModalSubject, a.subjectId));
                   const preview = calculateSubjectAttendance(
                     { initialAttended: val.attended, initialConducted: val.conducted },
                     subRecords,
@@ -825,7 +810,7 @@ export function AttendancePage() {
 
                 {(() => {
                   const val = validateAttendanceBaseline(baselineAttendedInput, baselineConductedInput);
-                  const subRecords = attendance.filter((a) => a.subjectId === baselineModalSubject.id);
+                  const subRecords = attendance.filter((a) => matchesSubjectRecord(baselineModalSubject, a.subjectId));
                   const preview = calculateSubjectAttendance(
                     { initialAttended: val.attended, initialConducted: val.conducted },
                     subRecords,
@@ -978,14 +963,19 @@ export function AttendancePage() {
                     }`}
                     style={historySubjectFilter === s.id ? { backgroundColor: s.color } : {}}
                   >
-                    {s.code} ({attendance.filter((a) => a.subjectId === s.id).length})
+                    {s.code} ({attendance.filter((a) => matchesSubjectRecord(s, a.subjectId)).length})
                   </button>
                 ))}
               </div>
             )}
 
             {(() => {
-              const displayLogs = historySubjectFilter
+              const selectedFilterSub = historySubjectFilter
+                ? allSubjects.find((s) => s.id === historySubjectFilter)
+                : null;
+              const displayLogs = selectedFilterSub
+                ? attendance.filter((a) => matchesSubjectRecord(selectedFilterSub, a.subjectId))
+                : historySubjectFilter
                 ? attendance.filter((a) => a.subjectId === historySubjectFilter)
                 : attendance;
 
@@ -1000,7 +990,7 @@ export function AttendancePage() {
               return (
                 <div className="divide-y divide-gray-100 dark:divide-gray-800">
                   {displayLogs.map((rec) => {
-                    const sub = allSubjects.find((s) => s.id === rec.subjectId || s.code === rec.subjectId || `shared_${s.code.toLowerCase()}` === rec.subjectId);
+                    const sub = allSubjects.find((s) => matchesSubjectRecord(s, rec.subjectId));
                     return (
                       <div key={rec.id} className="py-3 flex items-center justify-between">
                         <div>
