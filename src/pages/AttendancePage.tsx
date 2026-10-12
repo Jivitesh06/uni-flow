@@ -86,16 +86,21 @@ export function AttendancePage() {
     return () => unsub();
   }, [uid]);
 
-  // Map each subject to its comprehensive aggregate attendance
+  const studentGroup = userProfile?.studentGroup;
+
+  // Map each subject to its comprehensive aggregate attendance (group-aware)
   const subjectAggregates = useMemo(() => {
     const map = new Map<string, SubjectAttendanceAggregate>();
     for (const sub of subjects) {
       const subRecords = attendance.filter((a) => a.subjectId === sub.id);
       const fallback = legacyBaselines.find((b) => b.subjectId === sub.id) || null;
-      map.set(sub.id, calculateSubjectAttendance(sub, subRecords, target, fallback));
+      map.set(
+        sub.id,
+        calculateSubjectAttendance(sub, subRecords, target, fallback, studentGroup)
+      );
     }
     return map;
-  }, [subjects, attendance, legacyBaselines, target]);
+  }, [subjects, attendance, legacyBaselines, target, studentGroup]);
 
   // Overall attendance statistics across all subjects
   const overallStats = useMemo(() => {
@@ -172,6 +177,7 @@ export function AttendancePage() {
         subjectId,
         date: dateTs,
         status,
+        group: userProfile?.studentGroup || 'ALL',
         source: 'manual',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),

@@ -12,6 +12,8 @@ if (typeof window !== 'undefined' && pdfjsLib.GlobalWorkerOptions) {
   }
 }
 
+export type TimetableGroupScope = 'ALL' | 'G1' | 'G2';
+
 export interface ExtractedLecture {
   id: string;
   dayOfWeek: number; // 0=Sun, 1=Mon, 2=Tue, ..., 6=Sat
@@ -23,7 +25,138 @@ export interface ExtractedLecture {
   faculty: string;
   room: string;
   section: string;
+  group: TimetableGroupScope; // 'G1' | 'G2' | 'ALL'
+  requiresReview?: boolean;
+  reviewReason?: string;
   color?: string;
+}
+
+/**
+ * Detects whether a string is or contains a group label (Group 1, Group 2, G1, G2, etc.)
+ */
+export function detectGroupInString(str: string): {
+  group: TimetableGroupScope | null;
+  detectedGroup: TimetableGroupScope | null;
+  isPureLabel: boolean;
+  cleanedText: string;
+  cleanedString: string;
+  ambiguous: boolean;
+  requiresReview: boolean;
+  reviewReason?: string;
+} {
+  const trimmed = str.trim();
+
+  // Check for ambiguous multiple groups (e.g. "Group 1 & Group 2", "G1/G2", "G1 and G2")
+  const hasG1 = /(?:GROUP[\s_-]*1|G[\s_-]*1|GR\.?[\s_-]*1|BATCH[\s_-]*1)/i.test(trimmed);
+  const hasG2 = /(?:GROUP[\s_-]*2|G[\s_-]*2|GR\.?[\s_-]*2|BATCH[\s_-]*2)/i.test(trimmed);
+  if (hasG1 && hasG2) {
+    return {
+      group: null,
+      detectedGroup: null,
+      isPureLabel: false,
+      cleanedText: trimmed,
+      cleanedString: trimmed,
+      ambiguous: true,
+      requiresReview: true,
+      reviewReason: 'Ambiguous group assignment: references multiple groups (G1 and G2)',
+    };
+  }
+
+  // Ambiguous group label (e.g. "Group", "Gr", "Batch" without a number, or Group 3+)
+  if (/^(?:GROUP|BATCH|GR\.?)$/i.test(trimmed) || /(?:GROUP|BATCH|GR\.?)[\s_-]*[3-9]/i.test(trimmed)) {
+    return {
+      group: null,
+      detectedGroup: null,
+      isPureLabel: true,
+      cleanedText: trimmed,
+      cleanedString: trimmed,
+      ambiguous: true,
+      requiresReview: true,
+      reviewReason: 'Ambiguous or unassigned group number',
+    };
+  }
+
+  // Pure group 1
+  if (/^(?:GROUP[\s_-]*1|G[\s_-]*1|GR\.?[\s_-]*1|BATCH[\s_-]*1|B1|GRP[\s_-]*1)$/i.test(trimmed)) {
+    return {
+      group: 'G1',
+      detectedGroup: 'G1',
+      isPureLabel: true,
+      cleanedText: '',
+      cleanedString: '',
+      ambiguous: false,
+      requiresReview: false,
+    };
+  }
+  // Pure group 2
+  if (/^(?:GROUP[\s_-]*2|G[\s_-]*2|GR\.?[\s_-]*2|BATCH[\s_-]*2|B2|GRP[\s_-]*2)$/i.test(trimmed)) {
+    return {
+      group: 'G2',
+      detectedGroup: 'G2',
+      isPureLabel: true,
+      cleanedText: '',
+      cleanedString: '',
+      ambiguous: false,
+      requiresReview: false,
+    };
+  }
+  // Pure ALL / whole section
+  if (/^(?:ALL|BOTH|COMBINED|WHOLE[\s_-]*SECTION|ENTIRE[\s_-]*SECTION)$/i.test(trimmed)) {
+    return {
+      group: 'ALL',
+      detectedGroup: 'ALL',
+      isPureLabel: true,
+      cleanedText: '',
+      cleanedString: '',
+      ambiguous: false,
+      requiresReview: false,
+    };
+  }
+
+  // Embedded G1 (e.g. "DAA-Lab (G1)" or "DAA-G1" or "CS501 [Group 1]")
+  if (/(?:[\s(_\-[\]]|^)(?:GROUP[\s_-]*1|G[\s_-]*1|GR\.?[\s_-]*1|BATCH[\s_-]*1)(?:[\s)_\-[\]]|$)/i.test(trimmed)) {
+    const cleaned = trimmed
+      .replace(/(?:[\s(_\-[\]]|^)(?:GROUP[\s_-]*1|G[\s_-]*1|GR\.?[\s_-]*1|BATCH[\s_-]*1)(?:[\s)_\-[\]]|$)/gi, ' ')
+      .replace(/[()[\]]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return {
+      group: 'G1',
+      detectedGroup: 'G1',
+      isPureLabel: false,
+      cleanedText: cleaned,
+      cleanedString: cleaned,
+      ambiguous: false,
+      requiresReview: false,
+    };
+  }
+  // Embedded G2 (e.g. "OS-Lab (G2)" or "OS-G2" or "CS501 [Group 2]")
+  if (/(?:[\s(_\-[\]]|^)(?:GROUP[\s_-]*2|G[\s_-]*2|GR\.?[\s_-]*2|BATCH[\s_-]*2)(?:[\s)_\-[\]]|$)/i.test(trimmed)) {
+    const cleaned = trimmed
+      .replace(/(?:[\s(_\-[\]]|^)(?:GROUP[\s_-]*2|G[\s_-]*2|GR\.?[\s_-]*2|BATCH[\s_-]*2)(?:[\s)_\-[\]]|$)/gi, ' ')
+      .replace(/[()[\]]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return {
+      group: 'G2',
+      detectedGroup: 'G2',
+      isPureLabel: false,
+      cleanedText: cleaned,
+      cleanedString: cleaned,
+      ambiguous: false,
+      requiresReview: false,
+    };
+  }
+
+  return {
+    group: null,
+    detectedGroup: null,
+    isPureLabel: false,
+    cleanedText: trimmed,
+    cleanedString: trimmed,
+    ambiguous: false,
+    requiresReview: false,
+  };
 }
 
 export interface ChitkaraTimetableParseResult {
@@ -280,6 +413,41 @@ export async function parseChitkaraPdf(
   // 3. Grid Extraction per Day Band
   const lectures: ExtractedLecture[] = [];
 
+  // Helper to extract subject, faculty, room from a cluster of items
+  function extractDetailsFromCluster(clusterItems: RawTextItem[]): {
+    subject: string;
+    faculty: string;
+    room: string;
+  } {
+    let subject = '';
+    let faculty = '';
+    let room = '';
+
+    clusterItems.forEach((it) => {
+      const s = it.str.trim();
+      const groupDet = detectGroupInString(s);
+      if (groupDet.isPureLabel) {
+        // Pure group label e.g. "Group 1", "G1", "ALL" - do not match as subject/faculty/room
+        return;
+      }
+      const clean = groupDet.cleanedText || s;
+      if (/^(?:Dr|Mr|Ms|Prof)\.?\s+/i.test(clean)) {
+        faculty = clean;
+      } else if (/^(?:RJ|CVR|LH|CR|LAB)[0-9A-Z]+/i.test(clean)) {
+        room = clean;
+      } else if (
+        /^[A-Z0-9\-_]{2,14}$/i.test(clean) &&
+        !['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'G1', 'G2', 'GROUP1', 'GROUP2', 'ALL', 'LEC'].includes(
+          clean.toUpperCase()
+        )
+      ) {
+        subject = clean;
+      }
+    });
+
+    return { subject, faculty, room };
+  }
+
   daysWithBounds.forEach((day) => {
     // Exclude Saturday if no academic items exist
     if (day.dayOfWeek === 6) return;
@@ -294,81 +462,227 @@ export async function parseChitkaraPdf(
         !it.str.includes('Timetable generated:')
     );
 
-    // Group items into Period Columns
-    const rawBlocks = periods.map((p) => {
+    interface UnmergedPeriodBlock {
+      periodIndex: number;
+      period: (typeof periods)[0];
+      subject: string;
+      faculty: string;
+      room: string;
+      group: TimetableGroupScope;
+      requiresReview?: boolean;
+      reviewReason?: string;
+    }
+
+    const dayBlocks: UnmergedPeriodBlock[] = [];
+
+    // Extract blocks per Period Column
+    periods.forEach((p, pIdx) => {
       const inP = itemsInDay.filter((it) => it.x >= p.minX && it.x < p.maxX);
-      let subject = '';
-      let faculty = '';
-      let room = '';
+      if (inP.length === 0) return;
 
-      inP.forEach((it) => {
-        const s = it.str.trim();
-        if (/^(?:Dr|Mr|Ms|Prof)\.?\s+/i.test(s)) {
-          faculty = s;
-        } else if (/^(?:RJ|CVR|LH|CR|LAB)[0-9A-Z]+/i.test(s)) {
-          room = s;
-        } else if (/^[A-Z0-9\-_]{2,12}$/.test(s) && !['MO', 'TU', 'WE', 'TH', 'FR', 'SA'].includes(s.toUpperCase())) {
-          subject = s;
+      const g1Items = inP.filter((it) => detectGroupInString(it.str).group === 'G1');
+      const g2Items = inP.filter((it) => detectGroupInString(it.str).group === 'G2');
+      const ambiguousItems = inP.filter((it) => detectGroupInString(it.str).ambiguous);
+
+      // Scenario A: Both G1 and G2 are present in the same period cell
+      if (g1Items.length > 0 && g2Items.length > 0) {
+        const avgG1Y = g1Items.reduce((acc, it) => acc + it.y, 0) / g1Items.length;
+        const avgG2Y = g2Items.reduce((acc, it) => acc + it.y, 0) / g2Items.length;
+        const avgG1X = g1Items.reduce((acc, it) => acc + it.x, 0) / g1Items.length;
+        const avgG2X = g2Items.reduce((acc, it) => acc + it.x, 0) / g2Items.length;
+
+        const g1Cluster: RawTextItem[] = [];
+        const g2Cluster: RawTextItem[] = [];
+
+        inP.forEach((it) => {
+          const det = detectGroupInString(it.str);
+          if (det.group === 'G1') {
+            g1Cluster.push(it);
+          } else if (det.group === 'G2') {
+            g2Cluster.push(it);
+          } else {
+            // Positional association based on vertical split if y differs significantly, else horizontal/distance
+            if (Math.abs(avgG1Y - avgG2Y) > 8) {
+              const midY = (avgG1Y + avgG2Y) / 2;
+              if (avgG1Y > avgG2Y) {
+                if (it.y >= midY) g1Cluster.push(it);
+                else g2Cluster.push(it);
+              } else {
+                if (it.y >= midY) g2Cluster.push(it);
+                else g1Cluster.push(it);
+              }
+            } else if (Math.abs(avgG1X - avgG2X) > 8) {
+              const midX = (avgG1X + avgG2X) / 2;
+              if (avgG1X < avgG2X) {
+                if (it.x <= midX) g1Cluster.push(it);
+                else g2Cluster.push(it);
+              } else {
+                if (it.x <= midX) g2Cluster.push(it);
+                else g1Cluster.push(it);
+              }
+            } else {
+              const distG1 = Math.hypot(it.x - avgG1X, it.y - avgG1Y);
+              const distG2 = Math.hypot(it.x - avgG2X, it.y - avgG2Y);
+              if (distG1 <= distG2) g1Cluster.push(it);
+              else g2Cluster.push(it);
+            }
+          }
+        });
+
+        const d1 = extractDetailsFromCluster(g1Cluster);
+        if (d1.subject || d1.room || d1.faculty) {
+          dayBlocks.push({
+            periodIndex: pIdx,
+            period: p,
+            subject: d1.subject,
+            faculty: d1.faculty,
+            room: d1.room,
+            group: 'G1',
+          });
         }
-      });
 
-      return { period: p, items: inP, subject, faculty, room };
+        const d2 = extractDetailsFromCluster(g2Cluster);
+        if (d2.subject || d2.room || d2.faculty) {
+          dayBlocks.push({
+            periodIndex: pIdx,
+            period: p,
+            subject: d2.subject,
+            faculty: d2.faculty,
+            room: d2.room,
+            group: 'G2',
+          });
+        }
+      } else if (g1Items.length > 0) {
+        // Scenario B: Only Group 1
+        const d = extractDetailsFromCluster(inP);
+        if (d.subject || d.room || d.faculty) {
+          dayBlocks.push({
+            periodIndex: pIdx,
+            period: p,
+            subject: d.subject,
+            faculty: d.faculty,
+            room: d.room,
+            group: 'G1',
+          });
+        }
+      } else if (g2Items.length > 0) {
+        // Scenario C: Only Group 2
+        const d = extractDetailsFromCluster(inP);
+        if (d.subject || d.room || d.faculty) {
+          dayBlocks.push({
+            periodIndex: pIdx,
+            period: p,
+            subject: d.subject,
+            faculty: d.faculty,
+            room: d.room,
+            group: 'G2',
+          });
+        }
+      } else if (ambiguousItems.length > 0) {
+        // Scenario D: Ambiguous group indicator
+        const d = extractDetailsFromCluster(inP);
+        if (d.subject || d.room || d.faculty) {
+          dayBlocks.push({
+            periodIndex: pIdx,
+            period: p,
+            subject: d.subject,
+            faculty: d.faculty,
+            room: d.room,
+            group: 'ALL',
+            requiresReview: true,
+            reviewReason: 'Ambiguous group indicator requiring confirmation',
+          });
+        }
+      } else {
+        // Scenario E: Unlabelled whole-section class (Combined ALL)
+        const d = extractDetailsFromCluster(inP);
+        if (d.subject || d.room || d.faculty) {
+          dayBlocks.push({
+            periodIndex: pIdx,
+            period: p,
+            subject: d.subject,
+            faculty: d.faculty,
+            room: d.room,
+            group: 'ALL',
+          });
+        }
+      }
     });
 
-    // Merge multi-period classes across consecutive blocks
-    let i = 0;
-    while (i < rawBlocks.length) {
-      const cur = rawBlocks[i];
-      if (cur.items.length === 0) {
-        i++;
-        continue;
-      }
+    // Merge multi-period classes across consecutive blocks independently per group
+    const groups: TimetableGroupScope[] = ['ALL', 'G1', 'G2'];
+    groups.forEach((g) => {
+      const blocksForGroup = dayBlocks
+        .filter((b) => b.group === g)
+        .sort((a, b) => a.periodIndex - b.periodIndex);
 
-      const startP = cur.period;
-      let endP = cur.period;
-      let subject = cur.subject;
-      let faculty = cur.faculty;
-      let room = cur.room;
+      let idx = 0;
+      while (idx < blocksForGroup.length) {
+        const cur = blocksForGroup[idx];
+        const startP = cur.period;
+        let endP = cur.period;
+        let subject = cur.subject;
+        let faculty = cur.faculty;
+        let room = cur.room;
+        let requiresReview = cur.requiresReview;
+        let reviewReason = cur.reviewReason;
 
-      // Check if consecutive block belongs to this same lecture (merged consecutive cell)
-      if (i + 1 < rawBlocks.length && rawBlocks[i + 1].items.length > 0) {
-        const next = rawBlocks[i + 1];
-        const isSplitCard =
-          (!subject && cur.room && next.subject) ||
-          (!next.room && next.subject && cur.room) ||
-          (!faculty && cur.subject && next.faculty) ||
-          (!next.subject && !next.room && next.faculty);
+        // Check if consecutive block belongs to this same lecture
+        while (idx + 1 < blocksForGroup.length) {
+          const next = blocksForGroup[idx + 1];
+          const isConsecutive =
+            next.periodIndex === blocksForGroup[idx].periodIndex + 1 &&
+            next.period.startTime === endP.endTime;
+          if (!isConsecutive) break;
 
-        if (isSplitCard) {
-          endP = next.period;
-          subject = subject || next.subject;
-          faculty = faculty || next.faculty;
-          room = room || next.room;
-          i++; // Consume merged block
+          const sameSubject =
+            subject && next.subject && subject.toUpperCase() === next.subject.toUpperCase();
+          const isSplitCard =
+            (!subject && cur.room && next.subject) ||
+            (!next.room && next.subject && cur.room) ||
+            (!faculty && cur.subject && next.faculty) ||
+            (!next.subject && !next.room && next.faculty);
+
+          if (sameSubject || isSplitCard) {
+            endP = next.period;
+            subject = subject || next.subject;
+            faculty = faculty || next.faculty;
+            room = room || next.room;
+            requiresReview = requiresReview || next.requiresReview;
+            reviewReason = reviewReason || next.reviewReason;
+            idx++; // Consume merged block
+          } else {
+            break;
+          }
         }
-      }
 
-      if (subject || room || faculty) {
-        const code = subject || 'LEC';
-        const fullName = CHITKARA_SUBJECT_NAMES[code] || code;
-        const color = SUBJECT_COLORS[code] || '#3b82f6';
+        if (subject || room || faculty) {
+          const code = subject || 'LEC';
+          const fullName = CHITKARA_SUBJECT_NAMES[code] || code;
+          const color =
+            SUBJECT_COLORS[code] ||
+            (g === 'G1' ? '#3b82f6' : g === 'G2' ? '#8b5cf6' : '#10b981');
 
-        lectures.push({
-          id: `slot_${day.dayOfWeek}_${startP.startTime.replace(':', '')}`,
-          dayOfWeek: day.dayOfWeek,
-          dayName: day.name,
-          startTime: startP.startTime,
-          endTime: endP.endTime,
-          subjectCode: code,
-          subjectName: fullName,
-          faculty: faculty || 'Department Faculty',
-          room: room || 'TBD',
-          section: selectedPage.section,
-          color,
-        });
+          lectures.push({
+            id: `slot_${day.dayOfWeek}_${startP.startTime.replace(':', '')}_${g.toLowerCase()}`,
+            dayOfWeek: day.dayOfWeek,
+            dayName: day.name,
+            startTime: startP.startTime,
+            endTime: endP.endTime,
+            subjectCode: code,
+            subjectName: fullName,
+            faculty: faculty || 'Department Faculty',
+            room: room || 'TBD',
+            section: selectedPage.section,
+            group: g,
+            requiresReview,
+            reviewReason,
+            color,
+          });
+        }
+        idx++;
       }
-      i++;
-    }
+    });
   });
 
   return {
@@ -392,6 +706,7 @@ export interface TimetableSlotLike {
   subjectName?: string;
   faculty?: string;
   room?: string;
+  group?: TimetableGroupScope;
   isManual?: boolean;
 }
 
@@ -415,20 +730,22 @@ export function computeLectureDiff(
   preserveManual: boolean = true
 ): TimetableDiffSummary {
   const added: ExtractedLecture[] = [];
-  const changed: { oldSlot: TimetableSlotLike; newSlot: ExtractedLecture; changeReason: string }[] = [];
+  const changed: { oldSlot: TimetableSlotLike; newSlot: ExtractedLecture; changeReason: string }[] =
+    [];
   const cancelled: TimetableSlotLike[] = [];
   const unchanged: ExtractedLecture[] = [];
 
   const activeExisting = currentSlots.filter((s) => !(preserveManual && s.isManual));
   const existingMap = new Map<string, TimetableSlotLike>();
   activeExisting.forEach((s) => {
-    existingMap.set(`${s.dayOfWeek}_${s.startTime}`, s);
+    const key = `${s.dayOfWeek}_${s.startTime}_${(s.group || 'ALL').toUpperCase()}`;
+    existingMap.set(key, s);
   });
 
   const matchedKeys = new Set<string>();
 
   newLectures.forEach((newSlot) => {
-    const key = `${newSlot.dayOfWeek}_${newSlot.startTime}`;
+    const key = `${newSlot.dayOfWeek}_${newSlot.startTime}_${(newSlot.group || 'ALL').toUpperCase()}`;
     matchedKeys.add(key);
     const oldSlot = existingMap.get(key);
 
@@ -439,10 +756,16 @@ export function computeLectureDiff(
       if (oldSlot.subjectCode.toUpperCase() !== newSlot.subjectCode.toUpperCase()) {
         reasons.push(`Subject: ${oldSlot.subjectCode} ➔ ${newSlot.subjectCode}`);
       }
+      if ((oldSlot.group || 'ALL') !== newSlot.group) {
+        reasons.push(`Group: ${oldSlot.group || 'ALL'} ➔ ${newSlot.group}`);
+      }
       if ((oldSlot.room || '') !== (newSlot.room || '') && (oldSlot.room || newSlot.room)) {
         reasons.push(`Room: ${oldSlot.room || 'None'} ➔ ${newSlot.room || 'None'}`);
       }
-      if ((oldSlot.faculty || '') !== (newSlot.faculty || '') && (oldSlot.faculty || newSlot.faculty)) {
+      if (
+        (oldSlot.faculty || '') !== (newSlot.faculty || '') &&
+        (oldSlot.faculty || newSlot.faculty)
+      ) {
         reasons.push(`Faculty: ${oldSlot.faculty || 'None'} ➔ ${newSlot.faculty || 'None'}`);
       }
       if (oldSlot.endTime !== newSlot.endTime) {

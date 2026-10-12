@@ -34,6 +34,8 @@ export interface UserProfile {
   universityId?: string;
   batch?: string;
   expectedGraduationYear?: number;
+  studentGroup?: 'G1' | 'G2' | 'ALL' | null;
+  subjectGroups?: Record<string, 'G1' | 'G2'>;
   attendanceTarget: number;
   emailVerified: boolean;
   role?: string;

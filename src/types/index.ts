@@ -20,6 +20,8 @@ export interface Subject {
   updatedAt: Timestamp;
 }
 
+export type TimetableGroupScope = 'ALL' | 'G1' | 'G2';
+
 export interface TimetableSlot {
   id: string;
   uid: string;
@@ -37,6 +39,9 @@ export interface TimetableSlot {
   isShared?: boolean;
   sharedGroupId?: string;
   section?: string;
+  group?: TimetableGroupScope; // 'G1' | 'G2' | 'ALL' (defaults to 'ALL' for legacy slots)
+  requiresReview?: boolean;
+  reviewReason?: string;
   effectiveDate?: string;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
@@ -50,6 +55,7 @@ export interface AttendanceRecord {
   lectureSlotId?: string;
   status: AttendanceStatus;
   source: AttendanceSource;
+  group?: TimetableGroupScope; // applicable group ('G1' | 'G2' | 'ALL')
   notes?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -132,6 +138,7 @@ export interface TimetableRevision {
       endTime: string;
       faculty?: string;
       room?: string;
+      group?: TimetableGroupScope;
     }>;
     changed: Array<{
       oldSlot: {
@@ -142,6 +149,7 @@ export interface TimetableRevision {
         endTime: string;
         faculty?: string;
         room?: string;
+        group?: TimetableGroupScope;
       };
       newSlot: {
         subjectName: string;
@@ -151,6 +159,7 @@ export interface TimetableRevision {
         endTime: string;
         faculty?: string;
         room?: string;
+        group?: TimetableGroupScope;
       };
       changeReason: string;
     }>;
@@ -162,6 +171,7 @@ export interface TimetableRevision {
       endTime: string;
       faculty?: string;
       room?: string;
+      group?: TimetableGroupScope;
     }>;
     unchanged: Array<{
       subjectName: string;
@@ -171,6 +181,7 @@ export interface TimetableRevision {
       endTime: string;
       faculty?: string;
       room?: string;
+      group?: TimetableGroupScope;
     }>;
   };
   proposedSlots: Array<{
@@ -181,6 +192,7 @@ export interface TimetableRevision {
     endTime: string;
     faculty?: string;
     room?: string;
+    group?: TimetableGroupScope;
     color?: string;
   }>;
   detectedAt: Timestamp;

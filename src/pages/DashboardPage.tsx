@@ -32,6 +32,7 @@ import {
   buildSharedGroupId,
   TimetableGroupParams,
 } from '../lib/sharedTimetable.ts';
+import { isSlotApplicableToStudent, formatGroupLabel } from '../lib/collegeEmail.ts';
 import type { Subject, TimetableSlot, AttendanceRecord, EmailConnection, TimetableRevision } from '../types';
 
 export function DashboardPage() {
@@ -195,8 +196,24 @@ export function DashboardPage() {
     );
   }, [sharedDoc?.slots, slots, groupParams]);
 
+  const studentGroup = userProfile?.studentGroup;
+
+  // Filter slots applicable to this student based on group scope (G1, G2, or ALL)
+  const studentApplicableSlots = useMemo(() => {
+    return effectiveSlots.filter((s) => isSlotApplicableToStudent(s.group, studentGroup));
+  }, [effectiveSlots, studentGroup]);
+
   const todayDay = now.getDay();
-  const todaySlots = effectiveSlots
+
+  // Group-specific slots today if student has not selected a group yet
+  const unassignedGroupSlotsToday = useMemo(() => {
+    if (studentGroup) return [];
+    return effectiveSlots.filter(
+      (s) => s.dayOfWeek === todayDay && (s.group === 'G1' || s.group === 'G2')
+    );
+  }, [effectiveSlots, todayDay, studentGroup]);
+
+  const todaySlots = studentApplicableSlots
     .filter((s) => s.dayOfWeek === todayDay)
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
@@ -240,10 +257,13 @@ export function DashboardPage() {
     const map = new Map<string, ReturnType<typeof calculateSubjectAttendance>>();
     for (const sub of subjects) {
       const subRecords = attendance.filter((a) => a.subjectId === sub.id);
-      map.set(sub.id, calculateSubjectAttendance(sub, subRecords, target / 100));
+      map.set(
+        sub.id,
+        calculateSubjectAttendance(sub, subRecords, target / 100, null, studentGroup)
+      );
     }
     return map;
-  }, [subjects, attendance, target]);
+  }, [subjects, attendance, target, studentGroup]);
 
   let overallAttended = 0;
   let overallConducted = 0;
@@ -258,9 +278,10 @@ export function DashboardPage() {
     return agg ? !agg.stats.isOnTrack : false;
   });
 
+  // Group-aware live class state: calculates current and upcoming classes strictly for this student
   const liveState = useMemo(() => {
-    return calculateLiveClassState(effectiveSlots, now);
-  }, [effectiveSlots, now]);
+    return calculateLiveClassState(studentApplicableSlots, now);
+  }, [studentApplicableSlots, now]);
 
   const isStale = (!isFirestoreLoaded && effectiveSlots.length > 0) || isOffline;
   const dateFormatted = format(now, 'EEEE, MMMM d, yyyy');
@@ -508,6 +529,19 @@ export function DashboardPage() {
               </div>
             </CardHeader>
             <CardContent>
+              {unassignedGroupSlotsToday.length > 0 && (
+                <div className="p-3 mb-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                  <div>
+                    <span className="font-bold">Group Labs Today:</span> Your section has {unassignedGroupSlotsToday.length} group-specific lab class(es) today. Set your group in Settings to show your specific lab schedule and track attendance.
+                  </div>
+                  <Link to="/settings" className="shrink-0">
+                    <Button size="sm" variant="outline" className="text-xs h-7 border-amber-300 dark:border-amber-700 bg-white dark:bg-gray-900 font-bold">
+                      Set Group
+                    </Button>
+                  </Link>
+                </div>
+              )}
+
               {todaySlots.length === 0 ? (
                 <p className="text-xs text-gray-400 py-4 text-center">No lecture slots found for today.</p>
               ) : (
@@ -535,9 +569,20 @@ export function DashboardPage() {
                       >
                         <div className="w-1.5 h-10 rounded-full flex-shrink-0" style={{ backgroundColor: slot.color }} />
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm truncate text-gray-900 dark:text-white">
-                            {slot.subjectName}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-sm truncate text-gray-900 dark:text-white">
+                              {slot.subjectName}
+                            </p>
+                            {slot.group && slot.group !== 'ALL' && (
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                slot.group === 'G1'
+                                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                                  : 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+                              }`}>
+                                {slot.group}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-gray-500">
                             {slot.startTime} – {slot.endTime} {slot.room && `• Room ${slot.room}`} {slot.faculty && `• ${slot.faculty}`}
                           </p>

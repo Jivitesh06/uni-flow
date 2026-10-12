@@ -63,8 +63,30 @@ export interface SubjectAttendanceAggregate {
 }
 
 /**
+ * Filters attendance records so that only records applicable to the student's assigned group are counted:
+ * - A student in G1 counts 'G1' and 'ALL' (and legacy unassigned) records.
+ * - A student in G2 counts 'G2' and 'ALL' (and legacy unassigned) records.
+ * - An unassigned student counts 'ALL' (and legacy unassigned) records.
+ * - Another group's class is NEVER counted for the student.
+ */
+export function filterAttendanceRecordsByGroup<T extends { group?: string | null }>(
+  records: T[],
+  studentGroup?: string | null
+): T[] {
+  if (studentGroup === 'G1') {
+    return records.filter((r) => !r.group || r.group === 'ALL' || r.group === 'G1');
+  }
+  if (studentGroup === 'G2') {
+    return records.filter((r) => !r.group || r.group === 'ALL' || r.group === 'G2');
+  }
+  // Unknown or unassigned group: only combined/unlabelled classes count
+  return records.filter((r) => !r.group || r.group === 'ALL');
+}
+
+/**
  * Combines manually configured previous baseline and lecture-by-lecture records without double-counting.
  * Backward compatible with legacy attendanceBaselines documents.
+ * Group-aware: filters out records belonging to other groups when studentGroup is specified.
  */
 export function calculateSubjectAttendance(
   subject: {
@@ -73,10 +95,16 @@ export function calculateSubjectAttendance(
     baselineAttended?: number;
     baselineConducted?: number;
   },
-  records: Array<{ status: string; subjectId?: string }>,
+  records: Array<{ status: string; subjectId?: string; group?: string | null }>,
   target: number = 0.75,
-  fallbackBaseline?: { attended?: number; conducted?: number } | null
+  fallbackBaseline?: { attended?: number; conducted?: number } | null,
+  studentGroup?: string | null
 ): SubjectAttendanceAggregate {
+  const applicableRecords =
+    studentGroup !== undefined
+      ? filterAttendanceRecordsByGroup(records, studentGroup)
+      : records;
+
   const rawBaselineAttended = subject.initialAttended ?? subject.baselineAttended ?? fallbackBaseline?.attended;
   const rawBaselineConducted = subject.initialConducted ?? subject.baselineConducted ?? fallbackBaseline?.conducted;
 
@@ -85,8 +113,8 @@ export function calculateSubjectAttendance(
   const baselineConducted = hasBaseline ? Math.max(0, Math.floor(rawBaselineConducted)) : 0;
   const baselineAttended = hasBaseline ? Math.max(0, Math.min(baselineConducted, Math.floor(rawBaselineAttended ?? 0))) : 0;
 
-  const loggedAttended = records.filter((r) => r.status === 'present').length;
-  const loggedConducted = records.filter((r) => r.status !== 'not_marked' && r.status !== 'cancelled').length;
+  const loggedAttended = applicableRecords.filter((r) => r.status === 'present').length;
+  const loggedConducted = applicableRecords.filter((r) => r.status !== 'not_marked' && r.status !== 'cancelled').length;
 
   const totalAttended = baselineAttended + loggedAttended;
   const totalConducted = baselineConducted + loggedConducted;

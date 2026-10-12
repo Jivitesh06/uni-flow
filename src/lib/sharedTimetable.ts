@@ -20,7 +20,7 @@ import {
   Firestore,
 } from 'firebase/firestore';
 import { normalizeSection, normalizeSemester, formatFullSection } from './collegeEmail.ts';
-import type { TimetableSlot } from '../types';
+import type { TimetableSlot, TimetableGroupScope } from '../types';
 
 export interface TimetableGroupParams {
   institution?: string;
@@ -40,6 +40,8 @@ export interface SharedSlot {
   startTime: string; // HH:mm
   endTime: string;   // HH:mm
   color?: string;
+  group?: TimetableGroupScope; // 'G1' | 'G2' | 'ALL'
+  requiresReview?: boolean;
 }
 
 export interface SharedTimetableRevisionRecord {
@@ -128,8 +130,8 @@ export function computeTimetableContentHash(slots: SharedSlot[], effectiveDate: 
     .map(
       (s) =>
         `${s.dayOfWeek}_${s.startTime}_${s.endTime}_${s.subjectCode.toUpperCase()}_${(
-          s.room || ''
-        ).toUpperCase()}`
+          s.group || 'ALL'
+        ).toUpperCase()}_${(s.room || '').toUpperCase()}`
     )
     .sort()
     .join('|');
@@ -173,6 +175,7 @@ export function setSharedTimetableCache(groupId: string, data: SharedTimetableDo
  * Deterministically merges shared published slots with personal additions:
  * - Shared slots represent the authoritative departmental timetable for the section.
  * - Personal slots marked with `isManual: true` are ALWAYS preserved (e.g. mentor meetings, remedial labs).
+ * - Avoids duplicate classes if a manual slot already duplicates an authoritative shared slot.
  * - If no shared slots exist yet, falls back to the user's personal timetable slots.
  */
 export function mergeSharedAndPersonalSlots(
@@ -200,11 +203,24 @@ export function mergeSharedAndPersonalSlots(
     color: s.color || '#3b82f6',
     isActive: true,
     isManual: false,
+    group: s.group || 'ALL',
+    requiresReview: s.requiresReview || false,
     section: groupId ? groupId.split('_').pop() : undefined,
   }));
 
-  // 3. Extract and preserve all personal additions
-  const personalManual = personalSlots.filter((s) => s.isActive && s.isManual);
+  // Create lookup set of shared slots to prevent duplicating identical classes
+  const sharedKeySet = new Set(
+    mappedShared.map(
+      (s) => `${s.dayOfWeek}_${s.startTime}_${s.subjectCode.toUpperCase()}_${(s.group || 'ALL').toUpperCase()}`
+    )
+  );
+
+  // 3. Extract and preserve personal additions that are not redundant duplicates
+  const personalManual = personalSlots.filter((s) => {
+    if (!s.isActive || !s.isManual) return false;
+    const key = `${s.dayOfWeek}_${s.startTime}_${s.subjectCode.toUpperCase()}_${(s.group || 'ALL').toUpperCase()}`;
+    return !sharedKeySet.has(key);
+  });
 
   return [...mappedShared, ...personalManual];
 }

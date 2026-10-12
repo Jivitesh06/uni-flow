@@ -45,8 +45,9 @@ import {
   buildSharedGroupId,
   TimetableGroupParams,
 } from '../lib/sharedTimetable';
+import { isSlotApplicableToStudent } from '../lib/collegeEmail';
 import toast from 'react-hot-toast';
-import type { TimetableSlot, Subject, TimetableRevision } from '../types';
+import type { TimetableSlot, Subject, TimetableRevision, TimetableGroupScope } from '../types';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const SHORT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -69,6 +70,7 @@ interface SlotFormData {
   startTime: string;
   endTime: string;
   color: string;
+  group: TimetableGroupScope;
 }
 
 const defaultForm: SlotFormData = {
@@ -79,6 +81,7 @@ const defaultForm: SlotFormData = {
   startTime: '09:00',
   endTime: '10:00',
   color: '#3b82f6',
+  group: 'ALL',
 };
 
 export function TimetablePage() {
@@ -110,6 +113,8 @@ export function TimetablePage() {
     );
   }, [sharedDoc?.slots, slots, groupParams]);
 
+  type GroupFilter = 'my' | 'all' | 'G1' | 'G2';
+  const [groupFilter, setGroupFilter] = useState<GroupFilter>('my');
   const [view, setView] = useState<'weekly' | 'daily'>('weekly');
   const [selectedDay, setSelectedDay] = useState(() => new Date().getDay());
   const [showForm, setShowForm] = useState(false);
@@ -164,6 +169,7 @@ export function TimetablePage() {
       subjectId: subjects.length > 0 ? subjects[0].id : '',
       faculty: subjects.length > 0 && subjects[0].faculty ? subjects[0].faculty : '',
       color: subjects.length > 0 ? subjects[0].color : '#3b82f6',
+      group: (userProfile?.studentGroup && userProfile.studentGroup !== 'ALL') ? userProfile.studentGroup : 'ALL',
     });
     setEditSlot(null);
     setShowForm(true);
@@ -178,6 +184,7 @@ export function TimetablePage() {
       startTime: slot.startTime,
       endTime: slot.endTime,
       color: slot.color,
+      group: slot.group || 'ALL',
     });
     setEditSlot(slot);
     setShowForm(true);
@@ -225,6 +232,7 @@ export function TimetablePage() {
         startTime: form.startTime,
         endTime: form.endTime,
         color: form.color,
+        group: form.group || 'ALL',
         isActive: true,
         isManual: true,
         updatedAt: serverTimestamp(),
@@ -337,7 +345,14 @@ export function TimetablePage() {
     }
   }
 
-  const activeSlots = effectiveSlots.filter((s) => s.isActive);
+  const rawActiveSlots = useMemo(() => effectiveSlots.filter((s) => s.isActive), [effectiveSlots]);
+
+  const activeSlots = useMemo(() => {
+    if (groupFilter === 'all') return rawActiveSlots;
+    if (groupFilter === 'G1') return rawActiveSlots.filter((s) => isSlotApplicableToStudent(s.group, 'G1'));
+    if (groupFilter === 'G2') return rawActiveSlots.filter((s) => isSlotApplicableToStudent(s.group, 'G2'));
+    return rawActiveSlots.filter((s) => isSlotApplicableToStudent(s.group, userProfile?.studentGroup));
+  }, [rawActiveSlots, groupFilter, userProfile?.studentGroup]);
 
   // Free intervals calculation for daily view
   function getDailyFreeSlots(day: number) {
@@ -372,6 +387,50 @@ export function TimetablePage() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Group Filter Selector */}
+          <div className="flex rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-1 shadow-sm text-xs">
+            <button
+              onClick={() => setGroupFilter('my')}
+              className={`px-2.5 py-1.5 rounded-lg font-semibold transition-all ${
+                groupFilter === 'my'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              My Schedule{userProfile?.studentGroup && userProfile.studentGroup !== 'ALL' ? ` (${userProfile.studentGroup})` : ''}
+            </button>
+            <button
+              onClick={() => setGroupFilter('G1')}
+              className={`px-2.5 py-1.5 rounded-lg font-semibold transition-all ${
+                groupFilter === 'G1'
+                  ? 'bg-amber-600 text-white shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              Group 1
+            </button>
+            <button
+              onClick={() => setGroupFilter('G2')}
+              className={`px-2.5 py-1.5 rounded-lg font-semibold transition-all ${
+                groupFilter === 'G2'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              Group 2
+            </button>
+            <button
+              onClick={() => setGroupFilter('all')}
+              className={`px-2.5 py-1.5 rounded-lg font-semibold transition-all ${
+                groupFilter === 'all'
+                  ? 'bg-gray-700 text-white shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              All Classes
+            </button>
+          </div>
+
           <div className="flex rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-1 shadow-sm">
             <button
               onClick={() => setView('weekly')}
@@ -406,6 +465,32 @@ export function TimetablePage() {
           </Button>
         </div>
       </div>
+
+      {/* Unassigned Group Notice Banner */}
+      {(!userProfile?.studentGroup || userProfile.studentGroup === 'ALL') &&
+        rawActiveSlots.some((s) => s.group === 'G1' || s.group === 'G2') && (
+          <div className="bg-amber-50/80 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 mt-0.5">
+                <Users className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  Section Contains Group 1 & Group 2 Classes
+                </h4>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 leading-relaxed">
+                  Your timetable includes group-specific lab and practical sessions. Currently displaying all classes. Select your group in Settings to customize your schedule and attendance.
+                </p>
+              </div>
+            </div>
+            <Link to="/settings" className="w-full sm:w-auto">
+              <Button size="sm" variant="outline" className="w-full sm:w-auto whitespace-nowrap border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300 hover:bg-amber-100">
+                Select Group in Settings
+                <ArrowRight className="w-4 h-4 ml-1.5" />
+              </Button>
+            </Link>
+          </div>
+        )}
 
       {/* Pending Weekly Revisions Notification */}
       {pendingRevisions.length > 0 && (
@@ -586,6 +671,24 @@ export function TimetablePage() {
                                     Personal
                                   </span>
                                 )}
+                                {slot.group === 'G1' && (
+                                  <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-400/40 text-amber-100 font-bold border border-amber-300/40">
+                                    G1
+                                  </span>
+                                )}
+                                {slot.group === 'G2' && (
+                                  <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-purple-400/40 text-purple-100 font-bold border border-purple-300/40">
+                                    G2
+                                  </span>
+                                )}
+                                {slot.requiresReview && (
+                                  <span
+                                    className="text-[9px] px-1.5 py-0.2 rounded-full bg-red-400/50 text-red-100 font-bold border border-red-300/50"
+                                    title={slot.reviewReason || 'Review Required'}
+                                  >
+                                    Review
+                                  </span>
+                                )}
                               </div>
                             </div>
                             {isNow && (
@@ -746,6 +849,21 @@ export function TimetablePage() {
                               Personal
                             </Badge>
                           )}
+                          {slot.group === 'G1' && (
+                            <Badge variant="default" className="text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 font-bold">
+                              Group 1
+                            </Badge>
+                          )}
+                          {slot.group === 'G2' && (
+                            <Badge variant="default" className="text-[10px] bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 border border-purple-300 dark:border-purple-800 font-bold">
+                              Group 2
+                            </Badge>
+                          )}
+                          {slot.requiresReview && (
+                            <Badge variant="warning" className="text-[10px]" title={slot.reviewReason || 'Review Required'}>
+                              Review Needed
+                            </Badge>
+                          )}
                           {isNow && (
                             <Badge variant="success" className="animate-pulse">
                               ● Live Now
@@ -889,20 +1007,33 @@ export function TimetablePage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-gray-500">Color Tag</label>
-                  <div className="flex gap-1.5 mt-2 flex-wrap">
-                    {COLORS.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setForm((f) => ({ ...f, color: c }))}
-                        className={`w-6 h-6 rounded-full transition-transform ${
-                          form.color === c ? 'scale-125 ring-2 ring-offset-2 ring-gray-400' : 'hover:scale-110'
-                        }`}
-                        style={{ backgroundColor: c }}
-                      />
-                    ))}
-                  </div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-gray-500">Group Scope</label>
+                  <select
+                    value={form.group}
+                    onChange={(e) => setForm((f) => ({ ...f, group: e.target.value as TimetableGroupScope }))}
+                    className="w-full mt-1.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white font-medium"
+                  >
+                    <option value="ALL">All (Whole Section)</option>
+                    <option value="G1">Group 1 (G1)</option>
+                    <option value="G2">Group 2 (G2)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-gray-500">Color Tag</label>
+                <div className="flex gap-1.5 mt-2 flex-wrap">
+                  {COLORS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, color: c }))}
+                      className={`w-6 h-6 rounded-full transition-transform ${
+                        form.color === c ? 'scale-125 ring-2 ring-offset-2 ring-gray-400' : 'hover:scale-110'
+                      }`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
                 </div>
               </div>
 

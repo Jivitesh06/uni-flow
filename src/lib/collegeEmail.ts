@@ -22,6 +22,7 @@ export interface StudentProfileFields {
   batch?: string;
   semester?: number;
   section?: string;
+  studentGroup?: 'G1' | 'G2' | 'ALL' | null;
   expectedGraduationYear?: number;
 }
 
@@ -330,3 +331,56 @@ export function parseStudentDetailsFromEmail(email: string): StudentProfileField
 
   return result;
 }
+
+/**
+ * Normalizes raw group strings (e.g. "Group 1", "G1", "Batch 1", "Gr.2") into internal 'G1' | 'G2' | 'ALL'.
+ */
+export function normalizeGroupScope(raw: string | null | undefined): 'G1' | 'G2' | 'ALL' {
+  if (!raw) return 'ALL';
+  const clean = raw.trim().toUpperCase();
+  if (/^(?:GROUP[\s_-]*1|G[\s_-]*1|GR\.?[\s_-]*1|BATCH[\s_-]*1)$/i.test(clean)) {
+    return 'G1';
+  }
+  if (/^(?:GROUP[\s_-]*2|G[\s_-]*2|GR\.?[\s_-]*2|BATCH[\s_-]*2)$/i.test(clean)) {
+    return 'G2';
+  }
+  if (/^(?:ALL|BOTH|COMBINED|WHOLE[\s_-]*SECTION|ENTIRE[\s_-]*SECTION)$/i.test(clean)) {
+    return 'ALL';
+  }
+  return 'ALL';
+}
+
+/**
+ * Formats internal group scope into user-friendly display labels.
+ */
+export function formatGroupLabel(group: string | null | undefined): string {
+  if (!group || group === 'ALL') return 'All (Combined Section)';
+  if (group === 'G1') return 'Group 1 (G1)';
+  if (group === 'G2') return 'Group 2 (G2)';
+  return group;
+}
+
+/**
+ * Determines whether a timetable slot applies to a student based on their group assignment:
+ * - 'ALL' slots apply to EVERY student.
+ * - 'G1' slots apply ONLY to Group 1 students.
+ * - 'G2' slots apply ONLY to Group 2 students.
+ * - If student group is unknown/unassigned: only 'ALL' slots apply by default.
+ */
+export function isSlotApplicableToStudent(
+  slotGroup: string | null | undefined,
+  studentGroup: string | null | undefined
+): boolean {
+  const normSlot = normalizeGroupScope(slotGroup);
+  // Combined / whole-section slots always apply to every student
+  if (normSlot === 'ALL') return true;
+
+  // When a student has explicitly selected G1 or G2, only their group's slots apply
+  if (studentGroup === 'G1' || studentGroup === 'G2') {
+    return normSlot === studentGroup;
+  }
+
+  // When unassigned (null, undefined, or 'ALL'), the student views the whole-section schedule
+  return true;
+}
+

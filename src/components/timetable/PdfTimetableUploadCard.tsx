@@ -37,7 +37,7 @@ import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
 import { AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
-import type { TimetableSlot } from '../../types';
+import type { TimetableSlot, TimetableGroupScope } from '../../types';
 
 interface PdfTimetableUploadCardProps {
   currentSlots: TimetableSlot[];
@@ -92,6 +92,7 @@ export function PdfTimetableUploadCard({
     startTime: string;
     endTime: string;
     dayOfWeek: number;
+    group: TimetableGroupScope;
   }>({
     subjectCode: '',
     subjectName: '',
@@ -100,6 +101,7 @@ export function PdfTimetableUploadCard({
     startTime: '',
     endTime: '',
     dayOfWeek: 1,
+    group: 'ALL',
   });
 
   async function processPdfBuffer(buffer: ArrayBuffer, name: string, sectionTarget?: string) {
@@ -195,6 +197,7 @@ export function PdfTimetableUploadCard({
       startTime: slot.startTime,
       endTime: slot.endTime,
       dayOfWeek: slot.dayOfWeek,
+      group: slot.group || 'ALL',
     });
     setShowEditModal(true);
   }
@@ -217,6 +220,7 @@ export function PdfTimetableUploadCard({
               endTime: editForm.endTime,
               dayOfWeek: editForm.dayOfWeek,
               dayName: DAYS[editForm.dayOfWeek],
+              group: editForm.group || 'ALL',
             }
           : s
       )
@@ -506,11 +510,26 @@ export function PdfTimetableUploadCard({
                     >
                       <div className="w-1.5 self-stretch rounded-full" style={{ backgroundColor: lec.color || '#3b82f6' }} />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-bold text-gray-900 dark:text-white truncate">{lec.subjectName}</p>
                           <Badge variant="default" className="text-[10px] px-1.5 py-0">
                             {lec.subjectCode}
                           </Badge>
+                          {lec.group === 'G1' && (
+                            <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 font-bold">
+                              G1
+                            </Badge>
+                          )}
+                          {lec.group === 'G2' && (
+                            <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 border border-purple-300 dark:border-purple-800 font-bold">
+                              G2
+                            </Badge>
+                          )}
+                          {lec.requiresReview && (
+                            <Badge variant="warning" className="text-[10px] px-1.5 py-0" title={lec.reviewReason}>
+                              Review
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-gray-500 mt-1 flex items-center gap-2 text-[11px]">
                           <span className="font-semibold text-gray-700 dark:text-gray-300">{DAYS[lec.dayOfWeek]}</span>
@@ -602,6 +621,21 @@ export function PdfTimetableUploadCard({
                     />
                   </div>
                   <div>
+                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Group Scope</label>
+                    <select
+                      value={editForm.group}
+                      onChange={(e) => setEditForm({ ...editForm, group: e.target.value as TimetableGroupScope })}
+                      className="w-full mt-1 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                    >
+                      <option value="ALL">All / Combined</option>
+                      <option value="G1">Group 1 (G1)</option>
+                      <option value="G2">Group 2 (G2)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
                     <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Day of Week</label>
                     <select
                       value={editForm.dayOfWeek}
@@ -613,15 +647,14 @@ export function PdfTimetableUploadCard({
                       ))}
                     </select>
                   </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Full Subject Name</label>
-                  <Input
-                    value={editForm.subjectName}
-                    onChange={(e) => setEditForm({ ...editForm, subjectName: e.target.value })}
-                    className="mt-1"
-                  />
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Full Subject Name</label>
+                    <Input
+                      value={editForm.subjectName}
+                      onChange={(e) => setEditForm({ ...editForm, subjectName: e.target.value })}
+                      className="mt-1"
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">

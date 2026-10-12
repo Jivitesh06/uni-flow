@@ -47,6 +47,9 @@ export function SettingsPage() {
     return raw.toUpperCase();
   });
   const [universityId, setUniversityId] = useState(userProfile?.universityId ?? '');
+  const [studentGroup, setStudentGroup] = useState<'G1' | 'G2' | 'ALL' | ''>(
+    userProfile?.studentGroup || ''
+  );
   const [college, setCollege] = useState(userProfile?.college ?? 'Chitkara University');
   const [target, setTarget] = useState(userProfile?.attendanceTarget ?? 75);
   const [saving, setSaving] = useState(false);
@@ -75,6 +78,7 @@ export function SettingsPage() {
         displayName: displayName.trim(),
         semester: Number(semester),
         section: validatedSection,
+        studentGroup: (studentGroup || null) as 'G1' | 'G2' | 'ALL' | null,
         universityId: universityId.trim(),
         batch: currentBatch,
         expectedGraduationYear: Number(currentGradYear),
@@ -189,14 +193,30 @@ export function SettingsPage() {
               </p>
             </div>
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-gray-500">College / Institution</label>
-              <Input
-                placeholder="e.g. Chitkara University"
-                value={college}
-                onChange={(e) => setCollege(e.target.value)}
-                className="mt-1"
-              />
+              <label className="text-xs font-bold uppercase tracking-wider text-gray-500">Student Group</label>
+              <select
+                value={studentGroup}
+                onChange={(e) => setStudentGroup(e.target.value as 'G1' | 'G2' | 'ALL' | '')}
+                className="w-full mt-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Not Assigned / Combined Only</option>
+                <option value="G1">Group 1 (G1)</option>
+                <option value="G2">Group 2 (G2)</option>
+              </select>
+              <p className="text-[11px] text-gray-400 mt-1">
+                Used to filter group-specific lab and practical classes.
+              </p>
             </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wider text-gray-500">College / Institution</label>
+            <Input
+              placeholder="e.g. Chitkara University"
+              value={college}
+              onChange={(e) => setCollege(e.target.value)}
+              className="mt-1"
+            />
           </div>
 
           {/* Automatic Academic Years Display */}
