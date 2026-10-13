@@ -658,9 +658,11 @@ export function AttendancePage() {
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <CardTitle className="text-lg font-bold text-gray-900 dark:text-white">{sub.name}</CardTitle>
-                        <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
-                          {sub.code}
-                        </span>
+                        {sub.code !== sub.name && (
+                          <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                            {sub.code}
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-gray-400 mt-1">
                         {sub.faculty ? `👤 ${sub.faculty}` : `${sub.credits} Credits`}

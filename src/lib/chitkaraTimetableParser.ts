@@ -182,7 +182,48 @@ export interface ChitkaraTimetableParseResult {
   warnings: string[];
 }
 
+/**
+ * Authoritative Chitkara subject shortforms as specified in the official college timetables.
+ * MM is Mentor Meeting, named as MM.
+ */
 export const CHITKARA_SUBJECT_NAMES: Record<string, string> = {
+  // 5th Semester
+  'ADI': 'ADI',
+  'ADI-FA': 'ADI-FA',
+  'NALR-I': 'NALR-I',
+  'SD': 'SD',
+  'AAIPD': 'AAIPD',
+
+  // 3rd Semester
+  'CS': 'CS',
+  'DS': 'DS',
+  'PIJ': 'PIJ',
+  'FEE-II': 'FEE-II',
+  'DBMS': 'DBMS',
+  'MLE': 'MLE',
+  'IOT': 'IOT',
+
+  // 1st Semester
+  'FCS': 'FCS',
+  'FCSL': 'FCSL',
+  'LAC': 'LAC',
+  'LACT': 'LACT',
+  'SPC': 'SPC',
+  'IWT': 'IWT',
+  'IWTL': 'IWTL',
+  'IoT': 'IoT',
+  'MM': 'MM',
+
+  // Non-academic
+  'Lib': 'Lib',
+  'Library': 'Lib',
+};
+
+/**
+ * Full course titles for tooltips and catalog reference.
+ * Note: MM stands for Mentor Meeting.
+ */
+export const CHITKARA_SUBJECT_DESCRIPTIONS: Record<string, string> = {
   // 5th Semester
   'ADI': 'Applied Design & Innovation',
   'ADI-FA': 'Applied Design & Innovation (Financial Apps)',
@@ -208,7 +249,7 @@ export const CHITKARA_SUBJECT_NAMES: Record<string, string> = {
   'IWT': 'Internet & Web Technologies',
   'IWTL': 'Internet & Web Technologies Lab',
   'IoT': 'Internet of Things',
-  'MM': 'Multimedia Systems',
+  'MM': 'Mentor Meeting',
 
   // Non-academic
   'Lib': 'Library',
@@ -638,7 +679,7 @@ export async function parseChitkaraPdf(
       }
 
       const code = isLib ? 'Lib' : subj.str;
-      const fullName = isLib ? 'Library' : (CHITKARA_SUBJECT_NAMES[code] || code);
+      const fullName = isLib ? 'Lib' : (CHITKARA_SUBJECT_NAMES[code] || code);
       const color = isLib
         ? '#64748b'
         : (SUBJECT_COLORS[code] ||

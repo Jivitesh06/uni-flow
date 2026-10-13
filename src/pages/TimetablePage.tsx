@@ -894,7 +894,9 @@ export function TimetablePage() {
                             <div>
                               <p className="font-extrabold text-xs leading-snug">{slot.subjectName}</p>
                               <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-[10px] opacity-90 font-mono font-semibold">{slot.subjectCode}</span>
+                                {slot.subjectCode !== slot.subjectName && (
+                                  <span className="text-[10px] opacity-90 font-mono font-semibold">{slot.subjectCode}</span>
+                                )}
                                 {isShared ? (
                                   <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-blue-500/30 text-blue-100 font-semibold border border-blue-300/30">
                                     Shared
@@ -1075,9 +1077,11 @@ export function TimetablePage() {
                           <p className="font-extrabold text-base text-gray-900 dark:text-white truncate">
                             {slot.subjectName}
                           </p>
-                          <span className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-md font-mono font-semibold text-gray-600 dark:text-gray-300">
-                            {slot.subjectCode}
-                          </span>
+                          {slot.subjectCode !== slot.subjectName && (
+                            <span className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-md font-mono font-semibold text-gray-600 dark:text-gray-300">
+                              {slot.subjectCode}
+                            </span>
+                          )}
                           {!slot.isManual || slot.id.startsWith('shared_') ? (
                             <Badge variant="default" className="text-[10px] bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                               <Users className="w-3 h-3 mr-1" /> Shared

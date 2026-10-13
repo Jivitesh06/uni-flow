@@ -24,7 +24,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5a_1",
         "subjectCode": "ADI-FA",
-        "subjectName": "Applied Design & Innovation (Financial Apps)",
+        "subjectName": "ADI-FA",
         "faculty": "Ms Ekta",
         "room": "RJ204R",
         "dayOfWeek": 1,
@@ -41,7 +41,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5a_2",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Mr Ritesh",
         "room": "RJ309R",
         "dayOfWeek": 1,
@@ -58,7 +58,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5a_3",
         "subjectCode": "NALR-I",
-        "subjectName": "Numerical Analysis & Linear Reasoning I",
+        "subjectName": "NALR-I",
         "faculty": "Mr Satish",
         "room": "CVR203R",
         "dayOfWeek": 1,
@@ -75,7 +75,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5a_4",
         "subjectCode": "SD",
-        "subjectName": "System Design & Architecture",
+        "subjectName": "SD",
         "faculty": "Mr Sandeep",
         "room": "CVR203R",
         "dayOfWeek": 2,
@@ -92,7 +92,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5a_5",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Mr Ritesh",
         "room": "RJ310R",
         "dayOfWeek": 2,
@@ -109,7 +109,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5a_6",
         "subjectCode": "SD",
-        "subjectName": "System Design & Architecture",
+        "subjectName": "SD",
         "faculty": "Mr Sandeep",
         "room": "CVR203R",
         "dayOfWeek": 3,
@@ -126,7 +126,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5a_7",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Mr Ritesh",
         "room": "CVR309R",
         "dayOfWeek": 3,
@@ -143,7 +143,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5a_8",
         "subjectCode": "SD",
-        "subjectName": "System Design & Architecture",
+        "subjectName": "SD",
         "faculty": "Mr Sandeep",
         "room": "RJ310R",
         "dayOfWeek": 4,
@@ -160,7 +160,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5a_9",
         "subjectCode": "AAIPD",
-        "subjectName": "Applied AI Product Development",
+        "subjectName": "AAIPD",
         "faculty": "Dr Ashutosh",
         "room": "CVR303R",
         "dayOfWeek": 4,
@@ -177,7 +177,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5a_10",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Mr Ritesh",
         "room": "CVR203R",
         "dayOfWeek": 4,
@@ -194,7 +194,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5a_11",
         "subjectCode": "NALR-I",
-        "subjectName": "Numerical Analysis & Linear Reasoning I",
+        "subjectName": "NALR-I",
         "faculty": "Mr Satish",
         "room": "CVR308R",
         "dayOfWeek": 5,
@@ -211,7 +211,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5a_12",
         "subjectCode": "AAIPD",
-        "subjectName": "Applied AI Product Development",
+        "subjectName": "AAIPD",
         "faculty": "Dr Ashutosh",
         "room": "CVR303R",
         "dayOfWeek": 5,
@@ -248,7 +248,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5b_1",
         "subjectCode": "SD",
-        "subjectName": "System Design & Architecture",
+        "subjectName": "SD",
         "faculty": "Mr Sandeep",
         "room": "CVR203R",
         "dayOfWeek": 1,
@@ -265,7 +265,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5b_2",
         "subjectCode": "ADI-FA",
-        "subjectName": "Applied Design & Innovation (Financial Apps)",
+        "subjectName": "ADI-FA",
         "faculty": "Ms Ekta",
         "room": "RJ309R",
         "dayOfWeek": 1,
@@ -282,7 +282,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5b_3",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Mr Ritesh",
         "room": "RJ309R",
         "dayOfWeek": 2,
@@ -299,7 +299,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5b_4",
         "subjectCode": "AAIPD",
-        "subjectName": "Applied AI Product Development",
+        "subjectName": "AAIPD",
         "faculty": "Dr Pradeepta",
         "room": "CVR309R",
         "dayOfWeek": 2,
@@ -316,7 +316,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5b_5",
         "subjectCode": "NALR-I",
-        "subjectName": "Numerical Analysis & Linear Reasoning I",
+        "subjectName": "NALR-I",
         "faculty": "Mr Satish",
         "room": "CVR203R",
         "dayOfWeek": 2,
@@ -333,7 +333,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5b_6",
         "subjectCode": "SD",
-        "subjectName": "System Design & Architecture",
+        "subjectName": "SD",
         "faculty": "Mr Sandeep",
         "room": "CVR203R",
         "dayOfWeek": 3,
@@ -350,7 +350,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5b_7",
         "subjectCode": "AAIPD",
-        "subjectName": "Applied AI Product Development",
+        "subjectName": "AAIPD",
         "faculty": "Dr Pradeepta",
         "room": "CVR203R",
         "dayOfWeek": 3,
@@ -367,7 +367,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5b_8",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Mr Ritesh",
         "room": "RJ310R",
         "dayOfWeek": 3,
@@ -384,7 +384,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5b_9",
         "subjectCode": "AAIPD",
-        "subjectName": "Applied AI Product Development",
+        "subjectName": "AAIPD",
         "faculty": "Dr Pradeepta",
         "room": "CVR203R",
         "dayOfWeek": 4,
@@ -401,7 +401,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5b_10",
         "subjectCode": "NALR-I",
-        "subjectName": "Numerical Analysis & Linear Reasoning I",
+        "subjectName": "NALR-I",
         "faculty": "Mr Satish",
         "room": "RJ310R",
         "dayOfWeek": 4,
@@ -418,7 +418,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5b_11",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Mr Ritesh",
         "room": "CVR203R",
         "dayOfWeek": 4,
@@ -435,7 +435,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5b_12",
         "subjectCode": "SD",
-        "subjectName": "System Design & Architecture",
+        "subjectName": "SD",
         "faculty": "Mr Sandeep",
         "room": "CVR203R",
         "dayOfWeek": 5,
@@ -452,7 +452,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5b_13",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Mr Ritesh",
         "room": "CVR203R",
         "dayOfWeek": 5,
@@ -489,7 +489,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5c_1",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Mr Deepak",
         "room": "RJ204R",
         "dayOfWeek": 1,
@@ -506,7 +506,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5c_2",
         "subjectCode": "SD",
-        "subjectName": "System Design & Architecture",
+        "subjectName": "SD",
         "faculty": "Mr. Baljeet",
         "room": "RJ309R",
         "dayOfWeek": 1,
@@ -523,7 +523,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5c_3",
         "subjectCode": "ADI-FA",
-        "subjectName": "Applied Design & Innovation (Financial Apps)",
+        "subjectName": "ADI-FA",
         "faculty": "Ms Ekta",
         "room": "RJ204R",
         "dayOfWeek": 2,
@@ -540,7 +540,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5c_4",
         "subjectCode": "SD",
-        "subjectName": "System Design & Architecture",
+        "subjectName": "SD",
         "faculty": "Mr. Baljeet",
         "room": "RJ310R",
         "dayOfWeek": 2,
@@ -557,7 +557,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5c_5",
         "subjectCode": "NALR-I",
-        "subjectName": "Numerical Analysis & Linear Reasoning I",
+        "subjectName": "NALR-I",
         "faculty": "Mr Satish",
         "room": "RJ204R",
         "dayOfWeek": 3,
@@ -574,7 +574,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5c_6",
         "subjectCode": "NALR-I",
-        "subjectName": "Numerical Analysis & Linear Reasoning I",
+        "subjectName": "NALR-I",
         "faculty": "Mr Satish",
         "room": "RJ204R",
         "dayOfWeek": 3,
@@ -591,7 +591,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5c_7",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Mr Deepak",
         "room": "RJ310R",
         "dayOfWeek": 3,
@@ -608,7 +608,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5c_8",
         "subjectCode": "AAIPD",
-        "subjectName": "Applied AI Product Development",
+        "subjectName": "AAIPD",
         "faculty": "Dr Vijay",
         "room": "RJ204R",
         "dayOfWeek": 3,
@@ -625,7 +625,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5c_9",
         "subjectCode": "SD",
-        "subjectName": "System Design & Architecture",
+        "subjectName": "SD",
         "faculty": "Mr. Baljeet",
         "room": "RJ204R",
         "dayOfWeek": 4,
@@ -642,7 +642,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5c_10",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Mr Deepak",
         "room": "RJ204R",
         "dayOfWeek": 4,
@@ -659,7 +659,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5c_11",
         "subjectCode": "AAIPD",
-        "subjectName": "Applied AI Product Development",
+        "subjectName": "AAIPD",
         "faculty": "Dr Vijay",
         "room": "RJ204R",
         "dayOfWeek": 4,
@@ -676,7 +676,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5c_12",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Mr Deepak",
         "room": "RJ204R",
         "dayOfWeek": 5,
@@ -713,7 +713,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5d_1",
         "subjectCode": "SD",
-        "subjectName": "System Design & Architecture",
+        "subjectName": "SD",
         "faculty": "Mr. Baljeet",
         "room": "RJ304R",
         "dayOfWeek": 1,
@@ -730,7 +730,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5d_2",
         "subjectCode": "NALR-I",
-        "subjectName": "Numerical Analysis & Linear Reasoning I",
+        "subjectName": "NALR-I",
         "faculty": "Mr Satish",
         "room": "RJ304R",
         "dayOfWeek": 1,
@@ -747,7 +747,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5d_3",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Mr Deepak",
         "room": "RJ310R",
         "dayOfWeek": 1,
@@ -764,7 +764,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5d_4",
         "subjectCode": "NALR-I",
-        "subjectName": "Numerical Analysis & Linear Reasoning I",
+        "subjectName": "NALR-I",
         "faculty": "Mr Satish",
         "room": "RJ304R",
         "dayOfWeek": 2,
@@ -781,7 +781,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5d_5",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Mr Deepak",
         "room": "RJ304R",
         "dayOfWeek": 2,
@@ -798,7 +798,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5d_6",
         "subjectCode": "AAIPD",
-        "subjectName": "Applied AI Product Development",
+        "subjectName": "AAIPD",
         "faculty": "Dr Vijay",
         "room": "CVR308R",
         "dayOfWeek": 2,
@@ -815,7 +815,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5d_7",
         "subjectCode": "SD",
-        "subjectName": "System Design & Architecture",
+        "subjectName": "SD",
         "faculty": "Mr. Baljeet",
         "room": "RJ304R",
         "dayOfWeek": 3,
@@ -832,7 +832,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5d_8",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Mr Deepak",
         "room": "RJ304R",
         "dayOfWeek": 3,
@@ -849,7 +849,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5d_9",
         "subjectCode": "AAIPD",
-        "subjectName": "Applied AI Product Development",
+        "subjectName": "AAIPD",
         "faculty": "Dr Vijay",
         "room": "RJ310R",
         "dayOfWeek": 3,
@@ -866,7 +866,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5d_10",
         "subjectCode": "SD",
-        "subjectName": "System Design & Architecture",
+        "subjectName": "SD",
         "faculty": "Mr. Baljeet",
         "room": "RJ304R",
         "dayOfWeek": 4,
@@ -883,7 +883,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5d_11",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Mr Deepak",
         "room": "RJ304R",
         "dayOfWeek": 4,
@@ -900,7 +900,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5d_12",
         "subjectCode": "ADI-FA",
-        "subjectName": "Applied Design & Innovation (Financial Apps)",
+        "subjectName": "ADI-FA",
         "faculty": "Ms Ekta",
         "room": "CVR308R",
         "dayOfWeek": 4,
@@ -937,7 +937,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5e_1",
         "subjectCode": "NALR-I",
-        "subjectName": "Numerical Analysis & Linear Reasoning I",
+        "subjectName": "NALR-I",
         "faculty": "Mr Satish",
         "room": "RJ304R",
         "dayOfWeek": 1,
@@ -954,7 +954,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5e_2",
         "subjectCode": "AAIPD",
-        "subjectName": "Applied AI Product Development",
+        "subjectName": "AAIPD",
         "faculty": "Dr Vidhu",
         "room": "CVR309R",
         "dayOfWeek": 1,
@@ -971,7 +971,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5e_3",
         "subjectCode": "SD",
-        "subjectName": "System Design & Architecture",
+        "subjectName": "SD",
         "faculty": "Dr Vidhu",
         "room": "CVR309R",
         "dayOfWeek": 1,
@@ -988,7 +988,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5e_4",
         "subjectCode": "ADI-FA",
-        "subjectName": "Applied Design & Innovation (Financial Apps)",
+        "subjectName": "ADI-FA",
         "faculty": "Ms Ekta",
         "room": "RJ309R",
         "dayOfWeek": 2,
@@ -1005,7 +1005,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5e_5",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Ms Aayushi",
         "room": "RJ309R",
         "dayOfWeek": 2,
@@ -1022,7 +1022,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5e_6",
         "subjectCode": "AAIPD",
-        "subjectName": "Applied AI Product Development",
+        "subjectName": "AAIPD",
         "faculty": "Dr Vidhu",
         "room": "RJ309R",
         "dayOfWeek": 3,
@@ -1039,7 +1039,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5e_7",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Ms Aayushi",
         "room": "RJ309R",
         "dayOfWeek": 3,
@@ -1056,7 +1056,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5e_8",
         "subjectCode": "NALR-I",
-        "subjectName": "Numerical Analysis & Linear Reasoning I",
+        "subjectName": "NALR-I",
         "faculty": "Mr Satish",
         "room": "RJ309R",
         "dayOfWeek": 4,
@@ -1073,7 +1073,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5e_9",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Ms Aayushi",
         "room": "RJ309R",
         "dayOfWeek": 4,
@@ -1090,7 +1090,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5e_10",
         "subjectCode": "SD",
-        "subjectName": "System Design & Architecture",
+        "subjectName": "SD",
         "faculty": "Mr Sandeep",
         "room": "RJ309R",
         "dayOfWeek": 4,
@@ -1107,7 +1107,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5e_11",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Ms Aayushi",
         "room": "RJ309R",
         "dayOfWeek": 5,
@@ -1124,7 +1124,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5e_12",
         "subjectCode": "SD",
-        "subjectName": "System Design & Architecture",
+        "subjectName": "SD",
         "faculty": "Mr Sandeep",
         "room": "RJ309R",
         "dayOfWeek": 5,
@@ -1161,7 +1161,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5f_1",
         "subjectCode": "AAIPD",
-        "subjectName": "Applied AI Product Development",
+        "subjectName": "AAIPD",
         "faculty": "Dr Nagesh",
         "room": "CVR303R",
         "dayOfWeek": 1,
@@ -1178,7 +1178,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5f_2",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Ms Aayushi",
         "room": "CVR308R",
         "dayOfWeek": 1,
@@ -1195,7 +1195,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5f_3",
         "subjectCode": "SD",
-        "subjectName": "System Design & Architecture",
+        "subjectName": "SD",
         "faculty": "Mr. Baljeet",
         "room": "RJ304R",
         "dayOfWeek": 2,
@@ -1212,7 +1212,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5f_4",
         "subjectCode": "AAIPD",
-        "subjectName": "Applied AI Product Development",
+        "subjectName": "AAIPD",
         "faculty": "Dr Nagesh",
         "room": "CVR303R",
         "dayOfWeek": 2,
@@ -1229,7 +1229,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5f_5",
         "subjectCode": "SD",
-        "subjectName": "System Design & Architecture",
+        "subjectName": "SD",
         "faculty": "Mr. Baljeet",
         "room": "RJ309R",
         "dayOfWeek": 3,
@@ -1246,7 +1246,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5f_6",
         "subjectCode": "ADI-FA",
-        "subjectName": "Applied Design & Innovation (Financial Apps)",
+        "subjectName": "ADI-FA",
         "faculty": "Ms Ekta",
         "room": "CVR303R",
         "dayOfWeek": 3,
@@ -1263,7 +1263,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5f_7",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Ms Aayushi",
         "room": "CVR303R",
         "dayOfWeek": 3,
@@ -1280,7 +1280,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5f_8",
         "subjectCode": "SD",
-        "subjectName": "System Design & Architecture",
+        "subjectName": "SD",
         "faculty": "Mr. Baljeet",
         "room": "CVR303R",
         "dayOfWeek": 4,
@@ -1297,7 +1297,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5f_9",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Ms Aayushi",
         "room": "CVR303R",
         "dayOfWeek": 4,
@@ -1314,7 +1314,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5f_10",
         "subjectCode": "NALR-I",
-        "subjectName": "Numerical Analysis & Linear Reasoning I",
+        "subjectName": "NALR-I",
         "faculty": "Mr Satish",
         "room": "RJ310R",
         "dayOfWeek": 4,
@@ -1331,7 +1331,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5f_11",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Ms Aayushi",
         "room": "RJ309R",
         "dayOfWeek": 5,
@@ -1348,7 +1348,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5f_12",
         "subjectCode": "NALR-I",
-        "subjectName": "Numerical Analysis & Linear Reasoning I",
+        "subjectName": "NALR-I",
         "faculty": "Mr Satish",
         "room": "CVR308R",
         "dayOfWeek": 5,
@@ -1385,7 +1385,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5g_1",
         "subjectCode": "AAIPD",
-        "subjectName": "Applied AI Product Development",
+        "subjectName": "AAIPD",
         "faculty": "Dr Ravita",
         "room": "CVR303R",
         "dayOfWeek": 1,
@@ -1402,7 +1402,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5g_2",
         "subjectCode": "SD",
-        "subjectName": "System Design & Architecture",
+        "subjectName": "SD",
         "faculty": "Mr. Baljeet",
         "room": "RJ310R",
         "dayOfWeek": 1,
@@ -1419,7 +1419,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5g_3",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Ms Aayushi",
         "room": "CVR309R",
         "dayOfWeek": 1,
@@ -1436,7 +1436,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5g_4",
         "subjectCode": "NALR-I",
-        "subjectName": "Numerical Analysis & Linear Reasoning I",
+        "subjectName": "NALR-I",
         "faculty": "Mr Satish",
         "room": "CVR308R",
         "dayOfWeek": 2,
@@ -1453,7 +1453,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5g_5",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Ms Aayushi",
         "room": "RJ304R",
         "dayOfWeek": 2,
@@ -1470,7 +1470,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5g_6",
         "subjectCode": "NALR-I",
-        "subjectName": "Numerical Analysis & Linear Reasoning I",
+        "subjectName": "NALR-I",
         "faculty": "Mr Satish",
         "room": "CVR308R",
         "dayOfWeek": 3,
@@ -1487,7 +1487,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5g_7",
         "subjectCode": "SD",
-        "subjectName": "System Design & Architecture",
+        "subjectName": "SD",
         "faculty": "Mr. Baljeet",
         "room": "CVR308R",
         "dayOfWeek": 3,
@@ -1504,7 +1504,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5g_8",
         "subjectCode": "ADI-FA",
-        "subjectName": "Applied Design & Innovation (Financial Apps)",
+        "subjectName": "ADI-FA",
         "faculty": "Ms Ekta",
         "room": "CVR308R",
         "dayOfWeek": 4,
@@ -1521,7 +1521,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5g_9",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Ms Aayushi",
         "room": "RJ304R",
         "dayOfWeek": 4,
@@ -1538,7 +1538,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5g_10",
         "subjectCode": "SD",
-        "subjectName": "System Design & Architecture",
+        "subjectName": "SD",
         "faculty": "Mr. Baljeet",
         "room": "CVR308R",
         "dayOfWeek": 5,
@@ -1555,7 +1555,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5g_11",
         "subjectCode": "AAIPD",
-        "subjectName": "Applied AI Product Development",
+        "subjectName": "AAIPD",
         "faculty": "Dr Ravita",
         "room": "CVR303R",
         "dayOfWeek": 5,
@@ -1572,7 +1572,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_5g_12",
         "subjectCode": "ADI",
-        "subjectName": "Applied Design & Innovation",
+        "subjectName": "ADI",
         "faculty": "Ms Aayushi",
         "room": "CVR303R",
         "dayOfWeek": 5,
@@ -1609,7 +1609,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_1",
         "subjectCode": "CS",
-        "subjectName": "Computer Systems",
+        "subjectName": "CS",
         "faculty": "Dr Ramamani",
         "room": "RJ104R",
         "dayOfWeek": 1,
@@ -1626,7 +1626,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_2",
         "subjectCode": "FEE-II",
-        "subjectName": "Fundamentals of Electrical Engineering II",
+        "subjectName": "FEE-II",
         "faculty": "Mr Yogesh / Dr Praveen",
         "room": "CVR103R",
         "dayOfWeek": 1,
@@ -1643,7 +1643,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_3",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Ramamani",
         "room": "RJ104R",
         "dayOfWeek": 1,
@@ -1660,7 +1660,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_4",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Dr Neeraj / Ms Ekta",
         "room": "RJ109R",
         "dayOfWeek": 1,
@@ -1677,7 +1677,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_5",
         "subjectCode": "CS",
-        "subjectName": "Computer Systems",
+        "subjectName": "CS",
         "faculty": "Dr Ramamani",
         "room": "RJ104R",
         "dayOfWeek": 2,
@@ -1694,7 +1694,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_6",
         "subjectCode": "FEE-II",
-        "subjectName": "Fundamentals of Electrical Engineering II",
+        "subjectName": "FEE-II",
         "faculty": "Mr Yogesh / Dr Praveen",
         "room": "RJ109R",
         "dayOfWeek": 2,
@@ -1711,7 +1711,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_7",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Yashwant / Mr Alok",
         "room": "CVR103R",
         "dayOfWeek": 2,
@@ -1728,7 +1728,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_8",
         "subjectCode": "DS",
-        "subjectName": "Data Structures",
+        "subjectName": "DS",
         "faculty": "Dr Ankit",
         "room": "CVR103R",
         "dayOfWeek": 2,
@@ -1745,7 +1745,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_9",
         "subjectCode": "DBMS",
-        "subjectName": "Database Management Systems",
+        "subjectName": "DBMS",
         "faculty": "Ms Muskan / Dr Rani",
         "room": "CVR103R",
         "dayOfWeek": 3,
@@ -1762,7 +1762,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_10",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Yashwant / Mr Alok",
         "room": "CVR103R",
         "dayOfWeek": 3,
@@ -1779,7 +1779,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_11",
         "subjectCode": "DS",
-        "subjectName": "Data Structures",
+        "subjectName": "DS",
         "faculty": "Dr Ankit",
         "room": "RJ109R",
         "dayOfWeek": 3,
@@ -1796,7 +1796,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_12",
         "subjectCode": "DBMS",
-        "subjectName": "Database Management Systems",
+        "subjectName": "DBMS",
         "faculty": "Ms Muskan / Dr Rani",
         "room": "RJ104R",
         "dayOfWeek": 4,
@@ -1813,7 +1813,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_13",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Yashwant / Mr Alok",
         "room": "CVR103R",
         "dayOfWeek": 4,
@@ -1830,7 +1830,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_14",
         "subjectCode": "MLE",
-        "subjectName": "Machine Learning Engineering",
+        "subjectName": "MLE",
         "faculty": "Dr Pradeepta",
         "room": "CL01",
         "dayOfWeek": 4,
@@ -1847,7 +1847,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_15",
         "subjectCode": "IOT",
-        "subjectName": "Internet of Things",
+        "subjectName": "IOT",
         "faculty": "Dr Monika / Mr Kuldeep",
         "room": "CL01",
         "dayOfWeek": 4,
@@ -1864,7 +1864,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_16",
         "subjectCode": "DS",
-        "subjectName": "Data Structures",
+        "subjectName": "DS",
         "faculty": "Dr Ankit",
         "room": "RJ104R",
         "dayOfWeek": 4,
@@ -1881,7 +1881,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_17",
         "subjectCode": "MLE",
-        "subjectName": "Machine Learning Engineering",
+        "subjectName": "MLE",
         "faculty": "Dr Praveen",
         "room": "RJ009L",
         "dayOfWeek": 4,
@@ -1898,7 +1898,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_18",
         "subjectCode": "CS",
-        "subjectName": "Computer Systems",
+        "subjectName": "CS",
         "faculty": "Dr Ramamani",
         "room": "RJ109R",
         "dayOfWeek": 5,
@@ -1915,7 +1915,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_19",
         "subjectCode": "FEE-II",
-        "subjectName": "Fundamentals of Electrical Engineering II",
+        "subjectName": "FEE-II",
         "faculty": "Mr Yogesh / Dr Praveen",
         "room": "RJ104R",
         "dayOfWeek": 5,
@@ -1932,7 +1932,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_20",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Yashwant / Mr Alok",
         "room": "RJ109R",
         "dayOfWeek": 5,
@@ -1949,7 +1949,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_21",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Mohit",
         "room": "RJ109R",
         "dayOfWeek": 5,
@@ -1986,7 +1986,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_1",
         "subjectCode": "CS",
-        "subjectName": "Computer Systems",
+        "subjectName": "CS",
         "faculty": "Dr Ramamani",
         "room": "RJ104R",
         "dayOfWeek": 1,
@@ -2003,7 +2003,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_2",
         "subjectCode": "FEE-II",
-        "subjectName": "Fundamentals of Electrical Engineering II",
+        "subjectName": "FEE-II",
         "faculty": "Mr Yogesh / Dr Praveen",
         "room": "CVR103R",
         "dayOfWeek": 1,
@@ -2020,7 +2020,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_3",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Ramamani",
         "room": "RJ104R",
         "dayOfWeek": 1,
@@ -2037,7 +2037,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_4",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Dr Neeraj / Ms Ekta",
         "room": "RJ109R",
         "dayOfWeek": 1,
@@ -2054,7 +2054,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_5",
         "subjectCode": "CS",
-        "subjectName": "Computer Systems",
+        "subjectName": "CS",
         "faculty": "Dr Ramamani",
         "room": "RJ104R",
         "dayOfWeek": 2,
@@ -2071,7 +2071,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_6",
         "subjectCode": "FEE-II",
-        "subjectName": "Fundamentals of Electrical Engineering II",
+        "subjectName": "FEE-II",
         "faculty": "Mr Yogesh / Dr Praveen",
         "room": "RJ109R",
         "dayOfWeek": 2,
@@ -2088,7 +2088,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_7",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Yashwant / Mr Alok",
         "room": "CVR103R",
         "dayOfWeek": 2,
@@ -2105,7 +2105,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_8",
         "subjectCode": "DS",
-        "subjectName": "Data Structures",
+        "subjectName": "DS",
         "faculty": "Dr Ankit",
         "room": "CVR103R",
         "dayOfWeek": 2,
@@ -2122,7 +2122,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_9",
         "subjectCode": "DBMS",
-        "subjectName": "Database Management Systems",
+        "subjectName": "DBMS",
         "faculty": "Ms Muskan / Dr Rani",
         "room": "CVR103R",
         "dayOfWeek": 3,
@@ -2139,7 +2139,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_10",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Yashwant / Mr Alok",
         "room": "CVR103R",
         "dayOfWeek": 3,
@@ -2156,7 +2156,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_11",
         "subjectCode": "DS",
-        "subjectName": "Data Structures",
+        "subjectName": "DS",
         "faculty": "Dr Ankit",
         "room": "RJ109R",
         "dayOfWeek": 3,
@@ -2173,7 +2173,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_12",
         "subjectCode": "DBMS",
-        "subjectName": "Database Management Systems",
+        "subjectName": "DBMS",
         "faculty": "Ms Muskan / Dr Rani",
         "room": "RJ104R",
         "dayOfWeek": 4,
@@ -2190,7 +2190,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_13",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Yashwant / Mr Alok",
         "room": "CVR103R",
         "dayOfWeek": 4,
@@ -2207,7 +2207,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_14",
         "subjectCode": "MLE",
-        "subjectName": "Machine Learning Engineering",
+        "subjectName": "MLE",
         "faculty": "Dr Pradeepta",
         "room": "CL01",
         "dayOfWeek": 4,
@@ -2224,7 +2224,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_15",
         "subjectCode": "IOT",
-        "subjectName": "Internet of Things",
+        "subjectName": "IOT",
         "faculty": "Dr Monika / Mr Kuldeep",
         "room": "CL01",
         "dayOfWeek": 4,
@@ -2241,7 +2241,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_16",
         "subjectCode": "DS",
-        "subjectName": "Data Structures",
+        "subjectName": "DS",
         "faculty": "Dr Ankit",
         "room": "RJ104R",
         "dayOfWeek": 4,
@@ -2258,7 +2258,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_17",
         "subjectCode": "MLE",
-        "subjectName": "Machine Learning Engineering",
+        "subjectName": "MLE",
         "faculty": "Dr Praveen",
         "room": "RJ009L",
         "dayOfWeek": 4,
@@ -2275,7 +2275,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_18",
         "subjectCode": "CS",
-        "subjectName": "Computer Systems",
+        "subjectName": "CS",
         "faculty": "Dr Ramamani",
         "room": "RJ109R",
         "dayOfWeek": 5,
@@ -2292,7 +2292,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_19",
         "subjectCode": "FEE-II",
-        "subjectName": "Fundamentals of Electrical Engineering II",
+        "subjectName": "FEE-II",
         "faculty": "Mr Yogesh / Dr Praveen",
         "room": "RJ104R",
         "dayOfWeek": 5,
@@ -2309,7 +2309,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_20",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Yashwant / Mr Alok",
         "room": "RJ109R",
         "dayOfWeek": 5,
@@ -2326,7 +2326,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3a_21",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Mohit",
         "room": "RJ109R",
         "dayOfWeek": 5,
@@ -2363,7 +2363,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_1",
         "subjectCode": "DBMS",
-        "subjectName": "Database Management Systems",
+        "subjectName": "DBMS",
         "faculty": "Ms Muskan / Dr Rani",
         "room": "RJ109R",
         "dayOfWeek": 1,
@@ -2380,7 +2380,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_2",
         "subjectCode": "FEE-II",
-        "subjectName": "Fundamentals of Electrical Engineering II",
+        "subjectName": "FEE-II",
         "faculty": "Mr Yogesh / Dr Mohit",
         "room": "RJ109R",
         "dayOfWeek": 1,
@@ -2397,7 +2397,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_3",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Yashwant / Dr Vijay",
         "room": "RJ104R",
         "dayOfWeek": 1,
@@ -2414,7 +2414,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_4",
         "subjectCode": "CS",
-        "subjectName": "Computer Systems",
+        "subjectName": "CS",
         "faculty": "Dr Neeraj",
         "room": "RJ104R",
         "dayOfWeek": 2,
@@ -2431,7 +2431,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_5",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Yashwant / Mr Alok",
         "room": "RJ109R",
         "dayOfWeek": 2,
@@ -2448,7 +2448,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_6",
         "subjectCode": "MLE",
-        "subjectName": "Machine Learning Engineering",
+        "subjectName": "MLE",
         "faculty": "Dr Pradeepta",
         "room": "CL01",
         "dayOfWeek": 2,
@@ -2465,7 +2465,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_7",
         "subjectCode": "IOT",
-        "subjectName": "Internet of Things",
+        "subjectName": "IOT",
         "faculty": "Dr Monika / Mr Kuldeep",
         "room": "CL01",
         "dayOfWeek": 2,
@@ -2482,7 +2482,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_8",
         "subjectCode": "DS",
-        "subjectName": "Data Structures",
+        "subjectName": "DS",
         "faculty": "Dr Ankit",
         "room": "CVR103R",
         "dayOfWeek": 2,
@@ -2499,7 +2499,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_9",
         "subjectCode": "MLE",
-        "subjectName": "Machine Learning Engineering",
+        "subjectName": "MLE",
         "faculty": "Dr Rani",
         "room": "RJ009L",
         "dayOfWeek": 2,
@@ -2516,7 +2516,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_10",
         "subjectCode": "CS",
-        "subjectName": "Computer Systems",
+        "subjectName": "CS",
         "faculty": "Dr Neeraj",
         "room": "RJ104R",
         "dayOfWeek": 3,
@@ -2533,7 +2533,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_11",
         "subjectCode": "FEE-II",
-        "subjectName": "Fundamentals of Electrical Engineering II",
+        "subjectName": "FEE-II",
         "faculty": "Mr Yogesh / Dr Mohit",
         "room": "RJ104R",
         "dayOfWeek": 3,
@@ -2550,7 +2550,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_12",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Alok / Ms Ekta",
         "room": "RJ104R",
         "dayOfWeek": 3,
@@ -2567,7 +2567,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_13",
         "subjectCode": "CS",
-        "subjectName": "Computer Systems",
+        "subjectName": "CS",
         "faculty": "Dr Neeraj",
         "room": "CVR103R",
         "dayOfWeek": 4,
@@ -2584,7 +2584,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_14",
         "subjectCode": "FEE-II",
-        "subjectName": "Fundamentals of Electrical Engineering II",
+        "subjectName": "FEE-II",
         "faculty": "Mr Yogesh / Dr Mohit",
         "room": "RJ109R",
         "dayOfWeek": 4,
@@ -2601,7 +2601,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_15",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Ankit",
         "room": "RJ109R",
         "dayOfWeek": 4,
@@ -2618,7 +2618,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_16",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Neeraj",
         "room": "RJ109R",
         "dayOfWeek": 4,
@@ -2635,7 +2635,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_17",
         "subjectCode": "DS",
-        "subjectName": "Data Structures",
+        "subjectName": "DS",
         "faculty": "Dr Ankit",
         "room": "RJ104R",
         "dayOfWeek": 4,
@@ -2652,7 +2652,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_18",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Yashwant / Dr Vijay",
         "room": "CVR103R",
         "dayOfWeek": 4,
@@ -2669,7 +2669,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_19",
         "subjectCode": "DBMS",
-        "subjectName": "Database Management Systems",
+        "subjectName": "DBMS",
         "faculty": "Ms Muskan / Dr Rani",
         "room": "CVR103R",
         "dayOfWeek": 5,
@@ -2686,7 +2686,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_20",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Yashwant / Mr Alok",
         "room": "CVR103R",
         "dayOfWeek": 5,
@@ -2703,7 +2703,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_21",
         "subjectCode": "DS",
-        "subjectName": "Data Structures",
+        "subjectName": "DS",
         "faculty": "Dr Ankit",
         "room": "RJ110R",
         "dayOfWeek": 5,
@@ -2740,7 +2740,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_1",
         "subjectCode": "DBMS",
-        "subjectName": "Database Management Systems",
+        "subjectName": "DBMS",
         "faculty": "Ms Muskan / Dr Rani",
         "room": "RJ109R",
         "dayOfWeek": 1,
@@ -2757,7 +2757,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_2",
         "subjectCode": "FEE-II",
-        "subjectName": "Fundamentals of Electrical Engineering II",
+        "subjectName": "FEE-II",
         "faculty": "Mr Yogesh / Dr Mohit",
         "room": "RJ109R",
         "dayOfWeek": 1,
@@ -2774,7 +2774,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_3",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Yashwant / Dr Vijay",
         "room": "RJ104R",
         "dayOfWeek": 1,
@@ -2791,7 +2791,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_4",
         "subjectCode": "CS",
-        "subjectName": "Computer Systems",
+        "subjectName": "CS",
         "faculty": "Dr Neeraj",
         "room": "RJ104R",
         "dayOfWeek": 2,
@@ -2808,7 +2808,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_5",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Yashwant / Mr Alok",
         "room": "RJ109R",
         "dayOfWeek": 2,
@@ -2825,7 +2825,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_6",
         "subjectCode": "MLE",
-        "subjectName": "Machine Learning Engineering",
+        "subjectName": "MLE",
         "faculty": "Dr Pradeepta",
         "room": "CL01",
         "dayOfWeek": 2,
@@ -2842,7 +2842,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_7",
         "subjectCode": "IOT",
-        "subjectName": "Internet of Things",
+        "subjectName": "IOT",
         "faculty": "Dr Monika / Mr Kuldeep",
         "room": "CL01",
         "dayOfWeek": 2,
@@ -2859,7 +2859,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_8",
         "subjectCode": "DS",
-        "subjectName": "Data Structures",
+        "subjectName": "DS",
         "faculty": "Dr Ankit",
         "room": "CVR103R",
         "dayOfWeek": 2,
@@ -2876,7 +2876,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_9",
         "subjectCode": "MLE",
-        "subjectName": "Machine Learning Engineering",
+        "subjectName": "MLE",
         "faculty": "Dr Rani",
         "room": "RJ009L",
         "dayOfWeek": 2,
@@ -2893,7 +2893,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_10",
         "subjectCode": "CS",
-        "subjectName": "Computer Systems",
+        "subjectName": "CS",
         "faculty": "Dr Neeraj",
         "room": "RJ104R",
         "dayOfWeek": 3,
@@ -2910,7 +2910,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_11",
         "subjectCode": "FEE-II",
-        "subjectName": "Fundamentals of Electrical Engineering II",
+        "subjectName": "FEE-II",
         "faculty": "Mr Yogesh / Dr Mohit",
         "room": "RJ104R",
         "dayOfWeek": 3,
@@ -2927,7 +2927,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_12",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Alok / Ms Ekta",
         "room": "RJ104R",
         "dayOfWeek": 3,
@@ -2944,7 +2944,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_13",
         "subjectCode": "CS",
-        "subjectName": "Computer Systems",
+        "subjectName": "CS",
         "faculty": "Dr Neeraj",
         "room": "CVR103R",
         "dayOfWeek": 4,
@@ -2961,7 +2961,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_14",
         "subjectCode": "FEE-II",
-        "subjectName": "Fundamentals of Electrical Engineering II",
+        "subjectName": "FEE-II",
         "faculty": "Mr Yogesh / Dr Mohit",
         "room": "RJ109R",
         "dayOfWeek": 4,
@@ -2978,7 +2978,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_15",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Ankit",
         "room": "RJ109R",
         "dayOfWeek": 4,
@@ -2995,7 +2995,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_16",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Neeraj",
         "room": "RJ109R",
         "dayOfWeek": 4,
@@ -3012,7 +3012,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_17",
         "subjectCode": "DS",
-        "subjectName": "Data Structures",
+        "subjectName": "DS",
         "faculty": "Dr Ankit",
         "room": "RJ104R",
         "dayOfWeek": 4,
@@ -3029,7 +3029,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_18",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Yashwant / Dr Vijay",
         "room": "CVR103R",
         "dayOfWeek": 4,
@@ -3046,7 +3046,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_19",
         "subjectCode": "DBMS",
-        "subjectName": "Database Management Systems",
+        "subjectName": "DBMS",
         "faculty": "Ms Muskan / Dr Rani",
         "room": "CVR103R",
         "dayOfWeek": 5,
@@ -3063,7 +3063,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_20",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Yashwant / Mr Alok",
         "room": "CVR103R",
         "dayOfWeek": 5,
@@ -3080,7 +3080,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3b_21",
         "subjectCode": "DS",
-        "subjectName": "Data Structures",
+        "subjectName": "DS",
         "faculty": "Dr Ankit",
         "room": "RJ110R",
         "dayOfWeek": 5,
@@ -3117,7 +3117,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_1",
         "subjectCode": "FEE-II",
-        "subjectName": "Fundamentals of Electrical Engineering II",
+        "subjectName": "FEE-II",
         "faculty": "Mr Yogesh / Dr Mohit",
         "room": "CVR103R",
         "dayOfWeek": 1,
@@ -3134,7 +3134,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_2",
         "subjectCode": "CS",
-        "subjectName": "Computer Systems",
+        "subjectName": "CS",
         "faculty": "Mr Alok",
         "room": "RJ110R",
         "dayOfWeek": 1,
@@ -3151,7 +3151,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_3",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Yashwant / Dr Vijay",
         "room": "RJ110R",
         "dayOfWeek": 1,
@@ -3168,7 +3168,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_4",
         "subjectCode": "CS",
-        "subjectName": "Computer Systems",
+        "subjectName": "CS",
         "faculty": "Mr Alok",
         "room": "RJ104R",
         "dayOfWeek": 2,
@@ -3185,7 +3185,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_5",
         "subjectCode": "DS",
-        "subjectName": "Data Structures",
+        "subjectName": "DS",
         "faculty": "Mr Alok",
         "room": "RJ110R",
         "dayOfWeek": 2,
@@ -3202,7 +3202,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_6",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Yashwant / Dr Vijay",
         "room": "RJ110R",
         "dayOfWeek": 2,
@@ -3219,7 +3219,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_7",
         "subjectCode": "DBMS",
-        "subjectName": "Database Management Systems",
+        "subjectName": "DBMS",
         "faculty": "Ms Muskan / Dr Praveen",
         "room": "RJ109R",
         "dayOfWeek": 2,
@@ -3236,7 +3236,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_8",
         "subjectCode": "DBMS",
-        "subjectName": "Database Management Systems",
+        "subjectName": "DBMS",
         "faculty": "Ms Muskan / Dr Praveen",
         "room": "RJ110R",
         "dayOfWeek": 3,
@@ -3253,7 +3253,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_9",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Yashwant / Mr GauravM",
         "room": "RJ110R",
         "dayOfWeek": 3,
@@ -3270,7 +3270,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_10",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr GauravM / Ms Ekta",
         "room": "CVR103R",
         "dayOfWeek": 3,
@@ -3287,7 +3287,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_11",
         "subjectCode": "FEE-II",
-        "subjectName": "Fundamentals of Electrical Engineering II",
+        "subjectName": "FEE-II",
         "faculty": "Mr Yogesh / Dr Mohit",
         "room": "RJ110R",
         "dayOfWeek": 4,
@@ -3304,7 +3304,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_12",
         "subjectCode": "CS",
-        "subjectName": "Computer Systems",
+        "subjectName": "CS",
         "faculty": "Mr Alok",
         "room": "RJ110R",
         "dayOfWeek": 4,
@@ -3321,7 +3321,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_13",
         "subjectCode": "MLE",
-        "subjectName": "Machine Learning Engineering",
+        "subjectName": "MLE",
         "faculty": "Dr Hakam",
         "room": "RJ110R",
         "dayOfWeek": 4,
@@ -3338,7 +3338,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_14",
         "subjectCode": "IOT",
-        "subjectName": "Internet of Things",
+        "subjectName": "IOT",
         "faculty": "Dr Monika / Mr Kuldeep",
         "room": "RJ110R",
         "dayOfWeek": 4,
@@ -3355,7 +3355,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_15",
         "subjectCode": "DS",
-        "subjectName": "Data Structures",
+        "subjectName": "DS",
         "faculty": "Dr Ashok",
         "room": "RJ110R",
         "dayOfWeek": 4,
@@ -3372,7 +3372,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_16",
         "subjectCode": "MLE",
-        "subjectName": "Machine Learning Engineering",
+        "subjectName": "MLE",
         "faculty": "Dr Ramamani",
         "room": "RJ009L",
         "dayOfWeek": 4,
@@ -3389,7 +3389,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_17",
         "subjectCode": "FEE-II",
-        "subjectName": "Fundamentals of Electrical Engineering II",
+        "subjectName": "FEE-II",
         "faculty": "Mr Yogesh / Dr Mohit",
         "room": "RJ104R",
         "dayOfWeek": 5,
@@ -3406,7 +3406,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_18",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Hakam",
         "room": "RJ110R",
         "dayOfWeek": 5,
@@ -3423,7 +3423,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_19",
         "subjectCode": "DS",
-        "subjectName": "Data Structures",
+        "subjectName": "DS",
         "faculty": "Dr Ashok",
         "room": "RJ110R",
         "dayOfWeek": 5,
@@ -3440,7 +3440,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_20",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Yashwant / Mr GauravM",
         "room": "RJ109R",
         "dayOfWeek": 5,
@@ -3457,7 +3457,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_21",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Ashok",
         "room": "RJ110R",
         "dayOfWeek": 5,
@@ -3494,7 +3494,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_1",
         "subjectCode": "FEE-II",
-        "subjectName": "Fundamentals of Electrical Engineering II",
+        "subjectName": "FEE-II",
         "faculty": "Mr Yogesh / Dr Mohit",
         "room": "CVR103R",
         "dayOfWeek": 1,
@@ -3511,7 +3511,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_2",
         "subjectCode": "CS",
-        "subjectName": "Computer Systems",
+        "subjectName": "CS",
         "faculty": "Mr Alok",
         "room": "RJ110R",
         "dayOfWeek": 1,
@@ -3528,7 +3528,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_3",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Yashwant / Dr Vijay",
         "room": "RJ110R",
         "dayOfWeek": 1,
@@ -3545,7 +3545,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_4",
         "subjectCode": "CS",
-        "subjectName": "Computer Systems",
+        "subjectName": "CS",
         "faculty": "Mr Alok",
         "room": "RJ104R",
         "dayOfWeek": 2,
@@ -3562,7 +3562,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_5",
         "subjectCode": "DS",
-        "subjectName": "Data Structures",
+        "subjectName": "DS",
         "faculty": "Mr Alok",
         "room": "RJ110R",
         "dayOfWeek": 2,
@@ -3579,7 +3579,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_6",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Yashwant / Dr Vijay",
         "room": "RJ110R",
         "dayOfWeek": 2,
@@ -3596,7 +3596,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_7",
         "subjectCode": "DBMS",
-        "subjectName": "Database Management Systems",
+        "subjectName": "DBMS",
         "faculty": "Ms Muskan / Dr Praveen",
         "room": "RJ109R",
         "dayOfWeek": 2,
@@ -3613,7 +3613,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_8",
         "subjectCode": "DBMS",
-        "subjectName": "Database Management Systems",
+        "subjectName": "DBMS",
         "faculty": "Ms Muskan / Dr Praveen",
         "room": "RJ110R",
         "dayOfWeek": 3,
@@ -3630,7 +3630,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_9",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Yashwant / Mr GauravM",
         "room": "RJ110R",
         "dayOfWeek": 3,
@@ -3647,7 +3647,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_10",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr GauravM / Ms Ekta",
         "room": "CVR103R",
         "dayOfWeek": 3,
@@ -3664,7 +3664,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_11",
         "subjectCode": "FEE-II",
-        "subjectName": "Fundamentals of Electrical Engineering II",
+        "subjectName": "FEE-II",
         "faculty": "Mr Yogesh / Dr Mohit",
         "room": "RJ110R",
         "dayOfWeek": 4,
@@ -3681,7 +3681,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_12",
         "subjectCode": "CS",
-        "subjectName": "Computer Systems",
+        "subjectName": "CS",
         "faculty": "Mr Alok",
         "room": "RJ110R",
         "dayOfWeek": 4,
@@ -3698,7 +3698,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_13",
         "subjectCode": "MLE",
-        "subjectName": "Machine Learning Engineering",
+        "subjectName": "MLE",
         "faculty": "Dr Hakam",
         "room": "RJ110R",
         "dayOfWeek": 4,
@@ -3715,7 +3715,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_14",
         "subjectCode": "IOT",
-        "subjectName": "Internet of Things",
+        "subjectName": "IOT",
         "faculty": "Dr Monika / Mr Kuldeep",
         "room": "RJ110R",
         "dayOfWeek": 4,
@@ -3732,7 +3732,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_15",
         "subjectCode": "DS",
-        "subjectName": "Data Structures",
+        "subjectName": "DS",
         "faculty": "Dr Ashok",
         "room": "RJ110R",
         "dayOfWeek": 4,
@@ -3749,7 +3749,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_16",
         "subjectCode": "MLE",
-        "subjectName": "Machine Learning Engineering",
+        "subjectName": "MLE",
         "faculty": "Dr Ramamani",
         "room": "RJ009L",
         "dayOfWeek": 4,
@@ -3766,7 +3766,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_17",
         "subjectCode": "FEE-II",
-        "subjectName": "Fundamentals of Electrical Engineering II",
+        "subjectName": "FEE-II",
         "faculty": "Mr Yogesh / Dr Mohit",
         "room": "RJ104R",
         "dayOfWeek": 5,
@@ -3783,7 +3783,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_18",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Hakam",
         "room": "RJ110R",
         "dayOfWeek": 5,
@@ -3800,7 +3800,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_19",
         "subjectCode": "DS",
-        "subjectName": "Data Structures",
+        "subjectName": "DS",
         "faculty": "Dr Ashok",
         "room": "RJ110R",
         "dayOfWeek": 5,
@@ -3817,7 +3817,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_20",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Mr Yashwant / Mr GauravM",
         "room": "RJ109R",
         "dayOfWeek": 5,
@@ -3834,7 +3834,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3c_21",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Ashok",
         "room": "RJ110R",
         "dayOfWeek": 5,
@@ -3871,7 +3871,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_1",
         "subjectCode": "CS",
-        "subjectName": "Computer Systems",
+        "subjectName": "CS",
         "faculty": "Dr Mohit",
         "room": "RJ109R",
         "dayOfWeek": 1,
@@ -3888,7 +3888,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_2",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Ms Manu / Dr Neeraj",
         "room": "RJ104R",
         "dayOfWeek": 1,
@@ -3905,7 +3905,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_3",
         "subjectCode": "DBMS",
-        "subjectName": "Database Management Systems",
+        "subjectName": "DBMS",
         "faculty": "Ms Muskan / Dr Praveen",
         "room": "CVR103R",
         "dayOfWeek": 1,
@@ -3922,7 +3922,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_4",
         "subjectCode": "DS",
-        "subjectName": "Data Structures",
+        "subjectName": "DS",
         "faculty": "Dr Ashok",
         "room": "RJ110R",
         "dayOfWeek": 1,
@@ -3939,7 +3939,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_5",
         "subjectCode": "FEE-II",
-        "subjectName": "Fundamentals of Electrical Engineering II",
+        "subjectName": "FEE-II",
         "faculty": "Mr Yogesh / Dr Rani",
         "room": "RJ109R",
         "dayOfWeek": 2,
@@ -3956,7 +3956,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_6",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Ms Manu / Dr Neeraj",
         "room": "CVR103R",
         "dayOfWeek": 2,
@@ -3973,7 +3973,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_7",
         "subjectCode": "MLE",
-        "subjectName": "Machine Learning Engineering",
+        "subjectName": "MLE",
         "faculty": "Dr Ramamani",
         "room": "RJ104R",
         "dayOfWeek": 2,
@@ -3990,7 +3990,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_8",
         "subjectCode": "IOT",
-        "subjectName": "Internet of Things",
+        "subjectName": "IOT",
         "faculty": "Dr Monika / Mr Kuldeep",
         "room": "RJ104R",
         "dayOfWeek": 2,
@@ -4007,7 +4007,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_9",
         "subjectCode": "MLE",
-        "subjectName": "Machine Learning Engineering",
+        "subjectName": "MLE",
         "faculty": "Dr Hakam",
         "room": "RJ009L",
         "dayOfWeek": 2,
@@ -4024,7 +4024,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_10",
         "subjectCode": "CS",
-        "subjectName": "Computer Systems",
+        "subjectName": "CS",
         "faculty": "Dr Mohit",
         "room": "CVR103R",
         "dayOfWeek": 3,
@@ -4041,7 +4041,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_11",
         "subjectCode": "FEE-II",
-        "subjectName": "Fundamentals of Electrical Engineering II",
+        "subjectName": "FEE-II",
         "faculty": "Mr Yogesh / Dr Rani",
         "room": "RJ109R",
         "dayOfWeek": 3,
@@ -4058,7 +4058,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_12",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Ms Manu / Dr Neeraj",
         "room": "RJ109R",
         "dayOfWeek": 3,
@@ -4075,7 +4075,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_13",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Rani",
         "room": "RJ110R",
         "dayOfWeek": 3,
@@ -4092,7 +4092,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_14",
         "subjectCode": "DS",
-        "subjectName": "Data Structures",
+        "subjectName": "DS",
         "faculty": "Dr Ashok",
         "room": "RJ110R",
         "dayOfWeek": 3,
@@ -4109,7 +4109,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_15",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Ms Manu / Dr Neeraj",
         "room": "RJ109R",
         "dayOfWeek": 4,
@@ -4126,7 +4126,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_16",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Mr Alok",
         "room": "RJ104R",
         "dayOfWeek": 4,
@@ -4143,7 +4143,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_17",
         "subjectCode": "DBMS",
-        "subjectName": "Database Management Systems",
+        "subjectName": "DBMS",
         "faculty": "Ms Muskan / Dr Praveen",
         "room": "RJ109R",
         "dayOfWeek": 4,
@@ -4160,7 +4160,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_18",
         "subjectCode": "DS",
-        "subjectName": "Data Structures",
+        "subjectName": "DS",
         "faculty": "Dr Ashok",
         "room": "RJ104R",
         "dayOfWeek": 4,
@@ -4177,7 +4177,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_19",
         "subjectCode": "CS",
-        "subjectName": "Computer Systems",
+        "subjectName": "CS",
         "faculty": "Dr Mohit",
         "room": "RJ109R",
         "dayOfWeek": 5,
@@ -4194,7 +4194,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_20",
         "subjectCode": "FEE-II",
-        "subjectName": "Fundamentals of Electrical Engineering II",
+        "subjectName": "FEE-II",
         "faculty": "Mr Yogesh / Dr Rani",
         "room": "RJ104R",
         "dayOfWeek": 5,
@@ -4211,7 +4211,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_21",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Dr Neeraj / Ms Ekta",
         "room": "CVR103R",
         "dayOfWeek": 5,
@@ -4248,7 +4248,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_1",
         "subjectCode": "CS",
-        "subjectName": "Computer Systems",
+        "subjectName": "CS",
         "faculty": "Dr Mohit",
         "room": "RJ109R",
         "dayOfWeek": 1,
@@ -4265,7 +4265,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_2",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Ms Manu / Dr Neeraj",
         "room": "RJ104R",
         "dayOfWeek": 1,
@@ -4282,7 +4282,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_3",
         "subjectCode": "DBMS",
-        "subjectName": "Database Management Systems",
+        "subjectName": "DBMS",
         "faculty": "Ms Muskan / Dr Praveen",
         "room": "CVR103R",
         "dayOfWeek": 1,
@@ -4299,7 +4299,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_4",
         "subjectCode": "DS",
-        "subjectName": "Data Structures",
+        "subjectName": "DS",
         "faculty": "Dr Ashok",
         "room": "RJ110R",
         "dayOfWeek": 1,
@@ -4316,7 +4316,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_5",
         "subjectCode": "FEE-II",
-        "subjectName": "Fundamentals of Electrical Engineering II",
+        "subjectName": "FEE-II",
         "faculty": "Mr Yogesh / Dr Rani",
         "room": "RJ109R",
         "dayOfWeek": 2,
@@ -4333,7 +4333,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_6",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Ms Manu / Dr Neeraj",
         "room": "CVR103R",
         "dayOfWeek": 2,
@@ -4350,7 +4350,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_7",
         "subjectCode": "MLE",
-        "subjectName": "Machine Learning Engineering",
+        "subjectName": "MLE",
         "faculty": "Dr Ramamani",
         "room": "RJ104R",
         "dayOfWeek": 2,
@@ -4367,7 +4367,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_8",
         "subjectCode": "IOT",
-        "subjectName": "Internet of Things",
+        "subjectName": "IOT",
         "faculty": "Dr Monika / Mr Kuldeep",
         "room": "RJ104R",
         "dayOfWeek": 2,
@@ -4384,7 +4384,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_9",
         "subjectCode": "MLE",
-        "subjectName": "Machine Learning Engineering",
+        "subjectName": "MLE",
         "faculty": "Dr Hakam",
         "room": "RJ009L",
         "dayOfWeek": 2,
@@ -4401,7 +4401,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_10",
         "subjectCode": "CS",
-        "subjectName": "Computer Systems",
+        "subjectName": "CS",
         "faculty": "Dr Mohit",
         "room": "CVR103R",
         "dayOfWeek": 3,
@@ -4418,7 +4418,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_11",
         "subjectCode": "FEE-II",
-        "subjectName": "Fundamentals of Electrical Engineering II",
+        "subjectName": "FEE-II",
         "faculty": "Mr Yogesh / Dr Rani",
         "room": "RJ109R",
         "dayOfWeek": 3,
@@ -4435,7 +4435,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_12",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Ms Manu / Dr Neeraj",
         "room": "RJ109R",
         "dayOfWeek": 3,
@@ -4452,7 +4452,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_13",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Rani",
         "room": "RJ110R",
         "dayOfWeek": 3,
@@ -4469,7 +4469,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_14",
         "subjectCode": "DS",
-        "subjectName": "Data Structures",
+        "subjectName": "DS",
         "faculty": "Dr Ashok",
         "room": "RJ110R",
         "dayOfWeek": 3,
@@ -4486,7 +4486,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_15",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Ms Manu / Dr Neeraj",
         "room": "RJ109R",
         "dayOfWeek": 4,
@@ -4503,7 +4503,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_16",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Mr Alok",
         "room": "RJ104R",
         "dayOfWeek": 4,
@@ -4520,7 +4520,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_17",
         "subjectCode": "DBMS",
-        "subjectName": "Database Management Systems",
+        "subjectName": "DBMS",
         "faculty": "Ms Muskan / Dr Praveen",
         "room": "RJ109R",
         "dayOfWeek": 4,
@@ -4537,7 +4537,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_18",
         "subjectCode": "DS",
-        "subjectName": "Data Structures",
+        "subjectName": "DS",
         "faculty": "Dr Ashok",
         "room": "RJ104R",
         "dayOfWeek": 4,
@@ -4554,7 +4554,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_19",
         "subjectCode": "CS",
-        "subjectName": "Computer Systems",
+        "subjectName": "CS",
         "faculty": "Dr Mohit",
         "room": "RJ109R",
         "dayOfWeek": 5,
@@ -4571,7 +4571,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_20",
         "subjectCode": "FEE-II",
-        "subjectName": "Fundamentals of Electrical Engineering II",
+        "subjectName": "FEE-II",
         "faculty": "Mr Yogesh / Dr Rani",
         "room": "RJ104R",
         "dayOfWeek": 5,
@@ -4588,7 +4588,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_3d_21",
         "subjectCode": "PIJ",
-        "subjectName": "Programming in Java",
+        "subjectName": "PIJ",
         "faculty": "Dr Neeraj / Ms Ekta",
         "room": "CVR103R",
         "dayOfWeek": 5,
@@ -4625,7 +4625,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_1",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Dr ShivaniG",
         "room": "CL02",
         "dayOfWeek": 1,
@@ -4642,7 +4642,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_2",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Dr Minaxi",
         "room": "KLM108L",
         "dayOfWeek": 1,
@@ -4659,7 +4659,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_3",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Dileep",
         "room": "RJ114L",
         "dayOfWeek": 1,
@@ -4676,7 +4676,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_4",
         "subjectCode": "FCS",
-        "subjectName": "Foundations of Computer Science",
+        "subjectName": "FCS",
         "faculty": "Dr Minaxi",
         "room": "CVR209R",
         "dayOfWeek": 1,
@@ -4693,7 +4693,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_5",
         "subjectCode": "LACT",
-        "subjectName": "Linear Algebra & Calculus Tutorial",
+        "subjectName": "LACT",
         "faculty": "Dr Kavita",
         "room": "CVR211R",
         "dayOfWeek": 1,
@@ -4710,7 +4710,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_6",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Madhu",
         "room": "CVR209R",
         "dayOfWeek": 1,
@@ -4727,7 +4727,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_7",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Vidhu",
         "room": "CL02",
         "dayOfWeek": 1,
@@ -4744,7 +4744,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_8",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Dileep",
         "room": "CL03",
         "dayOfWeek": 2,
@@ -4761,7 +4761,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_9",
         "subjectCode": "IWT",
-        "subjectName": "Internet & Web Technologies",
+        "subjectName": "IWT",
         "faculty": "Dr ShivaniG",
         "room": "CVR209R",
         "dayOfWeek": 2,
@@ -4778,7 +4778,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_10",
         "subjectCode": "FCS",
-        "subjectName": "Foundations of Computer Science",
+        "subjectName": "FCS",
         "faculty": "Dr Minaxi",
         "room": "CVR211R",
         "dayOfWeek": 2,
@@ -4795,7 +4795,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_11",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Dr ShivaniG",
         "room": "RJ114L",
         "dayOfWeek": 2,
@@ -4812,7 +4812,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_12",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Madhu",
         "room": "CVR209R",
         "dayOfWeek": 2,
@@ -4829,7 +4829,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_13",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Vidhu",
         "room": "CL05",
         "dayOfWeek": 2,
@@ -4846,7 +4846,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_14",
         "subjectCode": "Lib",
-        "subjectName": "Library",
+        "subjectName": "Lib",
         "faculty": "",
         "room": "Library",
         "dayOfWeek": 3,
@@ -4863,7 +4863,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_15",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Dr ShivaniG",
         "room": "CL02",
         "dayOfWeek": 3,
@@ -4880,7 +4880,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_16",
         "subjectCode": "IoT",
-        "subjectName": "Internet of Things",
+        "subjectName": "IoT",
         "faculty": "Dr Monika",
         "room": "CVR009R",
         "dayOfWeek": 3,
@@ -4897,7 +4897,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_17",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Dr Minaxi",
         "room": "KLM108L",
         "dayOfWeek": 3,
@@ -4914,7 +4914,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_18",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Dileep",
         "room": "RJ114L",
         "dayOfWeek": 3,
@@ -4931,7 +4931,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_19",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Vidhu",
         "room": "CL01",
         "dayOfWeek": 3,
@@ -4948,7 +4948,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_20",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Dr Minaxi",
         "room": "KLM108L",
         "dayOfWeek": 4,
@@ -4965,7 +4965,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_21",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Dileep",
         "room": "CL03",
         "dayOfWeek": 4,
@@ -4982,7 +4982,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_22",
         "subjectCode": "FCS",
-        "subjectName": "Foundations of Computer Science",
+        "subjectName": "FCS",
         "faculty": "Dr Minaxi",
         "room": "CVR209R",
         "dayOfWeek": 4,
@@ -4999,7 +4999,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_23",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Dr ShivaniG",
         "room": "CL02",
         "dayOfWeek": 4,
@@ -5016,7 +5016,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_24",
         "subjectCode": "LACT",
-        "subjectName": "Linear Algebra & Calculus Tutorial",
+        "subjectName": "LACT",
         "faculty": "Dr Kavita",
         "room": "CVR211R",
         "dayOfWeek": 4,
@@ -5033,7 +5033,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_25",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Madhu",
         "room": "CVR209R",
         "dayOfWeek": 4,
@@ -5050,7 +5050,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_26",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Vidhu",
         "room": "RJ114L",
         "dayOfWeek": 4,
@@ -5067,7 +5067,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_27",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Madhu",
         "room": "CVR208R",
         "dayOfWeek": 5,
@@ -5084,7 +5084,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_28",
         "subjectCode": "IoT",
-        "subjectName": "Internet of Things",
+        "subjectName": "IoT",
         "faculty": "Dr Monika",
         "room": "CVR009R",
         "dayOfWeek": 5,
@@ -5101,7 +5101,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_29",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Dr Minaxi",
         "room": "KLM108L",
         "dayOfWeek": 5,
@@ -5118,7 +5118,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_30",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Dileep",
         "room": "CL04",
         "dayOfWeek": 5,
@@ -5135,7 +5135,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_31",
         "subjectCode": "IWT",
-        "subjectName": "Internet & Web Technologies",
+        "subjectName": "IWT",
         "faculty": "Dr ShivaniG",
         "room": "CVR209R",
         "dayOfWeek": 5,
@@ -5152,7 +5152,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_32",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr ShivaniG",
         "room": "CVR208R",
         "dayOfWeek": 5,
@@ -5169,7 +5169,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_33",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Madhu",
         "room": "CVR209R",
         "dayOfWeek": 5,
@@ -5186,7 +5186,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_34",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Vidhu",
         "room": "CL01",
         "dayOfWeek": 5,
@@ -5223,7 +5223,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_1",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Dr ShivaniG",
         "room": "CL02",
         "dayOfWeek": 1,
@@ -5240,7 +5240,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_2",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Dr Minaxi",
         "room": "KLM108L",
         "dayOfWeek": 1,
@@ -5257,7 +5257,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_3",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Dileep",
         "room": "RJ114L",
         "dayOfWeek": 1,
@@ -5274,7 +5274,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_4",
         "subjectCode": "FCS",
-        "subjectName": "Foundations of Computer Science",
+        "subjectName": "FCS",
         "faculty": "Dr Minaxi",
         "room": "CVR209R",
         "dayOfWeek": 1,
@@ -5291,7 +5291,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_5",
         "subjectCode": "LACT",
-        "subjectName": "Linear Algebra & Calculus Tutorial",
+        "subjectName": "LACT",
         "faculty": "Dr Kavita",
         "room": "CVR211R",
         "dayOfWeek": 1,
@@ -5308,7 +5308,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_6",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Madhu",
         "room": "CVR209R",
         "dayOfWeek": 1,
@@ -5325,7 +5325,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_7",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Vidhu",
         "room": "CL02",
         "dayOfWeek": 1,
@@ -5342,7 +5342,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_8",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Dileep",
         "room": "CL03",
         "dayOfWeek": 2,
@@ -5359,7 +5359,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_9",
         "subjectCode": "IWT",
-        "subjectName": "Internet & Web Technologies",
+        "subjectName": "IWT",
         "faculty": "Dr ShivaniG",
         "room": "CVR209R",
         "dayOfWeek": 2,
@@ -5376,7 +5376,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_10",
         "subjectCode": "FCS",
-        "subjectName": "Foundations of Computer Science",
+        "subjectName": "FCS",
         "faculty": "Dr Minaxi",
         "room": "CVR211R",
         "dayOfWeek": 2,
@@ -5393,7 +5393,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_11",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Dr ShivaniG",
         "room": "RJ114L",
         "dayOfWeek": 2,
@@ -5410,7 +5410,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_12",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Madhu",
         "room": "CVR209R",
         "dayOfWeek": 2,
@@ -5427,7 +5427,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_13",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Vidhu",
         "room": "CL05",
         "dayOfWeek": 2,
@@ -5444,7 +5444,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_14",
         "subjectCode": "Lib",
-        "subjectName": "Library",
+        "subjectName": "Lib",
         "faculty": "",
         "room": "Library",
         "dayOfWeek": 3,
@@ -5461,7 +5461,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_15",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Dr ShivaniG",
         "room": "CL02",
         "dayOfWeek": 3,
@@ -5478,7 +5478,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_16",
         "subjectCode": "IoT",
-        "subjectName": "Internet of Things",
+        "subjectName": "IoT",
         "faculty": "Dr Monika",
         "room": "CVR009R",
         "dayOfWeek": 3,
@@ -5495,7 +5495,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_17",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Dr Minaxi",
         "room": "KLM108L",
         "dayOfWeek": 3,
@@ -5512,7 +5512,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_18",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Dileep",
         "room": "RJ114L",
         "dayOfWeek": 3,
@@ -5529,7 +5529,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_19",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Vidhu",
         "room": "CL01",
         "dayOfWeek": 3,
@@ -5546,7 +5546,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_20",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Dr Minaxi",
         "room": "KLM108L",
         "dayOfWeek": 4,
@@ -5563,7 +5563,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_21",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Dileep",
         "room": "CL03",
         "dayOfWeek": 4,
@@ -5580,7 +5580,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_22",
         "subjectCode": "FCS",
-        "subjectName": "Foundations of Computer Science",
+        "subjectName": "FCS",
         "faculty": "Dr Minaxi",
         "room": "CVR209R",
         "dayOfWeek": 4,
@@ -5597,7 +5597,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_23",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Dr ShivaniG",
         "room": "CL02",
         "dayOfWeek": 4,
@@ -5614,7 +5614,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_24",
         "subjectCode": "LACT",
-        "subjectName": "Linear Algebra & Calculus Tutorial",
+        "subjectName": "LACT",
         "faculty": "Dr Kavita",
         "room": "CVR211R",
         "dayOfWeek": 4,
@@ -5631,7 +5631,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_25",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Madhu",
         "room": "CVR209R",
         "dayOfWeek": 4,
@@ -5648,7 +5648,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_26",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Vidhu",
         "room": "RJ114L",
         "dayOfWeek": 4,
@@ -5665,7 +5665,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_27",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Madhu",
         "room": "CVR208R",
         "dayOfWeek": 5,
@@ -5682,7 +5682,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_28",
         "subjectCode": "IoT",
-        "subjectName": "Internet of Things",
+        "subjectName": "IoT",
         "faculty": "Dr Monika",
         "room": "CVR009R",
         "dayOfWeek": 5,
@@ -5699,7 +5699,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_29",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Dr Minaxi",
         "room": "KLM108L",
         "dayOfWeek": 5,
@@ -5716,7 +5716,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_30",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Dileep",
         "room": "CL04",
         "dayOfWeek": 5,
@@ -5733,7 +5733,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_31",
         "subjectCode": "IWT",
-        "subjectName": "Internet & Web Technologies",
+        "subjectName": "IWT",
         "faculty": "Dr ShivaniG",
         "room": "CVR209R",
         "dayOfWeek": 5,
@@ -5750,7 +5750,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_32",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr ShivaniG",
         "room": "CVR208R",
         "dayOfWeek": 5,
@@ -5767,7 +5767,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_33",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Madhu",
         "room": "CVR209R",
         "dayOfWeek": 5,
@@ -5784,7 +5784,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1a_34",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Vidhu",
         "room": "CL01",
         "dayOfWeek": 5,
@@ -5821,7 +5821,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_1",
         "subjectCode": "Lib",
-        "subjectName": "Library",
+        "subjectName": "Lib",
         "faculty": "",
         "room": "Library",
         "dayOfWeek": 1,
@@ -5838,7 +5838,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_2",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Dr Navneet",
         "room": "CL02",
         "dayOfWeek": 1,
@@ -5855,7 +5855,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_3",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Shankar",
         "room": "CL04",
         "dayOfWeek": 1,
@@ -5872,7 +5872,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_4",
         "subjectCode": "FCS",
-        "subjectName": "Foundations of Computer Science",
+        "subjectName": "FCS",
         "faculty": "Dr Dileep",
         "room": "CVR203R",
         "dayOfWeek": 1,
@@ -5889,7 +5889,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_5",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Nisha",
         "room": "CVR209R",
         "dayOfWeek": 1,
@@ -5906,7 +5906,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_6",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Mr Rinku",
         "room": "RJ114L",
         "dayOfWeek": 1,
@@ -5923,7 +5923,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_7",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Dr Dileep",
         "room": "CL05",
         "dayOfWeek": 2,
@@ -5940,7 +5940,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_8",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Shankar",
         "room": "CL03",
         "dayOfWeek": 2,
@@ -5957,7 +5957,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_9",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Dr Navneet",
         "room": "CL05",
         "dayOfWeek": 2,
@@ -5974,7 +5974,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_10",
         "subjectCode": "IWT",
-        "subjectName": "Internet & Web Technologies",
+        "subjectName": "IWT",
         "faculty": "Dr Navneet",
         "room": "CVR209R",
         "dayOfWeek": 2,
@@ -5991,7 +5991,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_11",
         "subjectCode": "LACT",
-        "subjectName": "Linear Algebra & Calculus Tutorial",
+        "subjectName": "LACT",
         "faculty": "Dr Nisha",
         "room": "CVR211R",
         "dayOfWeek": 2,
@@ -6008,7 +6008,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_12",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Nisha",
         "room": "CVR209R",
         "dayOfWeek": 2,
@@ -6025,7 +6025,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_13",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Mr Rinku",
         "room": "RJ114L",
         "dayOfWeek": 2,
@@ -6042,7 +6042,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_14",
         "subjectCode": "IoT",
-        "subjectName": "Internet of Things",
+        "subjectName": "IoT",
         "faculty": "Dr Harpreet",
         "room": "CVR009R",
         "dayOfWeek": 3,
@@ -6059,7 +6059,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_15",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Dr Dileep",
         "room": "CL01",
         "dayOfWeek": 3,
@@ -6076,7 +6076,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_16",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Shankar",
         "room": "CL04",
         "dayOfWeek": 3,
@@ -6093,7 +6093,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_17",
         "subjectCode": "FCS",
-        "subjectName": "Foundations of Computer Science",
+        "subjectName": "FCS",
         "faculty": "Dr Dileep",
         "room": "CVR203R",
         "dayOfWeek": 3,
@@ -6110,7 +6110,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_18",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Nisha",
         "room": "CVR209R",
         "dayOfWeek": 3,
@@ -6127,7 +6127,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_19",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Mr Rinku",
         "room": "CL03",
         "dayOfWeek": 3,
@@ -6144,7 +6144,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_20",
         "subjectCode": "IoT",
-        "subjectName": "Internet of Things",
+        "subjectName": "IoT",
         "faculty": "Dr Harpreet",
         "room": "CVR009R",
         "dayOfWeek": 4,
@@ -6161,7 +6161,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_21",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Dr Dileep",
         "room": "CL05",
         "dayOfWeek": 4,
@@ -6178,7 +6178,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_22",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Shankar",
         "room": "CL02",
         "dayOfWeek": 4,
@@ -6195,7 +6195,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_23",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Dr Navneet",
         "room": "CL01",
         "dayOfWeek": 4,
@@ -6212,7 +6212,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_24",
         "subjectCode": "FCS",
-        "subjectName": "Foundations of Computer Science",
+        "subjectName": "FCS",
         "faculty": "Dr Dileep",
         "room": "CVR203R",
         "dayOfWeek": 4,
@@ -6229,7 +6229,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_25",
         "subjectCode": "LACT",
-        "subjectName": "Linear Algebra & Calculus Tutorial",
+        "subjectName": "LACT",
         "faculty": "Dr Nisha",
         "room": "CVR209R",
         "dayOfWeek": 4,
@@ -6246,7 +6246,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_26",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Mr Rinku",
         "room": "CL05",
         "dayOfWeek": 4,
@@ -6263,7 +6263,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_27",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Nisha",
         "room": "CVR203R",
         "dayOfWeek": 5,
@@ -6280,7 +6280,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_28",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Navneet",
         "room": "CVR203R",
         "dayOfWeek": 5,
@@ -6297,7 +6297,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_29",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Dr Navneet",
         "room": "CL05",
         "dayOfWeek": 5,
@@ -6314,7 +6314,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_30",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Dr Dileep",
         "room": "CL03",
         "dayOfWeek": 5,
@@ -6331,7 +6331,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_31",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Shankar",
         "room": "CL04",
         "dayOfWeek": 5,
@@ -6348,7 +6348,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_32",
         "subjectCode": "IWT",
-        "subjectName": "Internet & Web Technologies",
+        "subjectName": "IWT",
         "faculty": "Dr Navneet",
         "room": "CVR209R",
         "dayOfWeek": 5,
@@ -6365,7 +6365,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_33",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Nisha",
         "room": "CVR209R",
         "dayOfWeek": 5,
@@ -6382,7 +6382,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_34",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Mr Rinku",
         "room": "RJ114L",
         "dayOfWeek": 5,
@@ -6419,7 +6419,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_1",
         "subjectCode": "Lib",
-        "subjectName": "Library",
+        "subjectName": "Lib",
         "faculty": "",
         "room": "Library",
         "dayOfWeek": 1,
@@ -6436,7 +6436,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_2",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Dr Navneet",
         "room": "CL02",
         "dayOfWeek": 1,
@@ -6453,7 +6453,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_3",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Shankar",
         "room": "CL04",
         "dayOfWeek": 1,
@@ -6470,7 +6470,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_4",
         "subjectCode": "FCS",
-        "subjectName": "Foundations of Computer Science",
+        "subjectName": "FCS",
         "faculty": "Dr Dileep",
         "room": "CVR203R",
         "dayOfWeek": 1,
@@ -6487,7 +6487,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_5",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Nisha",
         "room": "CVR209R",
         "dayOfWeek": 1,
@@ -6504,7 +6504,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_6",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Mr Rinku",
         "room": "RJ114L",
         "dayOfWeek": 1,
@@ -6521,7 +6521,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_7",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Dr Dileep",
         "room": "CL05",
         "dayOfWeek": 2,
@@ -6538,7 +6538,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_8",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Shankar",
         "room": "CL03",
         "dayOfWeek": 2,
@@ -6555,7 +6555,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_9",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Dr Navneet",
         "room": "CL05",
         "dayOfWeek": 2,
@@ -6572,7 +6572,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_10",
         "subjectCode": "IWT",
-        "subjectName": "Internet & Web Technologies",
+        "subjectName": "IWT",
         "faculty": "Dr Navneet",
         "room": "CVR209R",
         "dayOfWeek": 2,
@@ -6589,7 +6589,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_11",
         "subjectCode": "LACT",
-        "subjectName": "Linear Algebra & Calculus Tutorial",
+        "subjectName": "LACT",
         "faculty": "Dr Nisha",
         "room": "CVR211R",
         "dayOfWeek": 2,
@@ -6606,7 +6606,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_12",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Nisha",
         "room": "CVR209R",
         "dayOfWeek": 2,
@@ -6623,7 +6623,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_13",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Mr Rinku",
         "room": "RJ114L",
         "dayOfWeek": 2,
@@ -6640,7 +6640,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_14",
         "subjectCode": "IoT",
-        "subjectName": "Internet of Things",
+        "subjectName": "IoT",
         "faculty": "Dr Harpreet",
         "room": "CVR009R",
         "dayOfWeek": 3,
@@ -6657,7 +6657,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_15",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Dr Dileep",
         "room": "CL01",
         "dayOfWeek": 3,
@@ -6674,7 +6674,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_16",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Shankar",
         "room": "CL04",
         "dayOfWeek": 3,
@@ -6691,7 +6691,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_17",
         "subjectCode": "FCS",
-        "subjectName": "Foundations of Computer Science",
+        "subjectName": "FCS",
         "faculty": "Dr Dileep",
         "room": "CVR203R",
         "dayOfWeek": 3,
@@ -6708,7 +6708,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_18",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Nisha",
         "room": "CVR209R",
         "dayOfWeek": 3,
@@ -6725,7 +6725,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_19",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Mr Rinku",
         "room": "CL03",
         "dayOfWeek": 3,
@@ -6742,7 +6742,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_20",
         "subjectCode": "IoT",
-        "subjectName": "Internet of Things",
+        "subjectName": "IoT",
         "faculty": "Dr Harpreet",
         "room": "CVR009R",
         "dayOfWeek": 4,
@@ -6759,7 +6759,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_21",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Dr Dileep",
         "room": "CL05",
         "dayOfWeek": 4,
@@ -6776,7 +6776,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_22",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Shankar",
         "room": "CL02",
         "dayOfWeek": 4,
@@ -6793,7 +6793,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_23",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Dr Navneet",
         "room": "CL01",
         "dayOfWeek": 4,
@@ -6810,7 +6810,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_24",
         "subjectCode": "FCS",
-        "subjectName": "Foundations of Computer Science",
+        "subjectName": "FCS",
         "faculty": "Dr Dileep",
         "room": "CVR203R",
         "dayOfWeek": 4,
@@ -6827,7 +6827,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_25",
         "subjectCode": "LACT",
-        "subjectName": "Linear Algebra & Calculus Tutorial",
+        "subjectName": "LACT",
         "faculty": "Dr Nisha",
         "room": "CVR209R",
         "dayOfWeek": 4,
@@ -6844,7 +6844,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_26",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Mr Rinku",
         "room": "CL05",
         "dayOfWeek": 4,
@@ -6861,7 +6861,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_27",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Nisha",
         "room": "CVR203R",
         "dayOfWeek": 5,
@@ -6878,7 +6878,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_28",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Navneet",
         "room": "CVR203R",
         "dayOfWeek": 5,
@@ -6895,7 +6895,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_29",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Dr Navneet",
         "room": "CL05",
         "dayOfWeek": 5,
@@ -6912,7 +6912,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_30",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Dr Dileep",
         "room": "CL03",
         "dayOfWeek": 5,
@@ -6929,7 +6929,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_31",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Shankar",
         "room": "CL04",
         "dayOfWeek": 5,
@@ -6946,7 +6946,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_32",
         "subjectCode": "IWT",
-        "subjectName": "Internet & Web Technologies",
+        "subjectName": "IWT",
         "faculty": "Dr Navneet",
         "room": "CVR209R",
         "dayOfWeek": 5,
@@ -6963,7 +6963,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_33",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Nisha",
         "room": "CVR209R",
         "dayOfWeek": 5,
@@ -6980,7 +6980,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1b_34",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Mr Rinku",
         "room": "RJ114L",
         "dayOfWeek": 5,
@@ -7017,7 +7017,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_1",
         "subjectCode": "IoT",
-        "subjectName": "Internet of Things",
+        "subjectName": "IoT",
         "faculty": "Dr Harpreet",
         "room": "CVR009R",
         "dayOfWeek": 1,
@@ -7034,7 +7034,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_2",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Dr Sandhya",
         "room": "KLM108L",
         "dayOfWeek": 1,
@@ -7051,7 +7051,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_3",
         "subjectCode": "IWT",
-        "subjectName": "Internet & Web Technologies",
+        "subjectName": "IWT",
         "faculty": "Dr Navneet",
         "room": "CVR211R",
         "dayOfWeek": 1,
@@ -7068,7 +7068,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_4",
         "subjectCode": "FCS",
-        "subjectName": "Foundations of Computer Science",
+        "subjectName": "FCS",
         "faculty": "Dr Sandhya",
         "room": "CVR209R",
         "dayOfWeek": 1,
@@ -7085,7 +7085,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_5",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Abhishek",
         "room": "CL01",
         "dayOfWeek": 1,
@@ -7102,7 +7102,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_6",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Mr Rinku",
         "room": "CL03",
         "dayOfWeek": 1,
@@ -7119,7 +7119,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_7",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Kavita",
         "room": "CVR211R",
         "dayOfWeek": 1,
@@ -7136,7 +7136,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_8",
         "subjectCode": "Lib",
-        "subjectName": "Library",
+        "subjectName": "Lib",
         "faculty": "",
         "room": "Library",
         "dayOfWeek": 2,
@@ -7153,7 +7153,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_9",
         "subjectCode": "FCS",
-        "subjectName": "Foundations of Computer Science",
+        "subjectName": "FCS",
         "faculty": "Dr Sandhya",
         "room": "CVR209R",
         "dayOfWeek": 2,
@@ -7170,7 +7170,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_10",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Dr Navneet",
         "room": "CL01",
         "dayOfWeek": 2,
@@ -7187,7 +7187,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_11",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Abhishek",
         "room": "CL02",
         "dayOfWeek": 2,
@@ -7204,7 +7204,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_12",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Mr Rinku",
         "room": "CL01",
         "dayOfWeek": 2,
@@ -7221,7 +7221,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_13",
         "subjectCode": "LACT",
-        "subjectName": "Linear Algebra & Calculus Tutorial",
+        "subjectName": "LACT",
         "faculty": "Dr Kavita",
         "room": "CVR211R",
         "dayOfWeek": 2,
@@ -7238,7 +7238,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_14",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Kavita",
         "room": "CVR211R",
         "dayOfWeek": 2,
@@ -7255,7 +7255,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_15",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Dr Sandhya",
         "room": "KLM108L",
         "dayOfWeek": 3,
@@ -7272,7 +7272,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_16",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Dr Sandhya",
         "room": "KLM108L",
         "dayOfWeek": 3,
@@ -7289,7 +7289,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_17",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Dr Navneet",
         "room": "CL02",
         "dayOfWeek": 3,
@@ -7306,7 +7306,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_18",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Dr Navneet",
         "room": "CL03",
         "dayOfWeek": 3,
@@ -7323,7 +7323,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_19",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Abhishek",
         "room": "CL03",
         "dayOfWeek": 3,
@@ -7340,7 +7340,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_20",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Mr Rinku",
         "room": "RJ114L",
         "dayOfWeek": 3,
@@ -7357,7 +7357,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_21",
         "subjectCode": "FCS",
-        "subjectName": "Foundations of Computer Science",
+        "subjectName": "FCS",
         "faculty": "Dr Sandhya",
         "room": "CVR211R",
         "dayOfWeek": 4,
@@ -7374,7 +7374,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_22",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Dr Navneet",
         "room": "CL05",
         "dayOfWeek": 4,
@@ -7391,7 +7391,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_23",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Abhishek",
         "room": "CL02",
         "dayOfWeek": 4,
@@ -7408,7 +7408,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_24",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Mr Rinku",
         "room": "RJ114L",
         "dayOfWeek": 4,
@@ -7425,7 +7425,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_25",
         "subjectCode": "LACT",
-        "subjectName": "Linear Algebra & Calculus Tutorial",
+        "subjectName": "LACT",
         "faculty": "Dr Kavita",
         "room": "CVR211R",
         "dayOfWeek": 4,
@@ -7442,7 +7442,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_26",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Kavita",
         "room": "CVR211R",
         "dayOfWeek": 4,
@@ -7459,7 +7459,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_27",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Kavita",
         "room": "RJ210R",
         "dayOfWeek": 5,
@@ -7476,7 +7476,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_28",
         "subjectCode": "IoT",
-        "subjectName": "Internet of Things",
+        "subjectName": "IoT",
         "faculty": "Dr Harpreet",
         "room": "CVR009R",
         "dayOfWeek": 5,
@@ -7493,7 +7493,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_29",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Dr Sandhya",
         "room": "KLM108L",
         "dayOfWeek": 5,
@@ -7510,7 +7510,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_30",
         "subjectCode": "IWT",
-        "subjectName": "Internet & Web Technologies",
+        "subjectName": "IWT",
         "faculty": "Dr Navneet",
         "room": "CVR211R",
         "dayOfWeek": 5,
@@ -7527,7 +7527,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_31",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Abhishek",
         "room": "CL01",
         "dayOfWeek": 5,
@@ -7544,7 +7544,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_32",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Mr Rinku",
         "room": "RJ114L",
         "dayOfWeek": 5,
@@ -7561,7 +7561,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_33",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Kavita",
         "room": "CVR211R",
         "dayOfWeek": 5,
@@ -7578,7 +7578,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_34",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Sandhya",
         "room": "RJ210R",
         "dayOfWeek": 5,
@@ -7615,7 +7615,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_1",
         "subjectCode": "IoT",
-        "subjectName": "Internet of Things",
+        "subjectName": "IoT",
         "faculty": "Dr Harpreet",
         "room": "CVR009R",
         "dayOfWeek": 1,
@@ -7632,7 +7632,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_2",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Dr Sandhya",
         "room": "KLM108L",
         "dayOfWeek": 1,
@@ -7649,7 +7649,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_3",
         "subjectCode": "IWT",
-        "subjectName": "Internet & Web Technologies",
+        "subjectName": "IWT",
         "faculty": "Dr Navneet",
         "room": "CVR211R",
         "dayOfWeek": 1,
@@ -7666,7 +7666,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_4",
         "subjectCode": "FCS",
-        "subjectName": "Foundations of Computer Science",
+        "subjectName": "FCS",
         "faculty": "Dr Sandhya",
         "room": "CVR209R",
         "dayOfWeek": 1,
@@ -7683,7 +7683,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_5",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Abhishek",
         "room": "CL01",
         "dayOfWeek": 1,
@@ -7700,7 +7700,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_6",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Mr Rinku",
         "room": "CL03",
         "dayOfWeek": 1,
@@ -7717,7 +7717,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_7",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Kavita",
         "room": "CVR211R",
         "dayOfWeek": 1,
@@ -7734,7 +7734,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_8",
         "subjectCode": "Lib",
-        "subjectName": "Library",
+        "subjectName": "Lib",
         "faculty": "",
         "room": "Library",
         "dayOfWeek": 2,
@@ -7751,7 +7751,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_9",
         "subjectCode": "FCS",
-        "subjectName": "Foundations of Computer Science",
+        "subjectName": "FCS",
         "faculty": "Dr Sandhya",
         "room": "CVR209R",
         "dayOfWeek": 2,
@@ -7768,7 +7768,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_10",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Dr Navneet",
         "room": "CL01",
         "dayOfWeek": 2,
@@ -7785,7 +7785,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_11",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Abhishek",
         "room": "CL02",
         "dayOfWeek": 2,
@@ -7802,7 +7802,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_12",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Mr Rinku",
         "room": "CL01",
         "dayOfWeek": 2,
@@ -7819,7 +7819,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_13",
         "subjectCode": "LACT",
-        "subjectName": "Linear Algebra & Calculus Tutorial",
+        "subjectName": "LACT",
         "faculty": "Dr Kavita",
         "room": "CVR211R",
         "dayOfWeek": 2,
@@ -7836,7 +7836,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_14",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Kavita",
         "room": "CVR211R",
         "dayOfWeek": 2,
@@ -7853,7 +7853,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_15",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Dr Sandhya",
         "room": "KLM108L",
         "dayOfWeek": 3,
@@ -7870,7 +7870,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_16",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Dr Sandhya",
         "room": "KLM108L",
         "dayOfWeek": 3,
@@ -7887,7 +7887,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_17",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Dr Navneet",
         "room": "CL02",
         "dayOfWeek": 3,
@@ -7904,7 +7904,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_18",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Dr Navneet",
         "room": "CL03",
         "dayOfWeek": 3,
@@ -7921,7 +7921,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_19",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Abhishek",
         "room": "CL03",
         "dayOfWeek": 3,
@@ -7938,7 +7938,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_20",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Mr Rinku",
         "room": "RJ114L",
         "dayOfWeek": 3,
@@ -7955,7 +7955,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_21",
         "subjectCode": "FCS",
-        "subjectName": "Foundations of Computer Science",
+        "subjectName": "FCS",
         "faculty": "Dr Sandhya",
         "room": "CVR211R",
         "dayOfWeek": 4,
@@ -7972,7 +7972,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_22",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Dr Navneet",
         "room": "CL05",
         "dayOfWeek": 4,
@@ -7989,7 +7989,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_23",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Abhishek",
         "room": "CL02",
         "dayOfWeek": 4,
@@ -8006,7 +8006,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_24",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Mr Rinku",
         "room": "RJ114L",
         "dayOfWeek": 4,
@@ -8023,7 +8023,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_25",
         "subjectCode": "LACT",
-        "subjectName": "Linear Algebra & Calculus Tutorial",
+        "subjectName": "LACT",
         "faculty": "Dr Kavita",
         "room": "CVR211R",
         "dayOfWeek": 4,
@@ -8040,7 +8040,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_26",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Kavita",
         "room": "CVR211R",
         "dayOfWeek": 4,
@@ -8057,7 +8057,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_27",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Kavita",
         "room": "RJ210R",
         "dayOfWeek": 5,
@@ -8074,7 +8074,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_28",
         "subjectCode": "IoT",
-        "subjectName": "Internet of Things",
+        "subjectName": "IoT",
         "faculty": "Dr Harpreet",
         "room": "CVR009R",
         "dayOfWeek": 5,
@@ -8091,7 +8091,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_29",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Dr Sandhya",
         "room": "KLM108L",
         "dayOfWeek": 5,
@@ -8108,7 +8108,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_30",
         "subjectCode": "IWT",
-        "subjectName": "Internet & Web Technologies",
+        "subjectName": "IWT",
         "faculty": "Dr Navneet",
         "room": "CVR211R",
         "dayOfWeek": 5,
@@ -8125,7 +8125,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_31",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Abhishek",
         "room": "CL01",
         "dayOfWeek": 5,
@@ -8142,7 +8142,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_32",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Mr Rinku",
         "room": "RJ114L",
         "dayOfWeek": 5,
@@ -8159,7 +8159,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_33",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Kavita",
         "room": "CVR211R",
         "dayOfWeek": 5,
@@ -8176,7 +8176,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1c_34",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Sandhya",
         "room": "RJ210R",
         "dayOfWeek": 5,
@@ -8213,7 +8213,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_1",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Mr GauravM",
         "room": "CL03",
         "dayOfWeek": 1,
@@ -8230,7 +8230,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_2",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Shankar",
         "room": "CL04",
         "dayOfWeek": 1,
@@ -8247,7 +8247,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_3",
         "subjectCode": "IWT",
-        "subjectName": "Internet & Web Technologies",
+        "subjectName": "IWT",
         "faculty": "Mr GauravM",
         "room": "CVR211R",
         "dayOfWeek": 1,
@@ -8264,7 +8264,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_4",
         "subjectCode": "FCS",
-        "subjectName": "Foundations of Computer Science",
+        "subjectName": "FCS",
         "faculty": "Ms Abhilasha",
         "room": "CVR211R",
         "dayOfWeek": 1,
@@ -8281,7 +8281,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_5",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Abhishek",
         "room": "CL01",
         "dayOfWeek": 1,
@@ -8298,7 +8298,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_6",
         "subjectCode": "LACT",
-        "subjectName": "Linear Algebra & Calculus Tutorial",
+        "subjectName": "LACT",
         "faculty": "Dr Nisha",
         "room": "CVR211R",
         "dayOfWeek": 1,
@@ -8315,7 +8315,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_7",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Nisha",
         "room": "CVR209R",
         "dayOfWeek": 1,
@@ -8332,7 +8332,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_8",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Mr GauravM",
         "room": "CL05",
         "dayOfWeek": 2,
@@ -8349,7 +8349,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_9",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Mr GauravM",
         "room": "CL04",
         "dayOfWeek": 2,
@@ -8366,7 +8366,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_10",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Ms Abhilasha",
         "room": "CL03",
         "dayOfWeek": 2,
@@ -8383,7 +8383,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_11",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Shankar",
         "room": "CL04",
         "dayOfWeek": 2,
@@ -8400,7 +8400,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_12",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Abhishek",
         "room": "CL03",
         "dayOfWeek": 2,
@@ -8417,7 +8417,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_13",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Nisha",
         "room": "CVR209R",
         "dayOfWeek": 2,
@@ -8434,7 +8434,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_14",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Ms Abhilasha",
         "room": "RJ114L",
         "dayOfWeek": 2,
@@ -8451,7 +8451,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_15",
         "subjectCode": "Lib",
-        "subjectName": "Library",
+        "subjectName": "Lib",
         "faculty": "",
         "room": "Library",
         "dayOfWeek": 3,
@@ -8468,7 +8468,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_16",
         "subjectCode": "IoT",
-        "subjectName": "Internet of Things",
+        "subjectName": "IoT",
         "faculty": "Dr Shivendu",
         "room": "CVR009R",
         "dayOfWeek": 3,
@@ -8485,7 +8485,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_17",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Shankar",
         "room": "CL04",
         "dayOfWeek": 3,
@@ -8502,7 +8502,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_18",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Abhishek",
         "room": "RJ114L",
         "dayOfWeek": 3,
@@ -8519,7 +8519,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_19",
         "subjectCode": "LACT",
-        "subjectName": "Linear Algebra & Calculus Tutorial",
+        "subjectName": "LACT",
         "faculty": "Dr Nisha",
         "room": "CVR211R",
         "dayOfWeek": 3,
@@ -8536,7 +8536,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_20",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Nisha",
         "room": "CVR209R",
         "dayOfWeek": 3,
@@ -8553,7 +8553,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_21",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Mr GauravM",
         "room": "CL03",
         "dayOfWeek": 4,
@@ -8570,7 +8570,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_22",
         "subjectCode": "IoT",
-        "subjectName": "Internet of Things",
+        "subjectName": "IoT",
         "faculty": "Dr Shivendu",
         "room": "CVR009R",
         "dayOfWeek": 4,
@@ -8587,7 +8587,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_23",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Shankar",
         "room": "CL04",
         "dayOfWeek": 4,
@@ -8604,7 +8604,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_24",
         "subjectCode": "IWT",
-        "subjectName": "Internet & Web Technologies",
+        "subjectName": "IWT",
         "faculty": "Mr GauravM",
         "room": "CVR209R",
         "dayOfWeek": 4,
@@ -8621,7 +8621,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_25",
         "subjectCode": "FCS",
-        "subjectName": "Foundations of Computer Science",
+        "subjectName": "FCS",
         "faculty": "Ms Abhilasha",
         "room": "CVR211R",
         "dayOfWeek": 4,
@@ -8638,7 +8638,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_26",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Abhishek",
         "room": "CL04",
         "dayOfWeek": 4,
@@ -8655,7 +8655,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_27",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Nisha",
         "room": "CVR211R",
         "dayOfWeek": 4,
@@ -8672,7 +8672,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_28",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Ms Abhilasha",
         "room": "CL02",
         "dayOfWeek": 5,
@@ -8689,7 +8689,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_29",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Shankar",
         "room": "CL04",
         "dayOfWeek": 5,
@@ -8706,7 +8706,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_30",
         "subjectCode": "FCS",
-        "subjectName": "Foundations of Computer Science",
+        "subjectName": "FCS",
         "faculty": "Ms Abhilasha",
         "room": "CVR211R",
         "dayOfWeek": 5,
@@ -8723,7 +8723,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_31",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Shivendu",
         "room": "CL04",
         "dayOfWeek": 5,
@@ -8740,7 +8740,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_32",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Shankar",
         "room": "CL04",
         "dayOfWeek": 5,
@@ -8757,7 +8757,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_33",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Abhishek",
         "room": "CL01",
         "dayOfWeek": 5,
@@ -8774,7 +8774,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_34",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Ms Abhilasha",
         "room": "CL03",
         "dayOfWeek": 5,
@@ -8811,7 +8811,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_1",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Mr GauravM",
         "room": "CL03",
         "dayOfWeek": 1,
@@ -8828,7 +8828,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_2",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Shankar",
         "room": "CL04",
         "dayOfWeek": 1,
@@ -8845,7 +8845,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_3",
         "subjectCode": "IWT",
-        "subjectName": "Internet & Web Technologies",
+        "subjectName": "IWT",
         "faculty": "Mr GauravM",
         "room": "CVR211R",
         "dayOfWeek": 1,
@@ -8862,7 +8862,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_4",
         "subjectCode": "FCS",
-        "subjectName": "Foundations of Computer Science",
+        "subjectName": "FCS",
         "faculty": "Ms Abhilasha",
         "room": "CVR211R",
         "dayOfWeek": 1,
@@ -8879,7 +8879,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_5",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Abhishek",
         "room": "CL01",
         "dayOfWeek": 1,
@@ -8896,7 +8896,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_6",
         "subjectCode": "LACT",
-        "subjectName": "Linear Algebra & Calculus Tutorial",
+        "subjectName": "LACT",
         "faculty": "Dr Nisha",
         "room": "CVR211R",
         "dayOfWeek": 1,
@@ -8913,7 +8913,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_7",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Nisha",
         "room": "CVR209R",
         "dayOfWeek": 1,
@@ -8930,7 +8930,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_8",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Mr GauravM",
         "room": "CL05",
         "dayOfWeek": 2,
@@ -8947,7 +8947,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_9",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Mr GauravM",
         "room": "CL04",
         "dayOfWeek": 2,
@@ -8964,7 +8964,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_10",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Ms Abhilasha",
         "room": "CL03",
         "dayOfWeek": 2,
@@ -8981,7 +8981,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_11",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Shankar",
         "room": "CL04",
         "dayOfWeek": 2,
@@ -8998,7 +8998,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_12",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Abhishek",
         "room": "CL03",
         "dayOfWeek": 2,
@@ -9015,7 +9015,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_13",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Nisha",
         "room": "CVR209R",
         "dayOfWeek": 2,
@@ -9032,7 +9032,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_14",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Ms Abhilasha",
         "room": "RJ114L",
         "dayOfWeek": 2,
@@ -9049,7 +9049,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_15",
         "subjectCode": "Lib",
-        "subjectName": "Library",
+        "subjectName": "Lib",
         "faculty": "",
         "room": "Library",
         "dayOfWeek": 3,
@@ -9066,7 +9066,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_16",
         "subjectCode": "IoT",
-        "subjectName": "Internet of Things",
+        "subjectName": "IoT",
         "faculty": "Dr Shivendu",
         "room": "CVR009R",
         "dayOfWeek": 3,
@@ -9083,7 +9083,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_17",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Shankar",
         "room": "CL04",
         "dayOfWeek": 3,
@@ -9100,7 +9100,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_18",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Abhishek",
         "room": "RJ114L",
         "dayOfWeek": 3,
@@ -9117,7 +9117,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_19",
         "subjectCode": "LACT",
-        "subjectName": "Linear Algebra & Calculus Tutorial",
+        "subjectName": "LACT",
         "faculty": "Dr Nisha",
         "room": "CVR211R",
         "dayOfWeek": 3,
@@ -9134,7 +9134,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_20",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Nisha",
         "room": "CVR209R",
         "dayOfWeek": 3,
@@ -9151,7 +9151,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_21",
         "subjectCode": "IWTL",
-        "subjectName": "Internet & Web Technologies Lab",
+        "subjectName": "IWTL",
         "faculty": "Mr GauravM",
         "room": "CL03",
         "dayOfWeek": 4,
@@ -9168,7 +9168,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_22",
         "subjectCode": "IoT",
-        "subjectName": "Internet of Things",
+        "subjectName": "IoT",
         "faculty": "Dr Shivendu",
         "room": "CVR009R",
         "dayOfWeek": 4,
@@ -9185,7 +9185,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_23",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Shankar",
         "room": "CL04",
         "dayOfWeek": 4,
@@ -9202,7 +9202,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_24",
         "subjectCode": "IWT",
-        "subjectName": "Internet & Web Technologies",
+        "subjectName": "IWT",
         "faculty": "Mr GauravM",
         "room": "CVR209R",
         "dayOfWeek": 4,
@@ -9219,7 +9219,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_25",
         "subjectCode": "FCS",
-        "subjectName": "Foundations of Computer Science",
+        "subjectName": "FCS",
         "faculty": "Ms Abhilasha",
         "room": "CVR211R",
         "dayOfWeek": 4,
@@ -9236,7 +9236,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_26",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Abhishek",
         "room": "CL04",
         "dayOfWeek": 4,
@@ -9253,7 +9253,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_27",
         "subjectCode": "LAC",
-        "subjectName": "Linear Algebra & Calculus",
+        "subjectName": "LAC",
         "faculty": "Dr Nisha",
         "room": "CVR211R",
         "dayOfWeek": 4,
@@ -9270,7 +9270,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_28",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Ms Abhilasha",
         "room": "CL02",
         "dayOfWeek": 5,
@@ -9287,7 +9287,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_29",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Shankar",
         "room": "CL04",
         "dayOfWeek": 5,
@@ -9304,7 +9304,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_30",
         "subjectCode": "FCS",
-        "subjectName": "Foundations of Computer Science",
+        "subjectName": "FCS",
         "faculty": "Ms Abhilasha",
         "room": "CVR211R",
         "dayOfWeek": 5,
@@ -9321,7 +9321,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_31",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Shivendu",
         "room": "CL04",
         "dayOfWeek": 5,
@@ -9338,7 +9338,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_32",
         "subjectCode": "MM",
-        "subjectName": "Multimedia Systems",
+        "subjectName": "MM",
         "faculty": "Dr Shankar",
         "room": "CL04",
         "dayOfWeek": 5,
@@ -9355,7 +9355,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_33",
         "subjectCode": "SPC",
-        "subjectName": "Structured Programming in C",
+        "subjectName": "SPC",
         "faculty": "Dr Abhishek",
         "room": "CL01",
         "dayOfWeek": 5,
@@ -9372,7 +9372,7 @@ export const SEEDED_SHARED_TIMETABLES: Record<string, SharedTimetableDoc> = {
       {
         "id": "seed_1d_34",
         "subjectCode": "FCSL",
-        "subjectName": "Foundations of Computer Science Lab",
+        "subjectName": "FCSL",
         "faculty": "Ms Abhilasha",
         "room": "CL03",
         "dayOfWeek": 5,

@@ -8,6 +8,7 @@ import {
   extractEffectiveDate,
   normalizeTimeString24,
   CHITKARA_SUBJECT_NAMES,
+  CHITKARA_SUBJECT_DESCRIPTIONS,
 } from '../src/lib/chitkaraTimetableParser.ts';
 
 console.log('===============================================================');
@@ -113,12 +114,20 @@ async function runTests() {
 
   // 7. Subject Name Mapping Dictionary Test
   assert(
-    CHITKARA_SUBJECT_NAMES['ADI-FA'] === 'Applied Design & Innovation (Financial Apps)',
-    'CHITKARA_SUBJECT_NAMES expands ADI-FA'
+    CHITKARA_SUBJECT_NAMES['ADI-FA'] === 'ADI-FA',
+    'CHITKARA_SUBJECT_NAMES preserves timetable shortform ADI-FA'
   );
   assert(
-    CHITKARA_SUBJECT_NAMES['AAIPD'] === 'Applied AI Product Development',
-    'CHITKARA_SUBJECT_NAMES expands AAIPD'
+    CHITKARA_SUBJECT_NAMES['MM'] === 'MM',
+    'CHITKARA_SUBJECT_NAMES preserves timetable shortform MM'
+  );
+  assert(
+    CHITKARA_SUBJECT_DESCRIPTIONS['ADI-FA'] === 'Applied Design & Innovation (Financial Apps)',
+    'CHITKARA_SUBJECT_DESCRIPTIONS expands ADI-FA'
+  );
+  assert(
+    CHITKARA_SUBJECT_DESCRIPTIONS['MM'] === 'Mentor Meeting',
+    'CHITKARA_SUBJECT_DESCRIPTIONS identifies MM as Mentor Meeting'
   );
 
   // 8. Timetable Diff Calculation Test

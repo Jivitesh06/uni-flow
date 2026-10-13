@@ -315,10 +315,12 @@ export interface SubjectMatchEvidence {
 
 export interface SubjectResolutionContext {
   canonicalKeyMap: Map<string, string>;
+  canonicalNameMap?: Map<string, string>;
   aliasMap: Map<string, Set<string>>;
   ambiguousSubjects: string[];
   evidenceLog: SubjectMatchEvidence[];
   getCanonicalKey: (raw: string | null | undefined) => string;
+  getCanonicalName?: (raw: string | null | undefined) => string;
   areEquivalent: (subA: any, subB: any) => boolean;
 }
 
@@ -794,6 +796,7 @@ export function buildTimetableSubjectEquivalenceMap(
   }
 
   const canonicalKeyMap = new Map<string, string>();
+  const canonicalNameMap = new Map<string, string>();
   const aliasMap = new Map<string, Set<string>>();
 
   for (const [, cluster] of clusters.entries()) {
@@ -809,13 +812,20 @@ export function buildTimetableSubjectEquivalenceMap(
     const canonicalCode = sortedCodes[0].primaryCode.replace(/[\s]*-[\s]*FA$/i, '').trim();
     const canonicalKey = normalizeCodeForMatching(canonicalCode);
 
-    // Choose canonical name: longest descriptive name (not acronym)
+    // Choose canonical name: prefer base name without Lab/Tutorial/FA suffix, then longest
     const sortedNames = cluster
       .flatMap((c) => Array.from(c.rawNames))
       .filter((n) => n && n.length > 2 && !/^[A-Z0-9\-_]{2,6}$/.test(n))
-      .sort((a, b) => b.length - a.length);
+      .sort((a, b) => {
+        const aHasSuffix = /(?:[\s\-_]?(?:Lab|Tutorial|FA|\(Financial Apps\)|Practical|Practice))$/i.test(a.trim());
+        const bHasSuffix = /(?:[\s\-_]?(?:Lab|Tutorial|FA|\(Financial Apps\)|Practical|Practice))$/i.test(b.trim());
+        if (aHasSuffix && !bHasSuffix) return 1;
+        if (!aHasSuffix && bHasSuffix) return -1;
+        return b.length - a.length;
+      });
 
     const canonicalName = sortedNames[0] || sortedCodes[0].primaryName || canonicalCode;
+    canonicalNameMap.set(canonicalKey, canonicalName);
 
     const aliases = new Set<string>();
     for (const member of cluster) {
@@ -862,6 +872,12 @@ export function buildTimetableSubjectEquivalenceMap(
     return norm;
   }
 
+  function getCanonicalName(raw: string | null | undefined): string {
+    if (!raw || typeof raw !== 'string') return '';
+    const key = getCanonicalKey(raw);
+    return canonicalNameMap.get(key) || key;
+  }
+
   function areEquivalent(subA: any, subB: any): boolean {
     if (!subA || !subB) return false;
     const keyA = typeof subA === 'string' ? getCanonicalKey(subA) : getCanonicalKey(subA.code || subA.name || subA.id);
@@ -871,10 +887,12 @@ export function buildTimetableSubjectEquivalenceMap(
 
   return {
     canonicalKeyMap,
+    canonicalNameMap,
     aliasMap,
     ambiguousSubjects: Array.from(ambiguousSet),
     evidenceLog,
     getCanonicalKey,
+    getCanonicalName,
     areEquivalent,
   };
 }
@@ -1051,8 +1069,9 @@ export function canonicalizeSubjectsForAttendance<T extends {
     const allAliases = Array.from(new Set([...clusterAliases, sub.code, sub.id, `shared_${sub.code.toLowerCase()}`]));
 
     if (!map.has(canonicalKey)) {
-      const baseCode = normalizeAttendanceSubjectCode(sub.code) || canonicalKey;
-      const baseName = normalizeAttendanceSubjectCode(sub.name) || sub.name;
+      const baseCode = canonicalKey || normalizeAttendanceSubjectCode(sub.code);
+      const clusterName = context.getCanonicalName ? context.getCanonicalName(canonicalKey) : '';
+      const baseName = clusterName || normalizeAttendanceSubjectCode(sub.name) || sub.name;
       map.set(canonicalKey, {
         ...sub,
         code: baseCode,
@@ -1115,8 +1134,9 @@ export function canonicalizeSubjectsForAttendance<T extends {
     const allAliases = Array.from(new Set([...clusterAliases, rawCode, `shared_${rawCode.toLowerCase()}`]));
 
     if (!map.has(canonicalKey)) {
-      const baseCode = normalizeAttendanceSubjectCode(rawCode) || canonicalKey;
-      const baseName = normalizeAttendanceSubjectCode(slot.subjectName || rawCode) || baseCode;
+      const baseCode = canonicalKey || normalizeAttendanceSubjectCode(rawCode);
+      const clusterName = context.getCanonicalName ? context.getCanonicalName(canonicalKey) : '';
+      const baseName = clusterName || normalizeAttendanceSubjectCode(slot.subjectName || rawCode) || baseCode;
 
       const newSubject: any = {
         id: `shared_${baseCode.toLowerCase()}`,
@@ -1136,14 +1156,18 @@ export function canonicalizeSubjectsForAttendance<T extends {
       const mergedAliases = Array.from(new Set([...(existing.aliases || []), ...allAliases]));
       existing.aliases = mergedAliases;
 
-      // If the existing entry had an -FA name or short acronym and this slot provides the clean base name, upgrade it
-      if (
-        (existing.name.toUpperCase().endsWith('-FA') || existing.name.length <= 4) &&
+      const currentCanonicalName = context.getCanonicalName ? context.getCanonicalName(canonicalKey) : '';
+      if (currentCanonicalName && existing.name !== currentCanonicalName) {
+        existing.name = currentCanonicalName;
+        existing.code = canonicalKey;
+      } else if (
+        (existing.name.toUpperCase().endsWith('-FA') || /(?:T|TH|L|LAB)$/i.test(existing.name)) &&
         slot.subjectName &&
-        slot.subjectName.length > existing.name.length &&
-        !slot.subjectName.toUpperCase().endsWith('-FA')
+        !slot.subjectName.toUpperCase().endsWith('-FA') &&
+        !/(?:T|TH|L|LAB)$/i.test(slot.subjectName)
       ) {
         existing.name = slot.subjectName;
+        existing.code = canonicalKey;
       }
     }
   }
