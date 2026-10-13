@@ -261,7 +261,7 @@ export function AdminPublishPage() {
     const slotsToPublish: SharedSlot[] = lectures.map((l, idx) => ({
       id: `admin_pub_${section.toLowerCase()}_${idx + 1}`,
       subjectCode: l.subjectCode,
-      subjectName: l.subjectName,
+      subjectName: l.subjectCode?.trim() || l.subjectName,
       faculty: l.faculty,
       room: l.room,
       dayOfWeek: l.dayOfWeek,
@@ -346,7 +346,7 @@ export function AdminPublishPage() {
       const slotsToPublish: SharedSlot[] = secLectures.map((l, idx) => ({
         id: `admin_pub_${sec.toLowerCase()}_${idx + 1}`,
         subjectCode: l.subjectCode,
-        subjectName: l.subjectName,
+        subjectName: l.subjectCode?.trim() || l.subjectName,
         faculty: l.faculty,
         room: l.room,
         dayOfWeek: l.dayOfWeek,

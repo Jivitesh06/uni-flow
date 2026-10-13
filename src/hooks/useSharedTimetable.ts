@@ -87,7 +87,12 @@ export function useSharedTimetable(
       docRef,
       (snap) => {
         if (snap.exists()) {
-          const data = { id: snap.id, ...snap.data() } as SharedTimetableDoc;
+          const rawData = snap.data() as SharedTimetableDoc;
+          const sanitizedSlots = (rawData.slots || []).map((s) => ({
+            ...s,
+            subjectName: s.subjectCode?.trim() || s.subjectName,
+          }));
+          const data = { ...rawData, id: snap.id, slots: sanitizedSlots } as SharedTimetableDoc;
           setSharedDoc(data);
           setSharedTimetableCache(groupId, data);
           setStatus('loaded');

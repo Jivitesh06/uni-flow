@@ -197,7 +197,7 @@ export function TimetablePage() {
     const sharedSlots: SharedSlot[] = lectures.map((l, idx) => ({
       id: `req_${targetSection.toLowerCase()}_${idx + 1}`,
       subjectCode: l.subjectCode,
-      subjectName: l.subjectName,
+      subjectName: l.subjectCode?.trim() || l.subjectName,
       faculty: l.faculty,
       room: l.room,
       dayOfWeek: l.dayOfWeek,

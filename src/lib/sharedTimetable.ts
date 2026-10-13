@@ -160,7 +160,14 @@ export function getSharedTimetableCache(groupId: string): SharedTimetableDoc | n
     try {
       const raw = window.localStorage.getItem(`uniflow_shared_tt_${groupId}`);
       if (raw) {
-        return JSON.parse(raw) as SharedTimetableDoc;
+        const parsed = JSON.parse(raw) as SharedTimetableDoc;
+        if (parsed && Array.isArray(parsed.slots)) {
+          parsed.slots = parsed.slots.map((s) => ({
+            ...s,
+            subjectName: s.subjectCode?.trim() || s.subjectName,
+          }));
+        }
+        return parsed;
       }
     } catch {
       // Ignore cache parse error safely
@@ -224,7 +231,7 @@ export function mergeSharedAndPersonalSlots(
     id: `shared_${s.id}`,
     uid: 'shared_group',
     subjectId: `shared_${s.subjectCode.toLowerCase()}`,
-    subjectName: s.subjectName,
+    subjectName: s.subjectCode?.trim() || s.subjectName,
     subjectCode: s.subjectCode,
     faculty: s.faculty,
     room: s.room,
@@ -360,15 +367,21 @@ export async function publishSharedTimetable(
   slots: SharedSlot[],
   effectiveDate: string
 ): Promise<{ success: boolean; version: number; duplicate: boolean; message: string }> {
+  // Always sanitize slots to enforce timetable shortform naming
+  const sanitizedSlots = slots.map((s) => ({
+    ...s,
+    subjectName: s.subjectCode?.trim() || s.subjectName,
+  }));
+
   // Preflight validation: Enforce canonical document identity and reject inconsistent scopes
-  const validation = validateTimetablePublicationScope(groupParams, slots);
+  const validation = validateTimetablePublicationScope(groupParams, sanitizedSlots);
   if (!validation.isValid) {
     throw new Error(`Publish Preflight Validation Failed: ${validation.error}`);
   }
 
   const groupId = validation.canonicalGroupId;
   const groupLabel = validation.canonicalGroupLabel;
-  const contentHash = computeTimetableContentHash(slots, effectiveDate);
+  const contentHash = computeTimetableContentHash(sanitizedSlots, effectiveDate);
 
   const docRef = doc(db, 'sharedTimetables', groupId);
   const existingSnap = await getDoc(docRef);
@@ -413,7 +426,7 @@ export async function publishSharedTimetable(
     version,
     effectiveDate,
     contentHash,
-    slots,
+    slots: sanitizedSlots,
     publishedAt: serverTimestamp() as any,
     publishedBy: user.uid,
     publishedByName: user.displayName || 'Authorized Publisher',
