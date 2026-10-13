@@ -40,6 +40,7 @@ export default defineConfig({
         ],
       },
       workbox: {
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         importScripts: ['/sw-push-handler.js'],
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,woff}'],
         navigateFallback: '/index.html',

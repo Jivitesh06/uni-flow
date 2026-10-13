@@ -51,6 +51,7 @@ import {
   calculateSubjectAttendance,
   validateAttendanceBaseline,
   canonicalizeSubjectsForAttendance,
+  buildTimetableSubjectEquivalenceMap,
   matchesSubjectRecord,
   type SubjectAttendanceAggregate,
 } from '../lib/attendanceCalculations';
@@ -86,11 +87,16 @@ export function AttendancePage() {
     );
   }, [sharedDoc?.slots, personalSlots, groupParams]);
 
+  // Build dynamic subject equivalence resolution context for the active timetable scope
+  const resolutionContext = useMemo(() => {
+    return buildTimetableSubjectEquivalenceMap(effectiveSlots, subjects);
+  }, [effectiveSlots, subjects]);
+
   // Derive subjects list automatically from user subjects and authoritative shared slots,
-  // canonicalizing -FA suffixes (e.g. ADI-FA -> ADI) under their unified attendance subject
+  // dynamically canonicalizing timetable variations (e.g. LAC & LACT, SPC & SPCL, ADI & ADI-FA)
   const allSubjects = useMemo(() => {
-    return canonicalizeSubjectsForAttendance(subjects, effectiveSlots, currentUser?.uid);
-  }, [subjects, effectiveSlots, currentUser?.uid]);
+    return canonicalizeSubjectsForAttendance(subjects, effectiveSlots, currentUser?.uid, resolutionContext);
+  }, [subjects, effectiveSlots, currentUser?.uid, resolutionContext]);
 
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
@@ -148,15 +154,15 @@ export function AttendancePage() {
   const subjectAggregates = useMemo(() => {
     const map = new Map<string, SubjectAttendanceAggregate>();
     for (const sub of allSubjects) {
-      const subRecords = attendance.filter((a) => matchesSubjectRecord(sub, a.subjectId));
-      const fallback = legacyBaselines.find((b) => matchesSubjectRecord(sub, b.subjectId)) || null;
+      const subRecords = attendance.filter((a) => matchesSubjectRecord(sub, a.subjectId, resolutionContext));
+      const fallback = legacyBaselines.find((b) => matchesSubjectRecord(sub, b.subjectId, resolutionContext)) || null;
       map.set(
         sub.id,
         calculateSubjectAttendance(sub, subRecords, target, fallback, studentGroup)
       );
     }
     return map;
-  }, [allSubjects, attendance, legacyBaselines, target, studentGroup]);
+  }, [allSubjects, attendance, legacyBaselines, target, studentGroup, resolutionContext]);
 
   // Overall attendance statistics across all subjects
   const overallStats = useMemo(() => {

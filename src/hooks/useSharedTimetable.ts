@@ -49,6 +49,15 @@ export function useSharedTimetable(
   });
   const [isOfflineCached, setIsOfflineCached] = useState<boolean>(Boolean(sharedDoc));
   const [error, setError] = useState<Error | null>(null);
+  const [prevGroupId, setPrevGroupId] = useState<string | null>(groupId);
+  if (prevGroupId !== groupId) {
+    setPrevGroupId(groupId);
+    const cached = groupId ? getSharedTimetableCache(groupId) : null;
+    setSharedDoc(cached);
+    setStatus(!isProfileValid ? 'invalid_profile' : (cached ? 'cached' : (groupId ? 'loading' : 'not_published')));
+    setIsOfflineCached(Boolean(cached));
+    setLoading(!cached && Boolean(groupId));
+  }
 
   useEffect(() => {
     if (!isProfileValid || !groupId) {

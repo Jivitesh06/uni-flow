@@ -27,6 +27,7 @@ import {
   calculateAttendanceStats,
   calculateSubjectAttendance,
   canonicalizeSubjectsForAttendance,
+  buildTimetableSubjectEquivalenceMap,
   matchesSubjectRecord,
 } from '../lib/attendanceCalculations';
 import { calculateLiveClassState } from '../lib/timetableCalculations';
@@ -260,23 +261,28 @@ export function DashboardPage() {
 
   const target = userProfile?.attendanceTarget ?? 75;
 
+  // Build dynamic subject equivalence resolution context for the active timetable scope
+  const resolutionContext = useMemo(() => {
+    return buildTimetableSubjectEquivalenceMap(effectiveSlots, subjects);
+  }, [effectiveSlots, subjects]);
+
   // Derive subjects list automatically from user subjects and authoritative shared slots,
-  // canonicalizing -FA suffixes (e.g. ADI-FA -> ADI) under their unified attendance subject
+  // dynamically canonicalizing timetable variations (e.g. LAC & LACT, SPC & SPCL, ADI & ADI-FA)
   const displaySubjects = useMemo(() => {
-    return canonicalizeSubjectsForAttendance(subjects, effectiveSlots, currentUser?.uid);
-  }, [subjects, effectiveSlots, currentUser?.uid]);
+    return canonicalizeSubjectsForAttendance(subjects, effectiveSlots, currentUser?.uid, resolutionContext);
+  }, [subjects, effectiveSlots, currentUser?.uid, resolutionContext]);
 
   const subjectAttendanceMap = useMemo(() => {
     const map = new Map<string, ReturnType<typeof calculateSubjectAttendance>>();
     for (const sub of displaySubjects) {
-      const subRecords = attendance.filter((a) => matchesSubjectRecord(sub, a.subjectId));
+      const subRecords = attendance.filter((a) => matchesSubjectRecord(sub, a.subjectId, resolutionContext));
       map.set(
         sub.id,
         calculateSubjectAttendance(sub, subRecords, target / 100, null, studentGroup)
       );
     }
     return map;
-  }, [displaySubjects, attendance, target, studentGroup]);
+  }, [displaySubjects, attendance, target, studentGroup, resolutionContext]);
 
   let overallAttended = 0;
   let overallConducted = 0;
@@ -599,6 +605,11 @@ export function DashboardPage() {
                                   : 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
                               }`}>
                                 {slot.group}
+                              </span>
+                            )}
+                            {((slot as any).isNonAcademic || (slot as any).isFreePeriod || /^(?:Lib|Library|Free Period)$/i.test(slot.subjectCode)) && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                Non-Academic
                               </span>
                             )}
                           </div>

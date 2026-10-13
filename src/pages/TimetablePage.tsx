@@ -914,6 +914,11 @@ export function TimetablePage() {
                                     G2
                                   </span>
                                 )}
+                                {((slot as any).isNonAcademic || (slot as any).isFreePeriod || /^(?:Lib|Library|Free Period)$/i.test(slot.subjectCode)) && (
+                                  <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-slate-500/40 text-slate-100 font-bold border border-slate-300/40">
+                                    Non-Academic
+                                  </span>
+                                )}
                                 {slot.requiresReview && (
                                   <span
                                     className="text-[9px] px-1.5 py-0.2 rounded-full bg-red-400/50 text-red-100 font-bold border border-red-300/50"
@@ -1090,6 +1095,11 @@ export function TimetablePage() {
                           {slot.group === 'G2' && (
                             <Badge variant="default" className="text-[10px] bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 border border-purple-300 dark:border-purple-800 font-bold">
                               Group 2
+                            </Badge>
+                          )}
+                          {((slot as any).isNonAcademic || (slot as any).isFreePeriod || /^(?:Lib|Library|Free Period)$/i.test(slot.subjectCode)) && (
+                            <Badge variant="default" className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 font-semibold">
+                              Non-Academic
                             </Badge>
                           )}
                           {slot.requiresReview && (

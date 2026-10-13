@@ -45,6 +45,8 @@ export interface SharedSlot {
   periods?: number;
   weight?: number;
   durationMinutes?: number;
+  isNonAcademic?: boolean;
+  isFreePeriod?: boolean;
   requiresReview?: boolean;
 }
 
@@ -170,6 +172,19 @@ export function getSharedTimetableCache(groupId: string): SharedTimetableDoc | n
     return SEEDED_5TH_SEM_TIMETABLES[groupId];
   }
 
+  // 3. Fall back to matching semester & section if batch year varies (e.g. 2024 vs 2025/2026)
+  if (SEEDED_5TH_SEM_TIMETABLES) {
+    const semSecMatch = groupId.match(/sem(\d+)_([a-z0-9-]+)$/i);
+    if (semSecMatch) {
+      const targetSuffix = `sem${semSecMatch[1]}_${semSecMatch[2]}`.toLowerCase();
+      for (const [key, doc] of Object.entries(SEEDED_5TH_SEM_TIMETABLES)) {
+        if (key.endsWith(targetSuffix)) {
+          return doc;
+        }
+      }
+    }
+  }
+
   return null;
 }
 
@@ -195,9 +210,13 @@ export function mergeSharedAndPersonalSlots(
   personalSlots: TimetableSlot[],
   groupId?: string
 ): TimetableSlot[] {
-  // 1. If no shared slots are available, return personal slots
+  // 1. If no shared slots are available, return personal slots filtered by group if provided
   if (!sharedSlots || sharedSlots.length === 0) {
-    return personalSlots;
+    if (!groupId) return personalSlots;
+    return personalSlots.filter((p) => {
+      if (p.sharedGroupId && p.sharedGroupId !== groupId) return false;
+      return true;
+    });
   }
 
   // 2. Map shared slots to TimetableSlot structure with isManual = false
@@ -230,9 +249,10 @@ export function mergeSharedAndPersonalSlots(
     )
   );
 
-  // 3. Extract and preserve personal additions that are not redundant duplicates
+  // 3. Extract and preserve personal additions that are not redundant duplicates and match the current group
   const personalManual = personalSlots.filter((s) => {
     if (!s.isActive || !s.isManual) return false;
+    if (groupId && s.sharedGroupId && s.sharedGroupId !== groupId) return false;
     const key = `${s.dayOfWeek}_${s.startTime}_${s.subjectCode.toUpperCase()}_${(s.group || 'ALL').toUpperCase()}`;
     return !sharedKeySet.has(key);
   });

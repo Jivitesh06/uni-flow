@@ -33,6 +33,8 @@ export interface ExtractedLecture {
   requiresReview?: boolean;
   reviewReason?: string;
   color?: string;
+  isNonAcademic?: boolean;
+  isFreePeriod?: boolean;
 }
 
 /**
@@ -50,19 +52,19 @@ export function detectGroupInString(str: string): {
 } {
   const trimmed = str.trim();
 
-  // Check for ambiguous multiple groups (e.g. "Group 1 & Group 2", "G1/G2", "G1 and G2")
+  // Check for ambiguous multiple groups (e.g. "Group 1 & Group 2", "G1/G2", "G1 and G2", "Group 1, Group 2")
   const hasG1 = /(?:GROUP[\s_-]*1|G[\s_-]*1|GR\.?[\s_-]*1|BATCH[\s_-]*1)/i.test(trimmed);
   const hasG2 = /(?:GROUP[\s_-]*2|G[\s_-]*2|GR\.?[\s_-]*2|BATCH[\s_-]*2)/i.test(trimmed);
   if (hasG1 && hasG2) {
     return {
       group: null,
       detectedGroup: null,
-      isPureLabel: false,
+      isPureLabel: true,
       cleanedText: trimmed,
       cleanedString: trimmed,
       ambiguous: true,
       requiresReview: true,
-      reviewReason: 'Ambiguous group assignment: references multiple groups (G1 and G2)',
+      reviewReason: 'Ambiguous: multiple groups referenced',
     };
   }
 
@@ -169,6 +171,7 @@ export interface ChitkaraTimetableParseResult {
   selectedSection: string;
   detectedSemester?: number;
   detectedProgram?: string;
+  detectedBatch?: string;
   detectedSectionLetter?: string;
   allSectionLectures?: Record<string, ExtractedLecture[]>;
   generationDate?: string;
@@ -180,19 +183,69 @@ export interface ChitkaraTimetableParseResult {
 }
 
 export const CHITKARA_SUBJECT_NAMES: Record<string, string> = {
+  // 5th Semester
   'ADI': 'Applied Design & Innovation',
   'ADI-FA': 'Applied Design & Innovation (Financial Apps)',
   'NALR-I': 'Numerical Analysis & Linear Reasoning I',
   'SD': 'System Design & Architecture',
   'AAIPD': 'Applied AI Product Development',
+
+  // 3rd Semester
+  'CS': 'Computer Systems',
+  'DS': 'Data Structures',
+  'PIJ': 'Programming in Java',
+  'FEE-II': 'Fundamentals of Electrical Engineering II',
+  'DBMS': 'Database Management Systems',
+  'MLE': 'Machine Learning Engineering',
+  'IOT': 'Internet of Things',
+
+  // 1st Semester
+  'FCS': 'Foundations of Computer Science',
+  'FCSL': 'Foundations of Computer Science Lab',
+  'LAC': 'Linear Algebra & Calculus',
+  'LACT': 'Linear Algebra & Calculus Tutorial',
+  'SPC': 'Structured Programming in C',
+  'IWT': 'Internet & Web Technologies',
+  'IWTL': 'Internet & Web Technologies Lab',
+  'IoT': 'Internet of Things',
+  'MM': 'Multimedia Systems',
+
+  // Non-academic
+  'Lib': 'Library',
+  'Library': 'Library',
 };
 
-const SUBJECT_COLORS: Record<string, string> = {
+export const SUBJECT_COLORS: Record<string, string> = {
+  // Sem 5
   'ADI': '#3b82f6',     // Blue
   'ADI-FA': '#6366f1',  // Indigo
   'NALR-I': '#8b5cf6',  // Purple
   'SD': '#10b981',      // Emerald
   'AAIPD': '#f59e0b',   // Amber
+
+  // Sem 3
+  'CS': '#0284c7',      // Sky
+  'DS': '#059669',      // Emerald
+  'PIJ': '#d97706',     // Amber
+  'FEE-II': '#dc2626',  // Red
+  'DBMS': '#7c3aed',    // Violet
+  'MLE': '#4f46e5',     // Indigo
+  'IOT': '#0891b2',     // Cyan
+
+  // Sem 1
+  'FCS': '#2563eb',     // Blue
+  'FCSL': '#1d4ed8',    // Dark Blue
+  'LAC': '#7c3aed',     // Violet
+  'LACT': '#6d28d9',    // Purple
+  'SPC': '#059669',     // Green
+  'IWT': '#ea580c',     // Orange
+  'IWTL': '#c2410c',    // Dark Orange
+  'IoT': '#0891b2',     // Cyan
+  'MM': '#db2777',      // Pink
+
+  // Non-academic
+  'Lib': '#64748b',     // Slate
+  'Library': '#64748b', // Slate
 };
 
 const DAY_MAP = [
@@ -246,6 +299,45 @@ export function extractEffectiveDate(filename: string, textContent: string = '')
   return undefined;
 }
 
+/**
+ * Extracts or derives admission batch year from filename, text content, or academic schedule
+ */
+export function extractBatch(
+  filename: string = '',
+  textContent: string = '',
+  detectedSemester?: number,
+  generationDate?: string
+): string | undefined {
+  // 1. Check for explicit batch in filename or text e.g. "2024 batch" or "batch-2024" or "batch 2025"
+  const match = (filename + ' ' + textContent).match(/\b(20\d{2})\s*batch\b/i) ||
+    (filename + ' ' + textContent).match(/\bbatch[\s_-]*(20\d{2})\b/i);
+  if (match) {
+    return match[1];
+  }
+
+  // 2. Derive admission batch from generation year and semester if available
+  let genYear: number | undefined;
+  if (generationDate) {
+    const yrMatch = generationDate.match(/\b(20\d{2})\b/);
+    if (yrMatch) genYear = parseInt(yrMatch[1], 10);
+  }
+  if (!genYear) {
+    const yrMatch = filename.match(/\b(20\d{2})\b/);
+    if (yrMatch) genYear = parseInt(yrMatch[1], 10);
+  }
+
+  if (genYear && detectedSemester) {
+    // In autumn semester (1, 3, 5, 7):
+    // Sem 1 starts in genYear -> batch = genYear
+    // Sem 3 starts in genYear - 1 -> batch = genYear - 1
+    // Sem 5 starts in genYear - 2 -> batch = genYear - 2
+    const yearsPrior = Math.floor((detectedSemester - 1) / 2);
+    return (genYear - yearsPrior).toString();
+  }
+
+  return undefined;
+}
+
 interface RawTextItem {
   str: string;
   x: number;
@@ -263,12 +355,14 @@ export async function parseChitkaraPdf(
 ): Promise<ChitkaraTimetableParseResult> {
   const warnings: string[] = [];
   
-  // Always slice a fresh copy so pdfjs worker does not detach the caller's original buffer
-  const uint8 = new Uint8Array(
-    dataBuffer instanceof Uint8Array
-      ? dataBuffer.slice().buffer
-      : dataBuffer.slice(0)
-  );
+  // Always copy bytes so pdfjs does not detach the caller's original buffer
+  let uint8: Uint8Array;
+  if (dataBuffer instanceof Uint8Array) {
+    uint8 = new Uint8Array(dataBuffer.byteLength);
+    uint8.set(dataBuffer);
+  } else {
+    uint8 = new Uint8Array(dataBuffer.slice(0));
+  }
 
   let doc: pdfjsLib.PDFDocumentProxy;
   try {
@@ -372,11 +466,10 @@ export async function parseChitkaraPdf(
   ): ExtractedLecture[] {
     if (items.length < 15) return [];
 
-    // 1. Dynamic Period Detection
-    const periodHeaderItems = items.filter((it) =>
-      /(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/.test(it.str)
-    );
-    periodHeaderItems.sort((a, b) => a.x - b.x);
+    // 1. Dynamic Period Detection from page text
+    const periodHeaderItems = items
+      .filter((it) => /(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/.test(it.str))
+      .sort((a, b) => a.x - b.x);
 
     const periods = periodHeaderItems.map((p, idx) => {
       const match = p.str.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
@@ -392,25 +485,25 @@ export async function parseChitkaraPdf(
         endTime: normalizeTimeString24(rawEnd),
         minX: prevX,
         maxX: nextX,
-        centerX: p.x,
+        midX: p.x,
       };
     });
 
     if (periods.length === 0) {
       const standardPeriods = [
-        { num: 1, startTime: '09:30', endTime: '10:20', minX: 85, maxX: 178 },
-        { num: 2, startTime: '10:20', endTime: '11:10', minX: 178, maxX: 270 },
-        { num: 3, startTime: '11:10', endTime: '12:00', minX: 270, maxX: 362 },
-        { num: 4, startTime: '12:00', endTime: '12:50', minX: 362, maxX: 454 },
-        { num: 5, startTime: '12:50', endTime: '13:40', minX: 454, maxX: 546 },
-        { num: 6, startTime: '13:40', endTime: '14:30', minX: 546, maxX: 638 },
-        { num: 7, startTime: '14:30', endTime: '15:20', minX: 638, maxX: 730 },
-        { num: 8, startTime: '15:20', endTime: '16:10', minX: 730, maxX: 825 },
+        { num: 1, startTime: '09:30', endTime: '10:20', minX: 80, maxX: 170, midX: 131 },
+        { num: 2, startTime: '10:20', endTime: '11:10', minX: 170, maxX: 261, midX: 223 },
+        { num: 3, startTime: '11:10', endTime: '12:00', minX: 261, maxX: 353, midX: 315 },
+        { num: 4, startTime: '12:00', endTime: '12:50', minX: 353, maxX: 446, midX: 407 },
+        { num: 5, startTime: '12:50', endTime: '13:40', minX: 446, maxX: 540, midX: 499 },
+        { num: 6, startTime: '13:40', endTime: '14:30', minX: 540, maxX: 632, midX: 591 },
+        { num: 7, startTime: '14:30', endTime: '15:20', minX: 632, maxX: 725, midX: 683 },
+        { num: 8, startTime: '15:20', endTime: '16:10', minX: 725, maxX: 820, midX: 775 },
       ];
-      periods.push(...standardPeriods.map((p) => ({ ...p, centerX: (p.minX + p.maxX) / 2 })));
+      periods.push(...standardPeriods);
     }
 
-    // 2. Dynamic Day Detection
+    // 2. Dynamic Day Detection from page text
     const detectedDays: { code: string; name: string; dayOfWeek: number; y: number }[] = [];
     DAY_MAP.forEach((d) => {
       const item = items.find((it) => it.str === d.code);
@@ -420,285 +513,170 @@ export async function parseChitkaraPdf(
     });
     detectedDays.sort((a, b) => b.y - a.y);
 
-    const daysWithBounds = detectedDays.map((d, idx) => {
-      const prevY = idx > 0 ? (detectedDays[idx - 1].y + d.y) / 2 : d.y + 38;
-      const nextY = idx < detectedDays.length - 1 ? (d.y + detectedDays[idx + 1].y) / 2 : d.y - 38;
-      return { ...d, maxY: prevY, minY: nextY };
+    const dayRows = detectedDays.map((d, idx) => {
+      const maxY = idx > 0 ? (detectedDays[idx - 1].y + d.y) / 2 : d.y + 45;
+      const minY = idx < detectedDays.length - 1 ? (d.y + detectedDays[idx + 1].y) / 2 : d.y - 45;
+      return { ...d, minY, maxY };
     });
+
+    // Boundaries between consecutive periods for 2-period span detection
+    const boundaries: { bIdx: number; x: number; pStart: number; pEnd: number }[] = [];
+    for (let i = 0; i < periods.length - 1; i++) {
+      boundaries.push({
+        bIdx: i + 1,
+        x: (periods[i].maxX + periods[i + 1].minX) / 2,
+        pStart: periods[i].num,
+        pEnd: periods[i + 1].num,
+      });
+    }
+
+    function determinePeriodSpan(x: number): { pStart: number; pEnd: number; count: number } {
+      for (const b of boundaries) {
+        if (Math.abs(x - b.x) <= 22) {
+          return { pStart: b.pStart, pEnd: b.pEnd, count: 2 };
+        }
+      }
+      for (const p of periods) {
+        if (x >= p.minX && x < p.maxX) {
+          return { pStart: p.num, pEnd: p.num, count: 1 };
+        }
+      }
+      return { pStart: 1, pEnd: 1, count: 1 };
+    }
+
+    function isRoom(str: string): boolean {
+      return /^(?:RJ|CVR|LH|CR|LAB|CL|KLM)[0-9A-Z]+/i.test(str.trim());
+    }
+
+    function isFaculty(str: string): boolean {
+      return /^(?:Dr|Mr|Ms|Prof)\.?\s+/i.test(str.trim()) || str.includes(' / ');
+    }
+
+    function isGroup(str: string): boolean {
+      return /(?:Group\s*[12]|G[12]|Batch\s*[12])/i.test(str.trim());
+    }
+
+    function isHeaderOrMeta(str: string): boolean {
+      return (
+        /(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/.test(str) ||
+        /^[1-8]$/.test(str) ||
+        /^(?:Mo|Tu|We|Th|Fr|Sa)$/i.test(str) ||
+        /^(?:Library|aSc Timetables|Timetable generated.*)$/i.test(str) ||
+        /BE-CSE-[0-9A-Z]+/i.test(str) ||
+        str.includes('Chitkara University')
+      );
+    }
 
     const pageLectures: ExtractedLecture[] = [];
 
-    // Helper to extract subject, faculty, room from a cluster of items
-    function extractDetailsFromCluster(clusterItems: RawTextItem[]): {
-      subject: string;
-      faculty: string;
-      room: string;
-    } {
-      let subject = '';
-      let faculty = '';
-      let room = '';
+    // Filter content items inside timetable grid (exclude section titles and top/bottom page chrome)
+    const gridItems = items.filter(
+      (it) => it.y > 90 && it.y < 488 && it.x > 80 && !isHeaderOrMeta(it.str)
+    );
 
-      clusterItems.forEach((it) => {
-        const s = it.str.trim();
-        const groupDet = detectGroupInString(s);
-        if (groupDet.isPureLabel) {
-          return;
-        }
-        const clean = groupDet.cleanedText || s;
-        if (/^(?:Dr|Mr|Ms|Prof)\.?\s+/i.test(clean)) {
-          faculty = clean;
-        } else if (/^(?:RJ|CVR|LH|CR|LAB)[0-9A-Z]+/i.test(clean)) {
-          room = clean;
-        } else if (
-          /^[A-Z0-9\-_]{2,14}$/i.test(clean) &&
-          !['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'G1', 'G2', 'GROUP1', 'GROUP2', 'ALL', 'LEC'].includes(
-            clean.toUpperCase()
-          )
-        ) {
-          subject = clean;
-        }
-      });
+    const rooms = gridItems.filter((it) => isRoom(it.str));
+    const faculties = gridItems.filter((it) => isFaculty(it.str));
+    const groups = gridItems.filter((it) => isGroup(it.str));
+    const subjects = gridItems.filter(
+      (it) => !isRoom(it.str) && !isFaculty(it.str) && !isGroup(it.str)
+    );
 
-      return { subject, faculty, room };
-    }
+    // Process each subject card
+    for (const subj of subjects) {
+      // Find matching day
+      const day =
+        dayRows.find((d) => subj.y >= d.minY && subj.y < d.maxY) ||
+        dayRows.find((d) => subj.y >= d.minY) ||
+        dayRows[0];
 
-    daysWithBounds.forEach((day) => {
-      if (day.dayOfWeek === 6) return; // skip Saturday if no classes
+      if (!day || day.dayOfWeek === 6) continue; // Skip Saturday or unmatched
 
-      const itemsInDay = items.filter(
-        (it) =>
-          it.y > day.minY &&
-          it.y <= day.maxY &&
-          it.x > 60 &&
-          !it.str.includes('aSc Timetables') &&
-          !it.str.includes('Timetable generated:')
-      );
+      const span = determinePeriodSpan(subj.x);
+      const pS = periods[span.pStart - 1] || periods[0];
+      const pE = periods[span.pEnd - 1] || pS;
 
-      interface UnmergedPeriodBlock {
-        periodIndex: number;
-        period: (typeof periods)[0];
-        subject: string;
-        faculty: string;
-        room: string;
-        group: TimetableGroupScope;
-        requiresReview?: boolean;
-        reviewReason?: string;
+      const minX = pS.minX - 15;
+      const maxX = pE.maxX + 15;
+
+      const isLib = subj.str.toUpperCase() === 'LIB';
+
+      let room = 'TBD';
+      if (isLib) {
+        room = 'Library';
+      } else {
+        const candRooms = rooms.filter(
+          (r) => r.x >= minX && r.x <= maxX && r.y >= subj.y - 15 && r.y <= subj.y + 38
+        );
+        candRooms.sort((a, b) => {
+          const costA = Math.abs(a.y - (subj.y + 16)) + Math.abs(a.x - minX) * 0.1;
+          const costB = Math.abs(b.y - (subj.y + 16)) + Math.abs(b.x - minX) * 0.1;
+          return costA - costB;
+        });
+        room = candRooms[0]?.str || 'TBD';
       }
 
-      const dayBlocks: UnmergedPeriodBlock[] = [];
+      let faculty = '';
+      if (!isLib) {
+        const candFac = faculties.filter(
+          (f) => f.x >= minX && f.x <= maxX && f.y >= subj.y - 35 && f.y <= subj.y + 10
+        );
+        candFac.sort((a, b) => Math.abs(a.y - (subj.y - 12)) - Math.abs(b.y - (subj.y - 12)));
+        faculty = candFac[0]?.str || 'Department Faculty';
+      }
 
-      periods.forEach((p, pIdx) => {
-        const inP = itemsInDay.filter((it) => it.x >= p.minX && it.x < p.maxX);
-        if (inP.length === 0) return;
-
-        const g1Items = inP.filter((it) => detectGroupInString(it.str).group === 'G1');
-        const g2Items = inP.filter((it) => detectGroupInString(it.str).group === 'G2');
-        const ambiguousItems = inP.filter((it) => detectGroupInString(it.str).ambiguous);
-
-        if (g1Items.length > 0 && g2Items.length > 0) {
-          const avgG1Y = g1Items.reduce((acc, it) => acc + it.y, 0) / g1Items.length;
-          const avgG2Y = g2Items.reduce((acc, it) => acc + it.y, 0) / g2Items.length;
-          const avgG1X = g1Items.reduce((acc, it) => acc + it.x, 0) / g1Items.length;
-          const avgG2X = g2Items.reduce((acc, it) => acc + it.x, 0) / g2Items.length;
-
-          const g1Cluster: RawTextItem[] = [];
-          const g2Cluster: RawTextItem[] = [];
-
-          inP.forEach((it) => {
-            const det = detectGroupInString(it.str);
-            if (det.group === 'G1') {
-              g1Cluster.push(it);
-            } else if (det.group === 'G2') {
-              g2Cluster.push(it);
-            } else {
-              if (Math.abs(avgG1Y - avgG2Y) > 8) {
-                const midY = (avgG1Y + avgG2Y) / 2;
-                if (avgG1Y > avgG2Y) {
-                  if (it.y >= midY) g1Cluster.push(it);
-                  else g2Cluster.push(it);
-                } else {
-                  if (it.y >= midY) g2Cluster.push(it);
-                  else g1Cluster.push(it);
-                }
-              } else if (Math.abs(avgG1X - avgG2X) > 8) {
-                const midX = (avgG1X + avgG2X) / 2;
-                if (avgG1X < avgG2X) {
-                  if (it.x <= midX) g1Cluster.push(it);
-                  else g2Cluster.push(it);
-                } else {
-                  if (it.x <= midX) g2Cluster.push(it);
-                  else g1Cluster.push(it);
-                }
-              } else {
-                const distG1 = Math.hypot(it.x - avgG1X, it.y - avgG1Y);
-                const distG2 = Math.hypot(it.x - avgG2X, it.y - avgG2Y);
-                if (distG1 <= distG2) g1Cluster.push(it);
-                else g2Cluster.push(it);
-              }
-            }
-          });
-
-          const d1 = extractDetailsFromCluster(g1Cluster);
-          if (d1.subject || d1.room || d1.faculty) {
-            dayBlocks.push({
-              periodIndex: pIdx,
-              period: p,
-              subject: d1.subject,
-              faculty: d1.faculty,
-              room: d1.room,
-              group: 'G1',
-            });
-          }
-
-          const d2 = extractDetailsFromCluster(g2Cluster);
-          if (d2.subject || d2.room || d2.faculty) {
-            dayBlocks.push({
-              periodIndex: pIdx,
-              period: p,
-              subject: d2.subject,
-              faculty: d2.faculty,
-              room: d2.room,
-              group: 'G2',
-            });
-          }
-        } else if (g1Items.length > 0) {
-          const d = extractDetailsFromCluster(inP);
-          if (d.subject || d.room || d.faculty) {
-            dayBlocks.push({
-              periodIndex: pIdx,
-              period: p,
-              subject: d.subject,
-              faculty: d.faculty,
-              room: d.room,
-              group: 'G1',
-            });
-          }
-        } else if (g2Items.length > 0) {
-          const d = extractDetailsFromCluster(inP);
-          if (d.subject || d.room || d.faculty) {
-            dayBlocks.push({
-              periodIndex: pIdx,
-              period: p,
-              subject: d.subject,
-              faculty: d.faculty,
-              room: d.room,
-              group: 'G2',
-            });
-          }
-        } else if (ambiguousItems.length > 0) {
-          const d = extractDetailsFromCluster(inP);
-          if (d.subject || d.room || d.faculty) {
-            dayBlocks.push({
-              periodIndex: pIdx,
-              period: p,
-              subject: d.subject,
-              faculty: d.faculty,
-              room: d.room,
-              group: 'ALL',
-              requiresReview: true,
-              reviewReason: 'Ambiguous group indicator requiring confirmation',
-            });
-          }
-        } else {
-          const d = extractDetailsFromCluster(inP);
-          if (d.subject || d.room || d.faculty) {
-            dayBlocks.push({
-              periodIndex: pIdx,
-              period: p,
-              subject: d.subject,
-              faculty: d.faculty,
-              room: d.room,
-              group: 'ALL',
-            });
-          }
+      let group: TimetableGroupScope = 'ALL';
+      if (!isLib) {
+        const candGroups = groups.filter(
+          (g) => g.x >= minX && g.x <= maxX && Math.abs(g.y - subj.y) <= 25
+        );
+        candGroups.sort((a, b) => Math.abs(a.y - subj.y) - Math.abs(b.y - subj.y));
+        if (candGroups.length > 0) {
+          const gStr = candGroups[0].str;
+          if (/Group\s*1/i.test(gStr) && !/Group\s*2/i.test(gStr)) group = 'G1';
+          else if (/Group\s*2/i.test(gStr) && !/Group\s*1/i.test(gStr)) group = 'G2';
         }
+      }
+
+      const code = isLib ? 'Lib' : subj.str;
+      const fullName = isLib ? 'Library' : (CHITKARA_SUBJECT_NAMES[code] || code);
+      const color = isLib
+        ? '#64748b'
+        : (SUBJECT_COLORS[code] ||
+          (group === 'G1' ? '#3b82f6' : group === 'G2' ? '#8b5cf6' : '#10b981'));
+
+      const [sh, sm] = pS.startTime.split(':').map(Number);
+      const [eh, em] = pE.endTime.split(':').map(Number);
+      const durationMinutes = (eh * 60 + em) - (sh * 60 + sm);
+
+      const requiresReview = !isLib && (room === 'TBD' || faculty === 'Department Faculty');
+      const reviewReason = requiresReview
+        ? room === 'TBD'
+          ? 'Venue/Room could not be confidently identified'
+          : 'Faculty not specified'
+        : undefined;
+
+      pageLectures.push({
+        id: `slot_${day.dayOfWeek}_${pS.startTime.replace(':', '')}_${group.toLowerCase()}_${code.toLowerCase()}`,
+        dayOfWeek: day.dayOfWeek,
+        dayName: day.name,
+        startTime: pS.startTime,
+        endTime: pE.endTime,
+        subjectCode: code,
+        subjectName: fullName,
+        faculty: faculty || (isLib ? '' : 'Department Faculty'),
+        room,
+        section: sectionName,
+        group,
+        periods: span.count,
+        weight: span.count,
+        durationMinutes,
+        requiresReview,
+        reviewReason,
+        color,
+        isNonAcademic: isLib,
+        isFreePeriod: isLib,
       });
-
-      const groups: TimetableGroupScope[] = ['ALL', 'G1', 'G2'];
-      groups.forEach((g) => {
-        const blocksForGroup = dayBlocks
-          .filter((b) => b.group === g)
-          .sort((a, b) => a.periodIndex - b.periodIndex);
-
-        let idx = 0;
-        while (idx < blocksForGroup.length) {
-          const cur = blocksForGroup[idx];
-          const startP = cur.period;
-          let endP = cur.period;
-          const startPeriodIndex = cur.periodIndex;
-          let endPeriodIndex = cur.periodIndex;
-          let subject = cur.subject;
-          let faculty = cur.faculty;
-          let room = cur.room;
-          let requiresReview = cur.requiresReview;
-          let reviewReason = cur.reviewReason;
-
-          while (idx + 1 < blocksForGroup.length) {
-            const next = blocksForGroup[idx + 1];
-            const isConsecutive =
-              next.periodIndex === blocksForGroup[idx].periodIndex + 1 &&
-              next.period.startTime === endP.endTime;
-            if (!isConsecutive) break;
-
-            const sameSubject =
-              subject && next.subject && subject.toUpperCase() === next.subject.toUpperCase();
-            const isSplitCard =
-              (!subject && cur.room && next.subject) ||
-              (!next.room && next.subject && cur.room) ||
-              (!faculty && cur.subject && next.faculty) ||
-              (!next.subject && !next.room && next.faculty);
-
-            if (sameSubject || isSplitCard) {
-              endP = next.period;
-              endPeriodIndex = next.periodIndex;
-              subject = subject || next.subject;
-              faculty = faculty || next.faculty;
-              room = room || next.room;
-              requiresReview = requiresReview || next.requiresReview;
-              reviewReason = reviewReason || next.reviewReason;
-              idx++;
-            } else {
-              break;
-            }
-          }
-
-          if (subject || room || faculty) {
-            const code = subject || 'LEC';
-            const fullName = CHITKARA_SUBJECT_NAMES[code] || code;
-            const color =
-              SUBJECT_COLORS[code] ||
-              (g === 'G1' ? '#3b82f6' : g === 'G2' ? '#8b5cf6' : '#10b981');
-
-            const periodsSpanned = endPeriodIndex - startPeriodIndex + 1;
-            const [sh, sm] = startP.startTime.split(':').map(Number);
-            const [eh, em] = endP.endTime.split(':').map(Number);
-            const durationMinutes = (eh * 60 + em) - (sh * 60 + sm);
-            const weight = periodsSpanned > 0 ? periodsSpanned : 1;
-
-            pageLectures.push({
-              id: `slot_${day.dayOfWeek}_${startP.startTime.replace(':', '')}_${g.toLowerCase()}`,
-              dayOfWeek: day.dayOfWeek,
-              dayName: day.name,
-              startTime: startP.startTime,
-              endTime: endP.endTime,
-              subjectCode: code,
-              subjectName: fullName,
-              faculty: faculty || 'Department Faculty',
-              room: room || 'TBD',
-              section: sectionName,
-              group: g,
-              periods: periodsSpanned,
-              weight,
-              durationMinutes,
-              requiresReview,
-              reviewReason,
-              color,
-            });
-          }
-          idx++;
-        }
-      });
-    });
+    }
 
     return pageLectures;
   }
@@ -714,6 +692,8 @@ export async function parseChitkaraPdf(
 
   // Parse section details from the selected section (e.g. "BE-CSE-1A" -> semester 1, section A)
   const parsedSec = parseSectionDetails(selectedPage.section);
+  const pageText = selectedPage.rawItems.map((i) => i.str).join(' ');
+  const detectedBatch = extractBatch(filename, pageText, parsedSec.semester, detectedGenDate);
 
   return {
     success: lectures.length > 0,
@@ -721,6 +701,7 @@ export async function parseChitkaraPdf(
     selectedSection: selectedPage.section,
     detectedSemester: parsedSec.semester,
     detectedProgram: parsedSec.program || 'BE-CSE',
+    detectedBatch,
     detectedSectionLetter: parsedSec.sectionLetter,
     allSectionLectures,
     generationDate: detectedGenDate,

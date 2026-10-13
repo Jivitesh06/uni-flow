@@ -155,6 +155,9 @@ export function PdfTimetableUploadCard({
       if (result.detectedProgram) {
         setResolvedProgram(result.detectedProgram);
       }
+      if (result.detectedBatch) {
+        setResolvedBatch(result.detectedBatch);
+      }
       setEditableLectures(result.lectures);
       setEffectiveDate(result.effectiveDate || result.generationDate || 'Immediate');
 
@@ -530,7 +533,7 @@ export function PdfTimetableUploadCard({
             </div>
 
             {/* Section Mismatch Alert */}
-            {!isSectionMatch(selectedSection, userSemester || 5, userSection || 'A', userProgram || 'BE-CSE') && (
+            {!skipProfileSectionMatch && !isSectionMatch(selectedSection, userSemester || 5, userSection || 'A', userProgram || 'BE-CSE') && (
               <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 flex items-start gap-2.5 text-xs text-amber-900 dark:text-amber-200">
                 <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                 <div>
