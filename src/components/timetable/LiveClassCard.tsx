@@ -91,39 +91,46 @@ export function LiveClassCard({
                 </span>
               </div>
 
-              {/* Subject Title & Code */}
+              {/* Subject Title, Code & Venue */}
               <Link to="/timetable" className="block group">
                 <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight group-hover:text-blue-600 transition-colors">
-                      {targetSlot.subjectCode || targetSlot.subjectName}
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-                      {targetSlot.subjectName}
-                    </p>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center flex-wrap gap-x-3 gap-y-1">
+                      <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight group-hover:text-blue-600 transition-colors">
+                        {targetSlot.subjectCode || targetSlot.subjectName}
+                      </h3>
+                      {targetSlot.room && (
+                        <div className="inline-flex items-center gap-1.5 text-base sm:text-lg font-bold text-slate-700 dark:text-slate-200">
+                          <MapPin className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                          <span>{targetSlot.room}</span>
+                        </div>
+                      )}
+                    </div>
+                    {targetSlot.subjectName && targetSlot.subjectName !== targetSlot.subjectCode && (
+                      <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium mt-0.5 truncate">
+                        {targetSlot.subjectName}
+                      </p>
+                    )}
                   </div>
                   <ChevronRight className="w-5 h-5 text-slate-300 dark:text-slate-600 group-hover:text-blue-600 transition-colors shrink-0 mt-1" />
                 </div>
               </Link>
 
-              {/* Metadata Row: Time, Room, Faculty */}
-              <div className="flex flex-wrap items-center gap-4 sm:gap-6 pt-2 text-xs text-slate-600 dark:text-slate-400 font-medium">
-                <div className="flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">{targetSlot.startTime} – {targetSlot.endTime}</span>
+              {/* Metadata Row: Time & Faculty */}
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-2.5 border-t border-blue-100/50 dark:border-slate-800/60 text-sm sm:text-base">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                  <span className="font-bold text-slate-900 dark:text-white tracking-tight">
+                    {targetSlot.startTime} – {targetSlot.endTime}
+                  </span>
                 </div>
 
-                {targetSlot.room && (
-                  <div className="flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                    <span>{targetSlot.room}</span>
-                  </div>
-                )}
-
                 {targetSlot.faculty && (
-                  <div className="flex items-center gap-1.5">
-                    <User className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                    <span>{targetSlot.faculty}</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <User className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                    <span className="font-semibold text-slate-700 dark:text-slate-300 truncate">
+                      {targetSlot.faculty}
+                    </span>
                   </div>
                 )}
               </div>

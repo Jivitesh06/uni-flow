@@ -150,6 +150,23 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             </div>
           </div>
 
+          {/* CGPA Check external link */}
+          <a
+            href="https://check-kro-cgpa.web.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={onClose}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-950/30 hover:bg-blue-100/70 dark:hover:bg-blue-900/40 border border-blue-200/60 dark:border-blue-900/40 transition-colors"
+          >
+            <span className="flex items-center gap-2.5">
+              <GraduationCap className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              CGPA Check
+            </span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold">
+              ↗
+            </span>
+          </a>
+
           {/* Settings link */}
           <NavLink
             to="/settings"

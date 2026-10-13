@@ -9,13 +9,12 @@ import {
   ShieldAlert,
   FileText,
   RotateCcw,
-  Sliders,
+  Pencil,
   History,
   AlertCircle,
   Check,
   ArrowRight,
   BookOpen,
-  BarChart2,
   Search,
 } from 'lucide-react';
 import {
@@ -58,7 +57,6 @@ import {
   matchesSubjectRecord,
   type SubjectAttendanceAggregate,
 } from '../lib/attendanceCalculations';
-import { AttendanceOverviewCard } from '../components/attendance/AttendanceOverviewCard';
 import { SubjectAttendanceCard } from '../components/attendance/SubjectAttendanceCard';
 import {
   AttendanceControls,
@@ -134,7 +132,6 @@ export function AttendancePage() {
   const [baselineModalSubject, setBaselineModalSubject] = useState<Subject | null>(null);
   const [baselineConductedInput, setBaselineConductedInput] = useState<string>('');
   const [baselineAttendedInput, setBaselineAttendedInput] = useState<string>('');
-  const [baselineStep, setBaselineStep] = useState<'input' | 'confirm'>('input');
   const [baselineSaving, setBaselineSaving] = useState(false);
 
   // History & Correction modal state
@@ -188,7 +185,6 @@ export function AttendancePage() {
     setBaselineModalSubject(sub);
     setBaselineConductedInput(String(agg?.baselineConducted ?? 0));
     setBaselineAttendedInput(String(agg?.baselineAttended ?? 0));
-    setBaselineStep('input');
   }
 
   // Save Baseline to Firestore under /users/{uid}/subjects/{subjectId}
@@ -431,16 +427,12 @@ export function AttendancePage() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Header Bar matching reference image */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-            <BarChart2 className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Attendance</h2>
-            <p className="text-xs text-gray-400">Target: {(target * 100).toFixed(0)}% institutional requirement</p>
-          </div>
+      {/* Controls Bar: Target subtitle on left, controls on right */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-1">
+        <div>
+          <p className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400">
+            Target: <span className="text-blue-600 dark:text-blue-400 font-bold">{(target * 100).toFixed(0)}%</span> institutional requirement
+          </p>
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
@@ -457,7 +449,7 @@ export function AttendancePage() {
             title="Search subjects"
             aria-label="Search subjects"
           >
-            <Search className="w-5 h-5" />
+            <Search className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
 
           <div className="flex items-center gap-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-3 py-1.5 shadow-sm">
@@ -483,23 +475,6 @@ export function AttendancePage() {
           </Button>
         </div>
       </div>
-
-      {/* Premium Attendance Overview Card */}
-      {allSubjects.length > 0 && (
-        <AttendanceOverviewCard
-          stats={overallStats}
-          subjectCount={allSubjects.length}
-          safeCount={counts.safe}
-          borderlineCount={counts.borderline}
-          shortageCount={counts.shortage}
-          targetPercent={Math.round(target * 100)}
-          activeFilter={statusFilter}
-          onSelectFilter={(f) => {
-            setStatusFilter(f);
-            setSelectedSubjectId(null);
-          }}
-        />
-      )}
 
       {/* Interactive Controls: Search, Status Filter & Sorting */}
       <AttendanceControls
@@ -625,193 +600,109 @@ export function AttendancePage() {
       )}
 
       {/* ============================================================== */}
-      {/* Set / Edit Previous Attendance Baseline Modal                   */}
+      {/* Edit Attendance Baseline Modal                                  */}
       {/* ============================================================== */}
       {baselineModalSubject && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 w-full max-w-lg shadow-2xl border border-gray-100 dark:border-gray-800">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                  <Sliders className="w-5 h-5 text-blue-600" />
-                  Previous Attendance Baseline
+                  <Pencil className="w-5 h-5 text-blue-600" />
+                  Edit Attendance Baseline
                 </h3>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   Subject: <strong className="text-gray-800 dark:text-gray-200">{baselineModalSubject.name}</strong> ({baselineModalSubject.code})
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setBaselineModalSubject(null)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded-lg"
+                aria-label="Close"
               >
                 ✕
               </button>
             </div>
 
-            {baselineStep === 'input' && (
-              <div className="space-y-4">
-                <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 text-xs text-blue-800 dark:text-blue-300 leading-relaxed">
-                  <p className="font-semibold mb-1">💡 What is a Baseline?</p>
-                  Enter classes conducted and attended before you began tracking in UniFlow. These numbers will be added to your lecture-by-lecture records without erasing or overwriting any existing history.
-                </div>
+            {(() => {
+              const val = validateAttendanceBaseline(baselineAttendedInput, baselineConductedInput);
+              const previewPct = val.conducted > 0 ? ((val.attended / val.conducted) * 100).toFixed(1) : '0.0';
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300">
-                      Total Classes Conducted
-                    </label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="1"
-                      placeholder="e.g. 40"
-                      value={baselineConductedInput}
-                      onChange={(e) => setBaselineConductedInput(e.target.value)}
-                      className="mt-1 font-bold text-base"
-                    />
-                    <p className="text-[11px] text-gray-400 mt-1">Classes held so far</p>
+              return (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300">
+                        Total Classes Conducted
+                      </label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="1"
+                        placeholder="e.g. 40"
+                        value={baselineConductedInput}
+                        onChange={(e) => setBaselineConductedInput(e.target.value)}
+                        className="mt-1 font-bold text-base"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300">
+                        Classes Attended
+                      </label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="1"
+                        placeholder="e.g. 32"
+                        value={baselineAttendedInput}
+                        onChange={(e) => setBaselineAttendedInput(e.target.value)}
+                        className="mt-1 font-bold text-base"
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300">
-                      Classes Attended
-                    </label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="1"
-                      placeholder="e.g. 32"
-                      value={baselineAttendedInput}
-                      onChange={(e) => setBaselineAttendedInput(e.target.value)}
-                      className="mt-1 font-bold text-base"
-                    />
-                    <p className="text-[11px] text-gray-400 mt-1">Classes you attended</p>
+                  {/* Focused Live Attendance Preview */}
+                  {val.isValid ? (
+                    <div className="p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 flex items-center justify-between">
+                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        Live Attendance Preview:
+                      </span>
+                      <span className="text-lg font-black text-blue-600 dark:text-blue-400 tracking-tight">
+                        {previewPct}%
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="p-3 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{val.error}</span>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-3 pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => setBaselineModalSubject(null)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      className="flex-1 font-bold bg-blue-600 hover:bg-blue-700 text-white"
+                      disabled={!val.isValid || baselineSaving}
+                      loading={baselineSaving}
+                      onClick={handleSaveBaseline}
+                    >
+                      Save Baseline
+                    </Button>
                   </div>
                 </div>
-
-                {/* Instant Calculation Preview */}
-                {(() => {
-                  const val = validateAttendanceBaseline(baselineAttendedInput, baselineConductedInput);
-                  if (!val.isValid) {
-                    return (
-                      <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                        <span>{val.error}</span>
-                      </div>
-                    );
-                  }
-
-                  const subRecords = attendance.filter((a) => matchesSubjectRecord(baselineModalSubject, a.subjectId));
-                  const preview = calculateSubjectAttendance(
-                    { initialAttended: val.attended, initialConducted: val.conducted },
-                    subRecords,
-                    target
-                  );
-
-                  return (
-                    <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800 space-y-2.5">
-                      <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Live Calculation Preview</p>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-500">Proposed Baseline:</span>
-                        <span className="font-bold">
-                          {val.conducted > 0 ? `${((val.attended / val.conducted) * 100).toFixed(1)}%` : '0.0%'} ({val.attended}/{val.conducted})
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-500">Tracked in UniFlow:</span>
-                        <span className="font-semibold text-gray-700 dark:text-gray-300">
-                          {preview.loggedAttended} / {preview.loggedConducted} lectures
-                        </span>
-                      </div>
-                      <div className="pt-2 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between text-base">
-                        <span className="font-bold text-gray-900 dark:text-white">New Aggregate Total:</span>
-                        <span className={`font-black ${preview.stats.isOnTrack ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
-                          {preview.totalConducted > 0 ? `${preview.stats.percentage.toFixed(1)}%` : '0.0%'} ({preview.totalAttended}/{preview.totalConducted})
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500">
-                        {preview.stats.isOnTrack
-                          ? `✅ On track: Can safely miss ${preview.stats.maxAbsences} classes without falling below ${(target * 100).toFixed(0)}%.`
-                          : `⚠️ Below target: Must attend next ${preview.stats.classesNeeded} classes to reach ${(target * 100).toFixed(0)}%.`}
-                      </p>
-                    </div>
-                  );
-                })()}
-
-                <div className="flex gap-3 pt-2">
-                  <Button variant="outline" className="flex-1" onClick={() => setBaselineModalSubject(null)}>
-                    Cancel
-                  </Button>
-                  <Button
-                    className="flex-1 font-bold"
-                    onClick={() => {
-                      const val = validateAttendanceBaseline(baselineAttendedInput, baselineConductedInput);
-                      if (!val.isValid) {
-                        toast.error(val.error || 'Please correct inputs');
-                        return;
-                      }
-                      setBaselineStep('confirm');
-                    }}
-                  >
-                    Review Summary <ArrowRight className="w-4 h-4 ml-1" />
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {baselineStep === 'confirm' && (
-              <div className="space-y-4">
-                <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-xs text-amber-800 dark:text-amber-300">
-                  <p className="font-bold text-sm mb-1">⚠️ Confirm Baseline Adjustment</p>
-                  <p>
-                    Updating this baseline adjusts your historical total without modifying or deleting individual lecture records tracked by UniFlow.
-                  </p>
-                </div>
-
-                {(() => {
-                  const val = validateAttendanceBaseline(baselineAttendedInput, baselineConductedInput);
-                  const subRecords = attendance.filter((a) => matchesSubjectRecord(baselineModalSubject, a.subjectId));
-                  const preview = calculateSubjectAttendance(
-                    { initialAttended: val.attended, initialConducted: val.conducted },
-                    subRecords,
-                    target
-                  );
-                  const currentAgg = subjectAggregates.get(baselineModalSubject.id);
-
-                  return (
-                    <div className="border border-gray-100 dark:border-gray-800 rounded-2xl p-4 divide-y divide-gray-100 dark:divide-gray-800 text-xs space-y-2">
-                      <div className="pb-2 flex justify-between">
-                        <span className="text-gray-500">Current Aggregate:</span>
-                        <span className="font-semibold">{currentAgg?.totalAttended ?? 0} / {currentAgg?.totalConducted ?? 0} classes ({currentAgg?.stats.percentage.toFixed(1) ?? '0.0'}%)</span>
-                      </div>
-                      <div className="py-2 flex justify-between">
-                        <span className="text-gray-500">New Baseline Entered:</span>
-                        <span className="font-bold text-blue-600">{val.attended} attended / {val.conducted} conducted</span>
-                      </div>
-                      <div className="py-2 flex justify-between">
-                        <span className="text-gray-500">UniFlow Tracked Records:</span>
-                        <span className="font-semibold">{preview.loggedAttended} / {preview.loggedConducted} (Preserved)</span>
-                      </div>
-                      <div className="pt-2 flex justify-between text-sm">
-                        <span className="font-bold text-gray-900 dark:text-white">Updated Aggregate:</span>
-                        <span className={`font-black ${preview.stats.isOnTrack ? 'text-green-600' : 'text-red-500'}`}>
-                          {preview.totalAttended} / {preview.totalConducted} ({preview.stats.percentage.toFixed(1)}%)
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                <div className="flex gap-3 pt-2">
-                  <Button variant="outline" className="flex-1" onClick={() => setBaselineStep('input')}>
-                    Back to Edit
-                  </Button>
-                  <Button className="flex-1 font-bold bg-blue-600 hover:bg-blue-700" loading={baselineSaving} onClick={handleSaveBaseline}>
-                    <Check className="w-4 h-4 mr-1.5" /> Confirm & Save
-                  </Button>
-                </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         </div>
       )}

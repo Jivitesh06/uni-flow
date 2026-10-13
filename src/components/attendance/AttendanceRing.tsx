@@ -1,4 +1,4 @@
-import React from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { cn } from '../../lib/utils';
 import type { AttendanceHealthStatus } from '../../lib/attendanceCalculations';
 
@@ -30,7 +30,35 @@ export function AttendanceRing({
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const clampedPct = Math.min(100, Math.max(0, isNaN(percentage) ? 0 : percentage));
-  const strokeDashoffset = circumference - (clampedPct / 100) * circumference;
+
+  // State to drive smooth mount animation from 0% -> actual percentage
+  const [animatedPct, setAnimatedPct] = useState(0);
+  const isInitialMount = useRef(true);
+
+  useEffect(() => {
+    // Check if user prefers reduced motion
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (prefersReducedMotion) {
+      setAnimatedPct(clampedPct);
+      return;
+    }
+
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      // Trigger animation on next frame for gentle ease-out from 0%
+      const frame = requestAnimationFrame(() => {
+        setAnimatedPct(clampedPct);
+      });
+      return () => cancelAnimationFrame(frame);
+    } else {
+      setAnimatedPct(clampedPct);
+    }
+  }, [clampedPct]);
+
+  const strokeDashoffset = circumference - (animatedPct / 100) * circumference;
 
   // Determine status color palette
   const resolvedStatus: AttendanceHealthStatus =
@@ -38,17 +66,16 @@ export function AttendanceRing({
     (clampedPct === 0 ? 'no_data' : clampedPct >= target ? (clampedPct === target ? 'borderline' : 'safe') : 'shortage');
 
   let strokeColor = 'stroke-emerald-500 dark:stroke-emerald-400';
-  let trackColor = 'stroke-slate-200 dark:stroke-slate-800';
+  let trackColor = 'stroke-slate-100 dark:stroke-slate-800/80';
   let textColor = 'text-slate-900 dark:text-white';
-  let glowColor = '';
 
   if (resolvedStatus === 'borderline') {
     strokeColor = 'stroke-amber-500 dark:stroke-amber-400';
-    trackColor = 'stroke-slate-200 dark:stroke-slate-800';
+    trackColor = 'stroke-slate-100 dark:stroke-slate-800/80';
     textColor = 'text-slate-900 dark:text-white';
   } else if (resolvedStatus === 'shortage') {
     strokeColor = 'stroke-rose-500 dark:stroke-rose-400';
-    trackColor = 'stroke-slate-200 dark:stroke-slate-800';
+    trackColor = 'stroke-slate-100 dark:stroke-slate-800/80';
     textColor = 'text-slate-900 dark:text-white';
   } else if (resolvedStatus === 'no_data') {
     strokeColor = 'stroke-slate-300 dark:stroke-slate-700';
@@ -75,10 +102,10 @@ export function AttendanceRing({
       <svg
         width={size}
         height={size}
-        className={cn('rotate-[-90deg] transform', glowColor)}
+        className="rotate-[-90deg] transform"
         aria-hidden="true"
       >
-        {/* Background Track */}
+        {/* Background Track with rounded clean finish */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -87,19 +114,19 @@ export function AttendanceRing({
           strokeWidth={strokeWidth}
         />
 
-        {/* Foreground Progress Arc */}
+        {/* Foreground Progress Arc with smooth ease-out animation (1000ms) */}
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          className={cn('fill-none transition-all duration-700 ease-out', strokeColor)}
+          className={cn('fill-none transition-[stroke-dashoffset] duration-1000 ease-out', strokeColor)}
           strokeWidth={strokeWidth}
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
           strokeLinecap="round"
         />
 
-        {/* 75% Target Notch Indicator */}
+        {/* Target Notch Indicator */}
         {showTargetIndicator && target > 0 && target < 100 && (
           <circle
             cx={notchX}
@@ -110,7 +137,7 @@ export function AttendanceRing({
         )}
       </svg>
 
-      {/* Center Percentage Display */}
+      {/* Center Percentage Display: Settles accurately on exact real attendance percentage */}
       {showPercentage && (
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
           <span

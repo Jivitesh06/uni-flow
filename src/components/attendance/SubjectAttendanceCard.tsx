@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   CheckCircle2,
   XCircle,
-  Sliders,
+  Pencil,
   History,
   ChevronRight,
   ChevronDown,
@@ -129,10 +129,24 @@ export function SubjectAttendanceCard({
               </div>
             </div>
 
-            {/* Prominent Ratio */}
-            <p className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight leading-none py-0.5">
-              {totalAttended} <span className="text-slate-400 dark:text-slate-500 font-bold text-xs sm:text-sm">/ {totalConducted} classes</span>
-            </p>
+            {/* Prominent Ratio with inline subtle edit icon */}
+            <div className="flex items-center gap-1.5 py-0.5">
+              <p className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight leading-none">
+                {totalAttended} <span className="text-slate-400 dark:text-slate-500 font-bold text-xs sm:text-sm">/ {totalConducted} classes</span>
+              </p>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenBaseline();
+                }}
+                className="p-1 rounded-md text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors inline-flex items-center justify-center shrink-0"
+                title="Edit attendance baseline"
+                aria-label="Edit attendance baseline"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            </div>
 
             {/* Concise Guidance line */}
             <p className={`text-xs font-semibold ${guidanceColor} truncate leading-tight`}>
@@ -146,16 +160,6 @@ export function SubjectAttendanceCard({
           <div className="mt-4 pt-3.5 border-t border-slate-100 dark:border-slate-800 space-y-3 animate-in fade-in duration-200">
             <div className="flex items-center justify-between text-xs text-slate-500">
               <span>{subject.faculty ? `Faculty: ${subject.faculty}` : `${subject.credits || 3} Credits`}</span>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenBaseline();
-                }}
-                className="text-blue-600 dark:text-blue-400 font-semibold hover:underline inline-flex items-center gap-1"
-              >
-                <Sliders className="w-3 h-3" /> Baseline
-              </button>
             </div>
 
             <div className="grid grid-cols-2 gap-2">

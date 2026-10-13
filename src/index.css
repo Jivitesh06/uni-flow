@@ -23,4 +23,19 @@ body {
   min-height: 100%;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: none;
+  /* Hide scrollbar on page while preserving scrolling */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+body::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Reusable class for hidden scrollbars without disabling scrolling */
+.no-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }

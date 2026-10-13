@@ -192,16 +192,11 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-4 max-w-2xl mx-auto pb-10">
-      {/* Top Header */}
-      <div className="flex items-center justify-between pb-1">
-        <div>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-            Settings
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Manage your academic identity, targets, and preferences
-          </p>
-        </div>
+      {/* Subtitle / context description */}
+      <div className="pb-1">
+        <p className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400">
+          Manage your academic identity, targets, and preferences
+        </p>
       </div>
 
       {/* ================================================================ */}

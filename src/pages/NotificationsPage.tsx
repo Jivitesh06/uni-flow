@@ -51,8 +51,7 @@ export function NotificationsPage() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div>
-        <h2 className="text-2xl font-black text-gray-900 dark:text-white">Alerts & Notifications</h2>
-        <p className="text-sm text-gray-500">
+        <p className="text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400">
           Timetable updates, attendance alerts, and reminder feeds ({sorted.filter((n) => !n.read).length} unread)
         </p>
       </div>

@@ -31,7 +31,7 @@ export function AppLayout() {
         <OfflineBanner />
         <TopBar onMenuClick={() => setSidebarOpen(true)} title={title} />
         {/* pb-28 ensures mobile content is not covered by the fixed bottom navigation bar and allows fluid upward swipe */}
-        <main className="flex-1 p-4 md:p-6 lg:p-8 pb-28 lg:pb-8 lg:overflow-y-auto overscroll-y-contain">
+        <main className="flex-1 p-4 md:p-6 lg:p-8 pb-28 lg:pb-8 lg:overflow-y-auto overscroll-y-contain no-scrollbar">
           <Outlet />
         </main>
         <BottomNav />

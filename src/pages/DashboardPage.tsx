@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import {
   Calendar,
   AlertTriangle,
@@ -14,7 +14,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import {
-  calculateAttendanceStats,
   calculateSubjectAttendance,
   canonicalizeSubjectsForAttendance,
   buildTimetableSubjectEquivalenceMap,
@@ -22,7 +21,6 @@ import {
 } from '../lib/attendanceCalculations';
 import { calculateLiveClassState } from '../lib/timetableCalculations';
 import { LiveClassCard } from '../components/timetable/LiveClassCard';
-import { AttendanceRing } from '../components/attendance/AttendanceRing';
 import { useSharedTimetable } from '../hooks/useSharedTimetable';
 import { useClassReminder } from '../hooks/useClassReminder';
 import { ClassReminderBanner } from '../components/notifications/ClassReminderBanner';
@@ -34,6 +32,97 @@ import {
 } from '../lib/sharedTimetable';
 import { isSlotApplicableToStudent } from '../lib/collegeEmail';
 import type { Subject, TimetableSlot, AttendanceRecord } from '../types';
+
+function DashboardSubjectRow({
+  sub,
+  conducted,
+  attended,
+  pct,
+  target,
+}: {
+  sub: Subject;
+  conducted: number;
+  attended: number;
+  pct: number;
+  target: number;
+}) {
+  const isMeetingTarget = conducted === 0 ? true : pct >= target;
+  const clampedPct = Math.min(100, Math.max(0, conducted === 0 ? 0 : pct));
+
+  const [animatedWidth, setAnimatedWidth] = useState(0);
+  const isInitialMount = useRef(true);
+
+  useEffect(() => {
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (prefersReducedMotion) {
+      setAnimatedWidth(clampedPct);
+      return;
+    }
+
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      const frame = requestAnimationFrame(() => {
+        setAnimatedWidth(clampedPct);
+      });
+      return () => cancelAnimationFrame(frame);
+    } else {
+      setAnimatedWidth(clampedPct);
+    }
+  }, [clampedPct]);
+
+  const colorClass = conducted === 0
+    ? 'text-slate-500 dark:text-slate-400'
+    : isMeetingTarget
+    ? 'text-emerald-600 dark:text-emerald-400'
+    : 'text-rose-600 dark:text-rose-400';
+
+  const barFillClass = conducted === 0
+    ? 'bg-slate-300 dark:bg-slate-700'
+    : isMeetingTarget
+    ? 'bg-emerald-500'
+    : 'bg-rose-500';
+
+  const displayPct = conducted === 0
+    ? '0%'
+    : `${pct.toFixed(pct % 1 === 0 ? 0 : 1)}%`;
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
+            {sub.code || sub.name}
+          </p>
+        </div>
+
+        {/* Horizontal progress bar for medium+ space with smooth 1000ms transition */}
+        <div className="hidden sm:block w-36 md:w-48 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden shrink-0">
+          <div
+            className={`h-full rounded-full transition-[width] duration-1000 ease-out ${barFillClass}`}
+            style={{ width: `${animatedWidth}%` }}
+          />
+        </div>
+
+        <div className="shrink-0 text-right">
+          <span className={`text-xs sm:text-sm font-black tracking-tight ${colorClass}`}>
+            {displayPct}
+          </span>
+        </div>
+      </div>
+
+      {/* Compact progress bar on mobile screens with smooth 1000ms transition */}
+      <div className="sm:hidden w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-[width] duration-1000 ease-out ${barFillClass}`}
+          style={{ width: `${animatedWidth}%` }}
+        />
+      </div>
+    </div>
+  );
+}
 
 export function DashboardPage() {
   const { currentUser, userProfile } = useAuth();
@@ -185,24 +274,6 @@ export function DashboardPage() {
     return map;
   }, [displaySubjects, attendance, target, studentGroup, resolutionContext]);
 
-  let overallAttended = 0;
-  let overallConducted = 0;
-  for (const agg of subjectAttendanceMap.values()) {
-    overallAttended += agg.totalAttended;
-    overallConducted += agg.totalConducted;
-  }
-  const overallStats = calculateAttendanceStats(overallAttended, overallConducted, target / 100);
-
-  const onTrackCount = displaySubjects.filter((sub) => {
-    const agg = subjectAttendanceMap.get(sub.id);
-    return agg ? agg.stats.isOnTrack : true;
-  }).length;
-
-  const belowTargetCount = displaySubjects.filter((sub) => {
-    const agg = subjectAttendanceMap.get(sub.id);
-    return agg ? !agg.stats.isOnTrack : false;
-  }).length;
-
   const liveState = useMemo(() => {
     return calculateLiveClassState(studentApplicableSlots, now);
   }, [studentApplicableSlots, now]);
@@ -336,75 +407,54 @@ export function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* 5. Overall Attendance Summary Card matching Reference Image */}
+      {/* 5. Subject-Wise Attendance Card */}
       <Card className="overflow-hidden border border-slate-100 dark:border-slate-800/80 bg-white dark:bg-gray-900 rounded-3xl shadow-sm">
-        <CardHeader className="p-4 sm:p-5 pb-2">
-          <CardTitle className="text-sm font-bold text-slate-900 dark:text-white">
-            Overall Attendance
-          </CardTitle>
+        <CardHeader className="p-4 sm:p-5 pb-3 border-b border-slate-100 dark:border-slate-800/80">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-bold text-slate-900 dark:text-white">
+              Subject Attendance
+            </CardTitle>
+            <span className="text-xs font-semibold text-slate-400">
+              Target: {target}%
+            </span>
+          </div>
         </CardHeader>
 
-        <CardContent className="p-4 sm:p-5 pt-2 space-y-4">
-          <div className="flex items-center gap-5 sm:gap-6">
-            {/* Circular Ring */}
-            <AttendanceRing
-              percentage={overallStats.percentage}
-              size={84}
-              strokeWidth={7}
-              target={target}
-              status={overallStats.status}
-              subText="Overall"
-              className="shrink-0"
-            />
+        <CardContent className="p-4 sm:p-5 pt-3 space-y-3">
+          {displaySubjects.length === 0 ? (
+            <p className="text-xs text-slate-400 py-4 text-center">No subjects registered yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {displaySubjects.map((sub) => {
+                const agg = subjectAttendanceMap.get(sub.id);
+                const conducted = agg ? agg.totalConducted : 0;
+                const attended = agg ? agg.totalAttended : 0;
+                const pct = agg ? agg.stats.percentage : 0;
 
-            {/* Attendance Count & Target Badge */}
-            <div className="space-y-1 min-w-0">
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                  {overallStats.attended} <span className="text-slate-400 font-semibold text-lg">/ {overallStats.conducted}</span>
-                </span>
-              </div>
-
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                Classes attended
-              </p>
-
-              <div>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                  {target}% Target
-                </span>
-              </div>
+                return (
+                  <DashboardSubjectRow
+                    key={sub.id}
+                    sub={sub}
+                    conducted={conducted}
+                    attended={attended}
+                    pct={pct}
+                    target={target}
+                  />
+                );
+              })}
             </div>
-          </div>
+          )}
 
-          {/* 3-Column Stats Row matching reference */}
-          <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-100 dark:border-slate-800 text-center">
-            <div>
-              <p className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-                {overallStats.maxAbsences}
-              </p>
-              <p className="text-[10px] font-medium text-slate-400 mt-0.5">
-                Can safely miss
-              </p>
-            </div>
-
-            <div>
-              <p className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-                {onTrackCount}
-              </p>
-              <p className="text-[10px] font-medium text-slate-400 mt-0.5">
-                Subjects on track
-              </p>
-            </div>
-
-            <div>
-              <p className={`text-base sm:text-lg font-black ${belowTargetCount > 0 ? 'text-rose-600' : 'text-slate-900 dark:text-white'}`}>
-                {belowTargetCount}
-              </p>
-              <p className="text-[10px] font-medium text-slate-400 mt-0.5">
-                Below {target}%
-              </p>
-            </div>
+          <div className="pt-2">
+            <Link to="/attendance" className="block">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full h-9 rounded-2xl text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900/40 hover:bg-blue-100/50"
+              >
+                View Full Attendance <ChevronRight className="w-3.5 h-3.5 ml-1" />
+              </Button>
+            </Link>
           </div>
         </CardContent>
       </Card>

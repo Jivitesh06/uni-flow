@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Menu, Download, WifiOff } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Menu, Download, WifiOff, LayoutDashboard, Calendar, BarChart2, Settings, Bell, ShieldCheck, GraduationCap } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { useAuth } from '../../contexts/AuthContext';
@@ -15,6 +15,7 @@ interface TopBarProps {
 
 export function TopBar({ onMenuClick, title }: TopBarProps) {
   const { userProfile } = useAuth();
+  const { pathname } = useLocation();
   const { isInstallable, isInstalled, isIOS, promptInstall } = usePWAInstall();
   const { isOnline } = useNetworkStatus();
   const [showIOSModal, setShowIOSModal] = useState(false);
@@ -29,6 +30,16 @@ export function TopBar({ onMenuClick, title }: TopBarProps) {
 
   const userInitial = userProfile?.displayName?.[0]?.toUpperCase() || 'U';
 
+  const isDashboard = pathname === '/dashboard' || pathname === '/';
+
+  // Specific icon for current page
+  let PageIcon = LayoutDashboard;
+  if (pathname.startsWith('/timetable')) PageIcon = Calendar;
+  else if (pathname.startsWith('/attendance')) PageIcon = BarChart2;
+  else if (pathname.startsWith('/settings')) PageIcon = Settings;
+  else if (pathname.startsWith('/notifications')) PageIcon = Bell;
+  else if (pathname.startsWith('/admin')) PageIcon = ShieldCheck;
+
   return (
     <>
       <header className="sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 py-3 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200/80 dark:border-gray-800/80">
@@ -40,9 +51,31 @@ export function TopBar({ onMenuClick, title }: TopBarProps) {
           >
             <Menu className="w-5 h-5" />
           </button>
-          <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white truncate">
-            {title}
-          </h1>
+
+          {isDashboard ? (
+            <Link to="/dashboard" className="flex items-center gap-2 select-none group">
+              <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center shadow-xs shrink-0 group-hover:bg-blue-700 transition-colors">
+                <GraduationCap className="w-4 h-4 text-white" />
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-lg sm:text-xl font-black text-gray-900 dark:text-white tracking-tight">
+                  UniFlow
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 hidden sm:inline">
+                  Academic Planner
+                </span>
+              </div>
+            </Link>
+          ) : (
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                <PageIcon className="w-4 h-4" />
+              </div>
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white truncate">
+                {title}
+              </h1>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
