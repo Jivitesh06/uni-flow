@@ -1,3 +1,5 @@
+export type AttendanceHealthStatus = 'safe' | 'borderline' | 'shortage' | 'no_data';
+
 export interface AttendanceStats {
   attended: number;
   conducted: number;
@@ -6,6 +8,9 @@ export interface AttendanceStats {
   classesNeeded: number;
   maxAbsences: number;
   isOnTrack: boolean;
+  status: AttendanceHealthStatus;
+  statusLabel: string;
+  nextActionText: string;
 }
 
 export function calculateAttendanceStats(
@@ -13,6 +18,9 @@ export function calculateAttendanceStats(
   conducted: number,
   target: number = 0.75
 ): AttendanceStats {
+  const targetPct = target * 100;
+  const targetLabel = `${Math.round(targetPct)}%`;
+
   if (conducted === 0) {
     return {
       attended: 0,
@@ -22,32 +30,57 @@ export function calculateAttendanceStats(
       classesNeeded: 0,
       maxAbsences: 0,
       isOnTrack: true,
+      status: 'no_data',
+      statusLabel: 'No attendance data yet',
+      nextActionText: 'No classes conducted yet',
     };
   }
 
   const percentage = (attended / conducted) * 100;
-  const isOnTrack = percentage >= target * 100;
+  // Use 1e-9 tolerance for floating point boundary checks (e.g. 15/20 == 0.75)
+  const isOnTrack = (attended / conducted) >= (target - 1e-9);
 
-  // Classes to attend to reach target:
-  // max(0, ceil((r*T - A) / (1 - r)))
-  const classesNeeded = isOnTrack
-    ? 0
-    : Math.max(0, Math.ceil((target * conducted - attended) / (1 - target)));
+  if (!isOnTrack) {
+    // Classes needed: smallest integer n >= 0 such that (attended + n) / (conducted + n) >= target
+    const classesNeeded = Math.max(
+      1,
+      Math.ceil((target * conducted - attended - 1e-9) / (1 - target))
+    );
+    return {
+      attended,
+      conducted,
+      percentage,
+      target,
+      classesNeeded,
+      maxAbsences: 0,
+      isOnTrack: false,
+      status: 'shortage',
+      statusLabel: 'Shortage',
+      nextActionText: `Attend the next ${classesNeeded} consecutive ${classesNeeded === 1 ? 'class' : 'classes'} to reach ${targetLabel}.`,
+    };
+  }
 
-  // Max absences: floor((A - r*T) / r) but only when on track
-  // Derived from: (A) / (T + x) >= r => x <= A/r - T
-  const maxAbsences = isOnTrack
-    ? Math.floor(attended / target - conducted)
-    : 0;
+  // Max absences allowed: largest integer m >= 0 such that attended / (conducted + m) >= target
+  const maxAbsences = Math.max(
+    0,
+    Math.floor((attended - target * conducted + 1e-9) / target)
+  );
+
+  const isBorderline = maxAbsences === 0;
 
   return {
     attended,
     conducted,
     percentage,
     target,
-    classesNeeded,
-    maxAbsences: Math.max(0, maxAbsences),
-    isOnTrack,
+    classesNeeded: 0,
+    maxAbsences,
+    isOnTrack: true,
+    status: isBorderline ? 'borderline' : 'safe',
+    statusLabel: isBorderline ? 'Borderline' : 'Safe',
+    nextActionText: isBorderline
+      ? `On ${targetLabel} threshold — attend upcoming classes to avoid falling below.`
+      : `Can miss up to ${maxAbsences} ${maxAbsences === 1 ? 'class' : 'classes'} without falling below ${targetLabel}.`,
   };
 }
 

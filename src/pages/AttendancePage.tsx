@@ -56,6 +56,13 @@ import {
   matchesSubjectRecord,
   type SubjectAttendanceAggregate,
 } from '../lib/attendanceCalculations';
+import { AttendanceOverviewCard } from '../components/attendance/AttendanceOverviewCard';
+import { SubjectAttendanceCard } from '../components/attendance/SubjectAttendanceCard';
+import {
+  AttendanceControls,
+  type AttendanceFilterType,
+  type AttendanceSortType,
+} from '../components/attendance/AttendanceControls';
 import toast from 'react-hot-toast';
 import type { Subject, AttendanceRecord, AttendanceBaseline, TimetableSlot } from '../types';
 
@@ -96,7 +103,9 @@ export function AttendancePage() {
 
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
-  const [filterMode, setFilterMode] = useState<'all' | 'at_risk'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<AttendanceFilterType>('all');
+  const [sortMode, setSortMode] = useState<AttendanceSortType>('lowest');
   const [markingKey, setMarkingKey] = useState<string | null>(null);
   const [customDate, setCustomDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
 
@@ -342,20 +351,81 @@ export function AttendancePage() {
     }
   }
 
-  // Filter subjects for display
+  // Count categories for quick badges
+  const counts = useMemo(() => {
+    let safe = 0;
+    let borderline = 0;
+    let shortage = 0;
+    for (const sub of allSubjects) {
+      const agg = subjectAggregates.get(sub.id);
+      if (!agg) continue;
+      if (agg.stats.status === 'safe') safe++;
+      else if (agg.stats.status === 'borderline') borderline++;
+      else if (agg.stats.status === 'shortage') shortage++;
+    }
+    return {
+      total: allSubjects.length,
+      safe,
+      borderline,
+      shortage,
+    };
+  }, [allSubjects, subjectAggregates]);
+
+  // Filter and sort subjects for display
   const filteredSubjects = useMemo(() => {
-    let list = allSubjects;
+    let list = [...allSubjects];
+
+    // 1. Search Query filter (name, code, faculty)
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(
+        (s) =>
+          s.name.toLowerCase().includes(q) ||
+          (s.code && s.code.toLowerCase().includes(q)) ||
+          (s.faculty && s.faculty.toLowerCase().includes(q))
+      );
+    }
+
+    // 2. Health status filter
+    if (statusFilter !== 'all') {
+      list = list.filter((s) => {
+        const agg = subjectAggregates.get(s.id);
+        return agg && agg.stats.status === statusFilter;
+      });
+    }
+
+    // 3. Specific selected subject filter (if clicked)
     if (selectedSubjectId) {
       list = list.filter((s) => s.id === selectedSubjectId);
     }
-    if (filterMode === 'at_risk') {
-      list = list.filter((s) => {
-        const agg = subjectAggregates.get(s.id);
-        return agg && !agg.stats.isOnTrack;
-      });
-    }
+
+    // 4. Sorting
+    list.sort((a, b) => {
+      const aggA = subjectAggregates.get(a.id);
+      const aggB = subjectAggregates.get(b.id);
+      const pctA = aggA ? aggA.stats.percentage : 0;
+      const pctB = aggB ? aggB.stats.percentage : 0;
+
+      if (sortMode === 'lowest') {
+        const condA = aggA ? aggA.totalConducted : 0;
+        const condB = aggB ? aggB.totalConducted : 0;
+        if (condA > 0 && condB === 0) return -1;
+        if (condA === 0 && condB > 0) return 1;
+        return pctA - pctB;
+      }
+      if (sortMode === 'highest') {
+        return pctB - pctA;
+      }
+      if (sortMode === 'classes') {
+        const condA = aggA ? aggA.totalConducted : 0;
+        const condB = aggB ? aggB.totalConducted : 0;
+        return condB - condA;
+      }
+      return a.name.localeCompare(b.name);
+    });
+
     return list;
-  }, [allSubjects, selectedSubjectId, filterMode, subjectAggregates]);
+  }, [allSubjects, searchQuery, statusFilter, selectedSubjectId, sortMode, subjectAggregates]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -393,52 +463,21 @@ export function AttendancePage() {
         </div>
       </div>
 
-      {/* Aggregate Overview Card */}
+      {/* Premium Attendance Overview Card */}
       {allSubjects.length > 0 && (
-        <Card className="bg-gradient-to-r from-blue-500/10 via-indigo-500/5 to-purple-500/10 border-blue-200 dark:border-blue-900/50 shadow-sm">
-          <CardContent className="p-5 sm:p-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400">
-                  Semester Cumulative Attendance
-                </p>
-                <div className="flex items-baseline gap-3 mt-1">
-                  <h3 className={`text-3xl font-black ${overallStats.isOnTrack ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
-                    {overallStats.conducted > 0 ? `${overallStats.percentage.toFixed(1)}%` : '0.0%'}
-                  </h3>
-                  <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    ({overallStats.attended} attended / {overallStats.conducted} conducted across {allSubjects.length} subjects)
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl px-4 py-2.5 text-center shadow-sm">
-                  <p className="text-[10px] font-bold uppercase text-gray-400">Target Threshold</p>
-                  <p className="font-extrabold text-base text-gray-900 dark:text-white">{(target * 100).toFixed(0)}%</p>
-                </div>
-
-                <div className={`rounded-2xl px-4 py-2.5 text-center border shadow-sm ${
-                  overallStats.isOnTrack
-                    ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-900 text-green-700 dark:text-green-400'
-                    : 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900 text-red-700 dark:text-red-400'
-                }`}>
-                  <p className="text-[10px] font-bold uppercase">
-                    {overallStats.isOnTrack ? 'Absence Cushion' : 'Classes Required'}
-                  </p>
-                  <p className="font-extrabold text-base">
-                    {overallStats.isOnTrack
-                      ? `${overallStats.maxAbsences} classes`
-                      : `${overallStats.classesNeeded} classes`}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="mt-4">
-              <Progress value={overallStats.percentage} />
-            </div>
-          </CardContent>
-        </Card>
+        <AttendanceOverviewCard
+          stats={overallStats}
+          subjectCount={allSubjects.length}
+          safeCount={counts.safe}
+          borderlineCount={counts.borderline}
+          shortageCount={counts.shortage}
+          targetPercent={Math.round(target * 100)}
+          activeFilter={statusFilter}
+          onSelectFilter={(f) => {
+            setStatusFilter(f);
+            setSelectedSubjectId(null);
+          }}
+        />
       )}
 
       {/* Scheduled Classes for Selected Date */}
@@ -576,56 +615,19 @@ export function AttendancePage() {
         </CardContent>
       </Card>
 
-      {/* Filter Options */}
-      <div className="flex gap-2 flex-wrap items-center justify-between">
-        <div className="flex gap-2 flex-wrap items-center">
-          <button
-            onClick={() => {
-              setSelectedSubjectId(null);
-              setFilterMode('all');
-            }}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
-              !selectedSubjectId && filterMode === 'all'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-800 hover:border-blue-400'
-            }`}
-          >
-            All Subjects ({allSubjects.length})
-          </button>
-
-          <button
-            onClick={() => {
-              setSelectedSubjectId(null);
-              setFilterMode(filterMode === 'at_risk' ? 'all' : 'at_risk');
-            }}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
-              filterMode === 'at_risk'
-                ? 'bg-red-600 text-white shadow-md'
-                : 'bg-white dark:bg-gray-900 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/60 hover:bg-red-50'
-            }`}
-          >
-            ⚠️ At Risk Only ({Array.from(subjectAggregates.values()).filter((a) => !a.stats.isOnTrack).length})
-          </button>
-
-          {allSubjects.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => {
-                setSelectedSubjectId(s.id === selectedSubjectId ? null : s.id);
-                setFilterMode('all');
-              }}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
-                selectedSubjectId === s.id
-                  ? 'text-white shadow-md'
-                  : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-800 hover:border-gray-400'
-              }`}
-              style={selectedSubjectId === s.id ? { backgroundColor: s.color } : {}}
-            >
-              {s.name}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Interactive Controls: Search, Status Filter & Sorting */}
+      <AttendanceControls
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        filterMode={statusFilter}
+        onFilterChange={(f) => {
+          setStatusFilter(f);
+          setSelectedSubjectId(null);
+        }}
+        sortMode={sortMode}
+        onSortChange={setSortMode}
+        counts={counts}
+      />
 
       {/* Subject Cards Grid */}
       {subjectsLoading ? (
@@ -634,7 +636,7 @@ export function AttendancePage() {
           <p className="text-xs text-gray-400">Loading your attendance records...</p>
         </div>
       ) : allSubjects.length === 0 ? (
-        <div className="text-center py-20 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-8">
+        <div className="text-center py-20 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-8 shadow-sm">
           <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 flex items-center justify-center mx-auto mb-4">
             <BookOpen className="w-7 h-7" />
           </div>
@@ -649,18 +651,20 @@ export function AttendancePage() {
           </Link>
         </div>
       ) : filteredSubjects.length === 0 ? (
-        <div className="text-center py-16 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800">
-          <p className="text-sm text-gray-500">No subjects match the selected filter.</p>
+        <div className="text-center py-16 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
+          <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">No subjects match your filter or search.</p>
+          <p className="text-xs text-gray-400 mt-1">Try resetting the status filter or clearing your search term.</p>
           <Button
             variant="outline"
             size="sm"
-            className="mt-3"
+            className="mt-4"
             onClick={() => {
+              setSearchQuery('');
+              setStatusFilter('all');
               setSelectedSubjectId(null);
-              setFilterMode('all');
             }}
           >
-            Reset Filters
+            Reset All Filters
           </Button>
         </div>
       ) : (
@@ -676,227 +680,59 @@ export function AttendancePage() {
               stats: calculateAttendanceStats(0, 0, target),
               hasBaseline: false,
             };
-            const { stats, baselineAttended, baselineConducted, loggedAttended, loggedConducted, totalAttended, totalConducted, hasBaseline } = agg;
             const subAtt = attendance.filter((a) => matchesSubjectRecord(sub, a.subjectId));
             const isMarking =
               markingKey === sub.id ||
               (markingKey?.startsWith(`${sub.id}-`) ?? false);
 
             return (
-              <Card
+              <SubjectAttendanceCard
                 key={sub.id}
-                className="overflow-hidden border-gray-100 dark:border-gray-800 hover:shadow-lg transition-all"
-                style={{ borderTop: `4px solid ${sub.color}` }}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <CardTitle className="text-lg font-bold text-gray-900 dark:text-white">{sub.name}</CardTitle>
-                        {sub.code !== sub.name && (
-                          <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
-                            {sub.code}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {sub.faculty ? `👤 ${sub.faculty}` : `${sub.credits} Credits`}
-                      </p>
-                    </div>
-
-                    <div className="text-right flex-shrink-0">
-                      <span
-                        className={`text-2xl font-black ${
-                          stats.isOnTrack ? 'text-green-600 dark:text-green-400' : 'text-red-500'
-                        }`}
-                      >
-                        {totalConducted > 0 ? `${stats.percentage.toFixed(1)}%` : '0.0%'}
-                      </span>
-                      <p className="text-xs text-gray-400 font-medium mt-0.5">
-                        {totalAttended} / {totalConducted} classes
-                      </p>
-                    </div>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="space-y-4">
-                  <Progress value={stats.percentage} />
-
-                  {/* Attendance Composition: Previous Baseline vs UniFlow Logs */}
-                  <div className="p-3 rounded-2xl bg-gray-50/80 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800/80 flex items-center justify-between text-xs">
-                    <div>
-                      <span className="text-gray-400 font-medium">Composition: </span>
-                      <span className="font-semibold text-gray-800 dark:text-gray-200">
-                        {hasBaseline ? `${baselineAttended}/${baselineConducted} baseline` : '0 baseline'}
-                      </span>
-                      <span className="text-gray-400"> + </span>
-                      <span className="font-semibold text-gray-800 dark:text-gray-200">
-                        {loggedAttended}/{loggedConducted} tracked
-                      </span>
-                    </div>
-
-                    <button
-                      onClick={() => handleOpenBaseline(sub)}
-                      className="inline-flex items-center gap-1 font-bold text-blue-600 dark:text-blue-400 hover:underline"
-                    >
-                      <Sliders className="w-3.5 h-3.5" />
-                      {hasBaseline ? 'Edit Baseline' : 'Set Baseline'}
-                    </button>
-                  </div>
-
-                  {/* Stat Metrics Grid */}
-                  <div className="grid grid-cols-3 gap-2.5">
-                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-2.5 text-center">
-                      <p className="text-[10px] uppercase font-bold text-gray-400">Target</p>
-                      <p className="font-extrabold text-sm text-gray-800 dark:text-gray-200 mt-0.5">
-                        {(target * 100).toFixed(0)}%
-                      </p>
-                    </div>
-
-                    {stats.isOnTrack ? (
-                      <div className="bg-green-50 dark:bg-green-950/30 rounded-xl p-2.5 text-center border border-green-200/50 dark:border-green-900/30">
-                        <p className="text-[10px] uppercase font-bold text-green-700 dark:text-green-400">Can Miss</p>
-                        <p className="font-extrabold text-sm text-green-600 dark:text-green-400 mt-0.5">
-                          {stats.maxAbsences} classes
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="bg-red-50 dark:bg-red-950/30 rounded-xl p-2.5 text-center border border-red-200/50 dark:border-red-900/30">
-                        <p className="text-[10px] uppercase font-bold text-red-700 dark:text-red-400">Must Attend</p>
-                        <p className="font-extrabold text-sm text-red-600 dark:text-red-400 mt-0.5">
-                          {stats.classesNeeded} classes
-                        </p>
-                      </div>
-                    )}
-
-                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-2.5 text-center">
-                      <p className="text-[10px] uppercase font-bold text-gray-400">Status</p>
-                      <p
-                        className={`font-extrabold text-xs mt-1 ${
-                          stats.isOnTrack ? 'text-green-600 dark:text-green-400' : 'text-red-500'
-                        }`}
-                      >
-                        {stats.isOnTrack ? 'Healthy' : 'Below Target'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Warning / Advisory Banner */}
-                  {!stats.isOnTrack && stats.classesNeeded > 0 && (
-                    <div className="flex items-center gap-2 p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-xs text-red-700 dark:text-red-400 font-medium">
-                      <ShieldAlert className="w-4 h-4 flex-shrink-0 text-red-600" />
-                      <span>
-                        Attend the next <strong>{stats.classesNeeded} consecutive classes</strong> to recover above {(target * 100).toFixed(0)}%.
-                      </span>
-                    </div>
-                  )}
-
-                  {stats.isOnTrack && stats.maxAbsences === 0 && totalConducted > 0 && (
-                    <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-xs text-amber-700 dark:text-amber-400 font-medium">
-                      <Target className="w-4 h-4 flex-shrink-0 text-amber-600" />
-                      <span>At threshold: Cannot miss any upcoming classes without falling below {(target * 100).toFixed(0)}%.</span>
-                    </div>
-                  )}
-
-                  {/* Action Buttons: Mark Present / Absent & History */}
-                  <div className="flex gap-2 pt-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/50 font-bold"
-                      onClick={() => {
-                        const next = resolveNextUnmarkedSlotForSubject(sub.id);
-                        if (next) {
-                          markAttendance(next.slot.subjectId || sub.id, 'present', next.slot.id, next.weight);
-                        } else {
-                          const hasScheduled = scheduledSlotsForDate.some((s) =>
-                            matchesSubjectRecord(sub, s.subjectId, resolutionContext)
-                          );
-                          if (hasScheduled) {
-                            toast.error('All scheduled sessions for this date are already marked. Use Correct to edit.');
-                          } else {
-                            // No scheduled session on this day — legacy unlinked mark
-                            markAttendance(sub.id, 'present');
-                          }
-                        }
-                      }}
-                      loading={isMarking}
-                    >
-                      <CheckCircle2 className="w-4 h-4 mr-1.5" /> Present
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 font-bold"
-                      onClick={() => {
-                        const next = resolveNextUnmarkedSlotForSubject(sub.id);
-                        if (next) {
-                          markAttendance(next.slot.subjectId || sub.id, 'absent', next.slot.id, next.weight);
-                        } else {
-                          const hasScheduled = scheduledSlotsForDate.some((s) =>
-                            matchesSubjectRecord(sub, s.subjectId, resolutionContext)
-                          );
-                          if (hasScheduled) {
-                            toast.error('All scheduled sessions for this date are already marked. Use Correct to edit.');
-                          } else {
-                            // No scheduled session on this day — legacy unlinked mark
-                            markAttendance(sub.id, 'absent');
-                          }
-                        }
-                      }}
-                      loading={isMarking}
-                    >
-                      <XCircle className="w-4 h-4 mr-1.5" /> Absent
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setHistorySubjectFilter(sub.id);
-                        setShowHistoryModal(true);
-                      }}
-                      title="View logged history for this subject"
-                    >
-                      <History className="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  {/* Recent Activity Mini List */}
-                  {subAtt.length > 0 && (
-                    <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-2">Recent Logs</p>
-                      <div className="space-y-1.5">
-                        {subAtt.slice(0, 3).map((r) => (
-                          <div
-                            key={r.id}
-                            className="flex items-center justify-between text-xs p-2 rounded-lg bg-gray-50/70 dark:bg-gray-800/40"
-                          >
-                            <span className="text-gray-600 dark:text-gray-300 font-medium">
-                              {format(r.date.toDate(), 'EEE, MMM d')}
-                              {r.notes && <span className="text-[10px] text-gray-400 ml-1.5 italic">({r.notes})</span>}
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <Badge variant={r.status === 'present' ? 'success' : r.status === 'absent' ? 'danger' : 'default'}>
-                                {r.status}
-                              </Badge>
-                              <button
-                                onClick={() => {
-                                  setEditingRecord(r);
-                                  setCorrectionNote(r.notes || '');
-                                }}
-                                className="text-gray-400 hover:text-blue-600 transition-colors"
-                                title="Correct attendance"
-                              >
-                                <Edit3 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                subject={sub}
+                aggregate={agg}
+                targetPercent={Math.round(target * 100)}
+                isMarking={isMarking}
+                recentRecords={subAtt}
+                onMarkPresent={() => {
+                  const next = resolveNextUnmarkedSlotForSubject(sub.id);
+                  if (next) {
+                    markAttendance(next.slot.subjectId || sub.id, 'present', next.slot.id, next.weight);
+                  } else {
+                    const hasScheduled = scheduledSlotsForDate.some((s) =>
+                      matchesSubjectRecord(sub, s.subjectId, resolutionContext)
+                    );
+                    if (hasScheduled) {
+                      toast.error('All scheduled sessions for this date are already marked. Use Correct to edit.');
+                    } else {
+                      markAttendance(sub.id, 'present');
+                    }
+                  }
+                }}
+                onMarkAbsent={() => {
+                  const next = resolveNextUnmarkedSlotForSubject(sub.id);
+                  if (next) {
+                    markAttendance(next.slot.subjectId || sub.id, 'absent', next.slot.id, next.weight);
+                  } else {
+                    const hasScheduled = scheduledSlotsForDate.some((s) =>
+                      matchesSubjectRecord(sub, s.subjectId, resolutionContext)
+                    );
+                    if (hasScheduled) {
+                      toast.error('All scheduled sessions for this date are already marked. Use Correct to edit.');
+                    } else {
+                      markAttendance(sub.id, 'absent');
+                    }
+                  }
+                }}
+                onOpenBaseline={() => handleOpenBaseline(sub)}
+                onOpenHistory={() => {
+                  setHistorySubjectFilter(sub.id);
+                  setShowHistoryModal(true);
+                }}
+                onCorrectRecord={(record) => {
+                  setEditingRecord(record);
+                  setCorrectionNote(record.notes || '');
+                }}
+              />
             );
           })}
         </div>
