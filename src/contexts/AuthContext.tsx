@@ -58,6 +58,8 @@ interface AuthContextType {
   loading: boolean;
   isOnline: boolean;
   isEmailVerified: boolean;
+  authError: string | null;
+  retryAuthProfile: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<User>;
   signUp: (
     email: string,
@@ -125,12 +127,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const [isEmailVerified, setIsEmailVerified] = useState<boolean>(() => isLocalQA);
   const [loading, setLoading] = useState(() => !isLocalQA);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState<boolean>(() =>
     typeof navigator !== 'undefined' ? navigator.onLine : true
   );
 
   // Request sequence counter prevents stale async responses from racing and overwriting newer profiles
   const profileFetchSeqRef = useRef<number>(0);
+  // Auth state transition counter prevents race conditions and stale callbacks from resetting state
+  const authTransitionSeqRef = useRef<number>(0);
+  // Guard to prevent concurrent duplicate retry requests
+  const isRetryingRef = useRef<boolean>(false);
 
   // Track online/offline status and auto-sync user profile when connectivity returns
   useEffect(() => {
@@ -312,6 +319,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(
       auth,
       async (user) => {
+        const transitionSeq = ++authTransitionSeqRef.current;
+        setAuthError(null);
+
         if (user) {
           setCurrentUser(user);
           setIsEmailVerified(Boolean(user.emailVerified));
@@ -321,18 +331,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const cached = getCachedUserProfile<UserProfile>(user.uid);
           setUserProfile(cached || null);
 
-          await createOrFetchProfile(user);
-        } else if (!isLocalQA) {
-          setCurrentUser(null);
-          setUserProfile(null);
-          setIsEmailVerified(false);
-          setLoading(false);
+          let timerId: ReturnType<typeof setTimeout> | undefined;
+          try {
+            // Guard profile fetch with an 8-second timeout so hung network requests never stall the app indefinitely
+            await Promise.race([
+              createOrFetchProfile(user),
+              new Promise<void>((_, reject) => {
+                timerId = setTimeout(() => reject(new Error('Profile fetch timed out')), 8000);
+              }),
+            ]);
+          } catch (err) {
+            console.warn('[AuthContext] Auth profile resolution error or timeout:', err);
+            // If the user has no cached completed profile, mark a recoverable error state
+            const currentCache = getCachedUserProfile<UserProfile>(user.uid);
+            if (!currentCache || !currentCache.profileCompleted) {
+              setAuthError('Connection timed out while loading your profile. Please check your internet connection.');
+            }
+          } finally {
+            if (timerId) clearTimeout(timerId);
+            // Only resolve loading if this callback remains the active transition for the current user
+            if (transitionSeq === authTransitionSeqRef.current && auth.currentUser?.uid === user.uid) {
+              setLoading(false);
+            }
+          }
         } else {
-          setLoading(false);
+          if (!isLocalQA) {
+            setCurrentUser(null);
+            setUserProfile(null);
+            setIsEmailVerified(false);
+          }
+          if (transitionSeq === authTransitionSeqRef.current) {
+            setLoading(false);
+          }
         }
       },
       (error) => {
         console.error('Firebase onAuthStateChanged error:', error);
+        setAuthError('Authentication service encountered an error. Please try again.');
         // Do not immediately sign out on network error
         if (navigator.onLine) {
           setCurrentUser(null);
@@ -363,13 +398,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await ensureAuthPersistence();
     const normalizedEmail = normalizeCollegeEmail(email);
     validateEmailDomain(normalizedEmail);
-    const { user } = await signInWithEmailAndPassword(auth, normalizedEmail, password);
-    validateEmailDomain(user.email);
-    setCurrentUser(user);
-    setIsEmailVerified(Boolean(user.emailVerified));
-    setUserProfile(getCachedUserProfile<UserProfile>(user.uid) || null);
-    await createOrFetchProfile(user);
-    return user;
+    try {
+      const { user } = await signInWithEmailAndPassword(auth, normalizedEmail, password);
+      validateEmailDomain(user.email);
+      setCurrentUser(user);
+      setIsEmailVerified(Boolean(user.emailVerified));
+      setUserProfile(getCachedUserProfile<UserProfile>(user.uid) || null);
+      await createOrFetchProfile(user);
+      return user;
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function signUp(
@@ -381,19 +420,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await ensureAuthPersistence();
     const normalizedEmail = normalizeCollegeEmail(email);
     validateEmailDomain(normalizedEmail);
-    const { user } = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
-    validateEmailDomain(user.email);
-    await updateProfile(user, { displayName: name.trim() });
     try {
-      await sendEmailVerification(user);
-    } catch (e) {
-      console.warn('Verification email send issue:', e);
+      const { user } = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
+      validateEmailDomain(user.email);
+      await updateProfile(user, { displayName: name.trim() });
+      try {
+        await sendEmailVerification(user);
+      } catch (e) {
+        console.warn('Verification email send issue:', e);
+      }
+      setCurrentUser(user);
+      setIsEmailVerified(Boolean(user.emailVerified));
+      setUserProfile(null);
+      await createOrFetchProfile(user, initialProfile);
+      return user;
+    } finally {
+      setLoading(false);
     }
-    setCurrentUser(user);
-    setIsEmailVerified(Boolean(user.emailVerified));
-    setUserProfile(null);
-    await createOrFetchProfile(user, initialProfile);
-    return user;
   }
 
   async function signInWithGoogle(): Promise<User> {
@@ -424,6 +467,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Network error during Google sign-in. Please check your connection.');
       }
       throw err;
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -470,11 +515,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function logout() {
     profileFetchSeqRef.current++;
+    authTransitionSeqRef.current++;
+    setAuthError(null);
     await signOut(auth);
     // Thoroughly clear state to ensure no private information remains visible
     setCurrentUser(null);
     setUserProfile(null);
     setIsEmailVerified(false);
+    setLoading(false);
+  }
+
+  async function retryAuthProfile() {
+    const user = auth.currentUser;
+    if (!user || isRetryingRef.current) return;
+    isRetryingRef.current = true;
+    const transitionSeq = ++authTransitionSeqRef.current;
+    setLoading(true);
+    setAuthError(null);
+    let timerId: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        createOrFetchProfile(user),
+        new Promise<void>((_, reject) => {
+          timerId = setTimeout(() => reject(new Error('Profile fetch timed out')), 8000);
+        }),
+      ]);
+      if (transitionSeq === authTransitionSeqRef.current && auth.currentUser?.uid === user.uid) {
+        setAuthError(null);
+      }
+    } catch (err) {
+      console.warn('[AuthContext] Retry profile resolution error:', err);
+      const currentCache = getCachedUserProfile<UserProfile>(user.uid);
+      if (!currentCache || !currentCache.profileCompleted) {
+        setAuthError('Connection timed out while loading your profile. Please check your internet connection.');
+      }
+    } finally {
+      if (timerId) clearTimeout(timerId);
+      isRetryingRef.current = false;
+      if (transitionSeq === authTransitionSeqRef.current && auth.currentUser?.uid === user.uid) {
+        setLoading(false);
+      }
+    }
   }
 
   async function resetPassword(email: string) {
@@ -560,6 +641,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         isOnline,
         isEmailVerified,
+        authError,
+        retryAuthProfile,
         signIn,
         signUp,
         signInWithGoogle,

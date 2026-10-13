@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { GraduationCap } from 'lucide-react';
 
 export function ProtectedRoute() {
-  const { currentUser, userProfile, isEmailVerified, loading } = useAuth();
+  const { currentUser, userProfile, isEmailVerified, loading, authError, retryAuthProfile, logout } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -42,8 +42,41 @@ export function ProtectedRoute() {
     return <Navigate to="/verify-email" replace />;
   }
 
-  // If user profile is incomplete, force onboarding unless already on onboarding route
+  // If user profile could not be resolved due to network error/timeout and no cached profile exists
   const profileComplete = userProfile?.profileCompleted ?? false;
+  if (!profileComplete && authError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 p-4">
+        <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-3xl p-6 sm:p-8 border border-gray-100 dark:border-gray-800 shadow-xl text-center space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto text-2xl">
+            📡
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Connection Issue</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {authError}
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
+            <button
+              type="button"
+              onClick={() => retryAuthProfile()}
+              className="flex-1 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl transition-colors shadow-sm"
+            >
+              Retry Connection
+            </button>
+            <button
+              type="button"
+              onClick={() => logout()}
+              className="py-2.5 px-4 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold text-sm rounded-xl transition-colors"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // If user profile is incomplete, force onboarding unless already on onboarding route
   if (!profileComplete && location.pathname !== '/onboarding') {
     return <Navigate to="/onboarding" replace />;
   }
