@@ -38,6 +38,7 @@ import { useSharedTimetable } from '../hooks/useSharedTimetable.ts';
 import {
   mergeSharedAndPersonalSlots,
   buildSharedGroupId,
+  resolveStudentAcademicGroup,
   TimetableGroupParams,
 } from '../lib/sharedTimetable.ts';
 import { isSlotApplicableToStudent } from '../lib/collegeEmail.ts';
@@ -64,17 +65,12 @@ export function AttendancePage() {
   const { data: subjects, loading: subjectsLoading } = useCollection<Subject>(`users/${uid}/subjects`);
   const { data: legacyBaselines } = useCollection<AttendanceBaseline>(`users/${uid}/attendanceBaselines`);
 
-  // Shared Timetable Group subscription
-  const groupParams: TimetableGroupParams | null = useMemo(() => {
-    if (!userProfile?.section) return null;
-    return {
-      institution: userProfile.college || 'Chitkara University',
-      program: userProfile.program || 'BE-CSE',
-      batch: userProfile.batch || '2024',
-      semester: userProfile.semester || 5,
-      section: userProfile.section,
-    };
-  }, [userProfile?.college, userProfile?.program, userProfile?.batch, userProfile?.semester, userProfile?.section]);
+  // Shared Timetable Group subscription via unified resolver
+  const groupResolution = useMemo(() => {
+    return resolveStudentAcademicGroup(userProfile);
+  }, [userProfile]);
+
+  const groupParams: TimetableGroupParams | null = groupResolution.params;
 
   const { sharedDoc } = useSharedTimetable(groupParams);
   const { data: personalSlots } = useCollection<TimetableSlot>(`users/${uid}/timetable`);

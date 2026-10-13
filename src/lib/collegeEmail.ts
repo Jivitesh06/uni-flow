@@ -17,6 +17,24 @@ export const CHITKARA_SECTIONS = [
 
 export type ChitkaraSection = (typeof CHITKARA_SECTIONS)[number];
 
+/**
+ * Authoritative mapping of active semesters to expected admission batch years
+ * - Semesters 1 & 2 -> 2026 batch
+ * - Semesters 3 & 4 -> 2025 batch
+ * - Semesters 5 & 6 -> 2024 batch
+ * - Semesters 7 & 8 -> 2023 batch
+ */
+export const ACTIVE_COHORT_BATCH_MAP: Record<number, string> = {
+  1: '2026',
+  2: '2026',
+  3: '2025',
+  4: '2025',
+  5: '2024',
+  6: '2024',
+  7: '2023',
+  8: '2023',
+};
+
 export interface StudentProfileFields {
   universityId?: string;
   batch?: string;

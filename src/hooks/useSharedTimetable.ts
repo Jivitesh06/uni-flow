@@ -8,6 +8,7 @@ import {
   buildSharedGroupLabel,
   getSharedTimetableCache,
   setSharedTimetableCache,
+  isCorruptedTimetableDoc,
 } from '../lib/sharedTimetable.ts';
 
 export type SharedTimetableStatus =
@@ -88,6 +89,25 @@ export function useSharedTimetable(
       (snap) => {
         if (snap.exists()) {
           const rawData = snap.data() as SharedTimetableDoc;
+          // Guard against corrupted Firestore documents (e.g. room codes or LEC as subjects)
+          if (isCorruptedTimetableDoc(rawData)) {
+            console.warn(
+              `[useSharedTimetable] Detected corrupted timetable document in Firestore for ${groupId} (contains room codes/LEC as subjects). Rejecting and falling back to clean offline dataset.`
+            );
+            const cleanFallback = getSharedTimetableCache(groupId);
+            if (cleanFallback) {
+              setSharedDoc(cleanFallback);
+              setStatus('cached');
+              setIsOfflineCached(true);
+            } else {
+              setSharedDoc(null);
+              setStatus('error');
+              setIsOfflineCached(false);
+            }
+            setLoading(false);
+            return;
+          }
+
           const sanitizedSlots = (rawData.slots || []).map((s) => ({
             ...s,
             subjectName: s.subjectCode?.trim() || s.subjectName,

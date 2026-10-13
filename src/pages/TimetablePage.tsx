@@ -48,8 +48,10 @@ import {
   buildSharedGroupId,
   buildSharedGroupLabel,
   computeTimetableContentHash,
+  resolveStudentAcademicGroup,
   TimetableGroupParams,
   SharedSlot,
+  ACTIVE_COHORT_BATCH_MAP,
 } from '../lib/sharedTimetable';
 import { isSlotApplicableToStudent, normalizeSemester, normalizeSection } from '../lib/collegeEmail';
 import { PdfTimetableUploadCard } from '../components/timetable/PdfTimetableUploadCard';
@@ -97,17 +99,12 @@ export function TimetablePage() {
   const { data: slots, loading: slotsLoading } = useCollection<TimetableSlot>(`users/${uid}/timetable`);
   const { data: subjects, loading: subjectsLoading } = useCollection<Subject>(`users/${uid}/subjects`);
 
-  // Shared Timetable Group subscription
-  const groupParams: TimetableGroupParams | null = useMemo(() => {
-    if (!userProfile?.section) return null;
-    return {
-      institution: userProfile.college || 'Chitkara University',
-      program: userProfile.program || 'BE-CSE',
-      batch: userProfile.batch || '2024',
-      semester: userProfile.semester || 5,
-      section: userProfile.section,
-    };
-  }, [userProfile?.college, userProfile?.program, userProfile?.batch, userProfile?.semester, userProfile?.section]);
+  // Shared Timetable Group subscription via unified resolver
+  const groupResolution = useMemo(() => {
+    return resolveStudentAcademicGroup(userProfile);
+  }, [userProfile]);
+
+  const groupParams: TimetableGroupParams | null = groupResolution.params;
 
   const {
     sharedDoc,
@@ -221,7 +218,7 @@ export function TimetablePage() {
         submittedByName: userProfile?.displayName || currentUser.displayName || 'Student',
         institution: groupParams.institution || 'Chitkara University',
         program: groupParams.program || 'BE-CSE',
-        batch: groupParams.batch || '2024',
+        batch: groupParams.batch || ACTIVE_COHORT_BATCH_MAP[normalizeSemester(groupParams.semester)] || '2024',
         semester: normalizeSemester(groupParams.semester),
         section: targetSection,
         groupId: targetGroupId,

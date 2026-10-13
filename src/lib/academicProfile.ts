@@ -14,6 +14,7 @@ import {
   isValidCollegeEmail,
   normalizeSemester,
   deriveAcademicYears,
+  ACTIVE_COHORT_BATCH_MAP,
 } from './collegeEmail.ts';
 
 export interface CanonicalAcademicProfile {
@@ -210,8 +211,7 @@ export function validateAcademicProfile(input: {
   const derived = deriveAcademicYears(universityId, email);
   let batch = (input.batch || '').trim();
   if (!batch) {
-    // For 5th semester BE-CSE, default active departmental batch is 2024
-    batch = semNum === 5 ? '2024' : (derived.admissionYear || '2024');
+    batch = derived.admissionYear || ACTIVE_COHORT_BATCH_MAP[semNum] || '2024';
   }
 
   // Expected Graduation Year

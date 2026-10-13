@@ -31,6 +31,7 @@ import {
   deriveAcademicYears,
   validateSectionLetter,
   formatFullSection,
+  ACTIVE_COHORT_BATCH_MAP,
 } from '../lib/collegeEmail.ts';
 import { validateAcademicProfile } from '../lib/academicProfile.ts';
 import toast from 'react-hot-toast';
@@ -67,7 +68,7 @@ export function SettingsPage() {
 
   // Derive admission batch and expected graduation year automatically
   const derived = deriveAcademicYears(universityId, userProfile?.email);
-  const currentBatch = userProfile?.batch || derived.admissionYear || '2024';
+  const currentBatch = userProfile?.batch || derived.admissionYear || ACTIVE_COHORT_BATCH_MAP[normalizeSemester(semester)] || '2024';
   const currentGradYear =
     userProfile?.expectedGraduationYear?.toString() ||
     derived.expectedGraduationYear?.toString() ||

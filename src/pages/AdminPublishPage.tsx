@@ -47,6 +47,7 @@ import {
   SharedTimetableDoc,
   SharedSlot,
   TimetableGroupParams,
+  ACTIVE_COHORT_BATCH_MAP,
 } from '../lib/sharedTimetable';
 import { parseSectionDetails, normalizeSemester, normalizeSection } from '../lib/collegeEmail';
 import { SEEDED_5TH_SEM_TIMETABLES } from '../data/seededSharedTimetables';
@@ -152,7 +153,7 @@ export function AdminPublishPage() {
       const groupParams: TimetableGroupParams = {
         institution: request.institution || 'Chitkara University',
         program: request.program || 'BE-CSE',
-        batch: request.batch || '2024',
+        batch: request.batch || ACTIVE_COHORT_BATCH_MAP[normalizeSemester(request.semester)] || '2024',
         semester: request.semester,
         section: request.section,
       };
