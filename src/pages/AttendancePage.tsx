@@ -23,6 +23,7 @@ import {
   updateDoc,
   setDoc,
   deleteDoc,
+  deleteField,
   doc,
   query,
   orderBy,
@@ -137,6 +138,9 @@ export function AttendancePage() {
   // History & Correction modal state
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
   const [correctionNote, setCorrectionNote] = useState('');
+  const [isCorrecting, setIsCorrecting] = useState(false);
+  const [correctingStatus, setCorrectingStatus] = useState<'present' | 'absent' | 'cancelled' | null>(null);
+  const [isDeletingRecord, setIsDeletingRecord] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [historySubjectFilter, setHistorySubjectFilter] = useState<string | null>(null);
 
@@ -321,31 +325,101 @@ export function AttendancePage() {
 
   // Attendance correction workflow
   async function handleCorrection(recordId: string, newStatus: 'present' | 'absent' | 'cancelled') {
+    if (isCorrecting || isDeletingRecord) return;
+    if (!uid) {
+      toast.error('You must be signed in to correct attendance records', { id: 'attendance-correction' });
+      return;
+    }
+    if (!recordId) {
+      toast.error('Invalid attendance record ID', { id: 'attendance-correction' });
+      return;
+    }
+
+    setIsCorrecting(true);
+    setCorrectingStatus(newStatus);
     try {
-      await updateDoc(doc(db, `users/${uid}/attendance/${recordId}`), {
+      const trimmedNote = correctionNote.trim();
+      const payload: {
+        uid: string;
+        status: 'present' | 'absent' | 'cancelled';
+        updatedAt: ReturnType<typeof serverTimestamp>;
+        notes?: string | ReturnType<typeof deleteField>;
+      } = {
+        uid,
         status: newStatus,
-        notes: correctionNote.trim() || undefined,
         updatedAt: serverTimestamp(),
-      });
-      toast.success('Attendance record corrected');
+      };
+
+      if (trimmedNote) {
+        payload.notes = trimmedNote;
+      } else {
+        payload.notes = deleteField();
+      }
+
+      await updateDoc(doc(db, `users/${uid}/attendance/${recordId}`), payload);
+      toast.success('Attendance record corrected', { id: 'attendance-correction' });
       setEditingRecord(null);
       setCorrectionNote('');
-    } catch {
-      toast.error('Failed to update record');
+    } catch (err: unknown) {
+      const fbErr = err as { code?: string; message?: string };
+      console.error('[AttendanceCorrection] Failed to update attendance record:', {
+        recordId,
+        uid,
+        newStatus,
+        code: fbErr?.code,
+        message: fbErr?.message,
+      });
+
+      const userMessage =
+        fbErr?.code === 'permission-denied'
+          ? 'Permission denied: Cannot edit this attendance record'
+          : fbErr?.code === 'not-found'
+          ? 'Record no longer exists'
+          : 'Failed to update record. Please check your connection and try again.';
+
+      toast.error(userMessage, { id: 'attendance-correction' });
+    } finally {
+      setIsCorrecting(false);
+      setCorrectingStatus(null);
     }
   }
 
   // Delete attendance record
   async function handleDeleteRecord(recordId: string) {
+    if (isCorrecting || isDeletingRecord) return;
+    if (!uid) {
+      toast.error('You must be signed in to remove attendance records', { id: 'attendance-deletion' });
+      return;
+    }
+    if (!recordId) {
+      toast.error('Invalid attendance record ID', { id: 'attendance-deletion' });
+      return;
+    }
     if (!confirm('Remove this attendance entry?')) return;
+
+    setIsDeletingRecord(true);
     try {
       await deleteDoc(doc(db, `users/${uid}/attendance/${recordId}`));
-      toast.success('Record removed');
+      toast.success('Record removed', { id: 'attendance-deletion' });
       if (editingRecord?.id === recordId) {
         setEditingRecord(null);
+        setCorrectionNote('');
       }
-    } catch {
-      toast.error('Failed to delete record');
+    } catch (err: unknown) {
+      const fbErr = err as { code?: string; message?: string };
+      console.error('[AttendanceDeletion] Failed to delete attendance record:', {
+        recordId,
+        uid,
+        code: fbErr?.code,
+        message: fbErr?.message,
+      });
+      const userMessage =
+        fbErr?.code === 'permission-denied'
+          ? 'Permission denied: Cannot delete this attendance record'
+          : 'Failed to delete record. Please check your connection and try again.';
+      toast.error(userMessage, { id: 'attendance-deletion' });
+    } finally {
+      setIsDeletingRecord(false);
     }
   }
 
@@ -727,6 +801,8 @@ export function AttendancePage() {
                   <Button
                     variant={editingRecord.status === 'present' ? 'primary' : 'outline'}
                     size="sm"
+                    disabled={isCorrecting || isDeletingRecord}
+                    loading={isCorrecting && correctingStatus === 'present'}
                     onClick={() => handleCorrection(editingRecord.id, 'present')}
                   >
                     Present
@@ -734,6 +810,8 @@ export function AttendancePage() {
                   <Button
                     variant={editingRecord.status === 'absent' ? 'danger' : 'outline'}
                     size="sm"
+                    disabled={isCorrecting || isDeletingRecord}
+                    loading={isCorrecting && correctingStatus === 'absent'}
                     onClick={() => handleCorrection(editingRecord.id, 'absent')}
                   >
                     Absent
@@ -741,6 +819,8 @@ export function AttendancePage() {
                   <Button
                     variant={editingRecord.status === 'cancelled' ? 'secondary' : 'outline'}
                     size="sm"
+                    disabled={isCorrecting || isDeletingRecord}
+                    loading={isCorrecting && correctingStatus === 'cancelled'}
                     onClick={() => handleCorrection(editingRecord.id, 'cancelled')}
                   >
                     Cancelled
@@ -753,6 +833,7 @@ export function AttendancePage() {
                 <Input
                   placeholder="e.g. Teacher corrected medical leave"
                   value={correctionNote}
+                  disabled={isCorrecting || isDeletingRecord}
                   onChange={(e) => setCorrectionNote(e.target.value)}
                   className="mt-1"
                 />
@@ -760,10 +841,24 @@ export function AttendancePage() {
             </div>
 
             <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
-              <Button variant="danger" size="sm" onClick={() => handleDeleteRecord(editingRecord.id)}>
+              <Button
+                variant="danger"
+                size="sm"
+                disabled={isCorrecting || isDeletingRecord}
+                loading={isDeletingRecord}
+                onClick={() => handleDeleteRecord(editingRecord.id)}
+              >
                 Delete Entry
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setEditingRecord(null)}>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isCorrecting || isDeletingRecord}
+                onClick={() => {
+                  setEditingRecord(null);
+                  setCorrectionNote('');
+                }}
+              >
                 Close
               </Button>
             </div>

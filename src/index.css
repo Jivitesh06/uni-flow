@@ -17,7 +17,15 @@
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
 }
+html::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera, Edge */
+  width: 0;
+  height: 0;
+}
+
 body {
   @apply bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 font-sans;
   min-height: 100%;
@@ -29,13 +37,27 @@ body {
 }
 body::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Opera */
+  width: 0;
+  height: 0;
+}
+
+#root {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+#root::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 /* Reusable class for hidden scrollbars without disabling scrolling */
 .no-scrollbar {
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE/Edge */
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE/Edge */
 }
 .no-scrollbar::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
+  display: none !important; /* Chrome, Safari, Opera */
+  width: 0 !important;
+  height: 0 !important;
 }

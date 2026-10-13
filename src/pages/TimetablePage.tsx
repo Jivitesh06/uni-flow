@@ -551,7 +551,6 @@ export function TimetablePage() {
         todayCount={todayCount}
         currentTime={currentTime}
         onAddSlot={() => openAdd()}
-        onImportExcel={() => setShowImportModal(true)}
         onUploadPdf={() => setShowPdfRequestModal(true)} /* Upload PDF / Request Update */
       />
 
@@ -688,7 +687,7 @@ export function TimetablePage() {
         <div className="space-y-4">
           {/* Mobile Day Selector Bar (Visible only on mobile screens < md) */}
           <div className="block md:hidden">
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
               {[1, 2, 3, 4, 5].map((day) => {
                 const count = activeSlots.filter((s) => s.dayOfWeek === day).length;
                 const isToday = todayDay === day;
@@ -857,7 +856,7 @@ export function TimetablePage() {
       {view === 'daily' && (
         <div className="space-y-4">
           {/* Horizontal Day Selector (Mon-Fri) matching Reference */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 no-scrollbar">
             {weekDates.map((w) => {
               const count = activeSlots.filter((s) => s.dayOfWeek === w.dayIndex).length;
               const isSelected = selectedDay === w.dayIndex;

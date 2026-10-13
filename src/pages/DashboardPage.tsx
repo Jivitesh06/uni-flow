@@ -20,6 +20,7 @@ import {
   matchesSubjectRecord,
 } from '../lib/attendanceCalculations';
 import { calculateLiveClassState } from '../lib/timetableCalculations';
+import { getGreeting } from '../lib/greeting';
 import { LiveClassCard } from '../components/timetable/LiveClassCard';
 import { useSharedTimetable } from '../hooks/useSharedTimetable';
 import { useClassReminder } from '../hooks/useClassReminder';
@@ -292,16 +293,15 @@ export function DashboardPage() {
     return now <= end;
   }).length;
 
-  // Time of day greeting
-  const hour = now.getHours();
-  const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
+  // Dynamic time of day greeting
+  const greeting = getGreeting(now);
 
   return (
     <div className="space-y-4 max-w-4xl mx-auto">
       {/* 1. Header Greeting matching Reference Image */}
       <div className="pt-1">
         <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-          {greeting} 👋
+          {greeting.text} {greeting.emoji}
         </h2>
         <p className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100 mt-0.5">
           {userProfile?.displayName || 'Student'}

@@ -25,9 +25,9 @@ export function AppLayout() {
   }, [pathname]);
 
   return (
-    <div className="min-h-screen min-h-[100dvh] flex flex-col lg:flex-row lg:h-screen lg:overflow-hidden bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen min-h-[100dvh] flex flex-col lg:flex-row lg:h-screen lg:overflow-hidden bg-gray-50 dark:bg-gray-950 no-scrollbar">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="flex flex-col flex-1 min-w-0 lg:ml-64 min-h-screen min-h-[100dvh] lg:min-h-0">
+      <div className="flex flex-col flex-1 min-w-0 lg:ml-64 min-h-screen min-h-[100dvh] lg:min-h-0 no-scrollbar">
         <OfflineBanner />
         <TopBar onMenuClick={() => setSidebarOpen(true)} title={title} />
         {/* pb-28 ensures mobile content is not covered by the fixed bottom navigation bar and allows fluid upward swipe */}
