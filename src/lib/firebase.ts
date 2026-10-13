@@ -6,7 +6,14 @@ import {
   setPersistence,
   connectAuthEmulator,
 } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  connectFirestoreEmulator,
+  Firestore,
+} from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import { getMessaging, isSupported } from 'firebase/messaging';
@@ -55,7 +62,23 @@ export async function ensureAuthPersistence(): Promise<void> {
 // Immediately trigger persistence setup
 ensureAuthPersistence();
 
-export const db = getFirestore(app);
+// Initialize Firestore with persistent IndexedDB multi-tab cache when in browser environment
+let dbInstance: Firestore;
+if (typeof window !== 'undefined' && typeof indexedDB !== 'undefined') {
+  try {
+    dbInstance = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+      }),
+    });
+  } catch {
+    dbInstance = getFirestore(app);
+  }
+} else {
+  dbInstance = getFirestore(app);
+}
+
+export const db = dbInstance;
 export const storage = getStorage(app);
 export const functions = getFunctions(app);
 export const googleProvider = new GoogleAuthProvider();

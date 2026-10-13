@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import {
   User,
   onAuthStateChanged,
@@ -23,6 +23,12 @@ import {
 } from '../lib/collegeEmail.ts';
 
 import { isProfileComplete } from '../lib/academicProfile.ts';
+
+import {
+  getCachedUserProfile,
+  setCachedUserProfile,
+  clearCachedUserProfile,
+} from '../lib/profileStorage.ts';
 
 export interface UserProfile {
   uid: string;
@@ -85,10 +91,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     typeof navigator !== 'undefined' ? navigator.onLine : true
   );
 
-  // Track online/offline status to prevent spurious logouts during disconnection
+  // Request sequence counter prevents stale async responses from racing and overwriting newer profiles
+  const profileFetchSeqRef = useRef<number>(0);
+
+  // Track online/offline status and auto-sync user profile when connectivity returns
   useEffect(() => {
     function handleOnline() {
       setIsOnline(true);
+      if (auth.currentUser) {
+        createOrFetchProfile(auth.currentUser).catch((err) => {
+          console.warn('[AuthContext] Profile revalidation after online event failed:', err);
+        });
+      }
     }
     function handleOffline() {
       setIsOnline(false);
@@ -105,9 +119,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user: User,
     additionalData?: Partial<UserProfile>
   ): Promise<UserProfile> {
+    const requestId = ++profileFetchSeqRef.current;
     const ref = doc(db, 'users', user.uid);
     try {
       const snap = await getDoc(ref);
+
+      // Discard stale in-flight responses if a newer request began or account switched
+      if (requestId !== profileFetchSeqRef.current || auth.currentUser?.uid !== user.uid) {
+        console.info('[AuthContext] Discarding stale in-flight profile fetch for:', user.uid);
+        return (snap.exists() ? snap.data() : {}) as UserProfile;
+      }
+
       if (snap.exists()) {
         const data = snap.data() as UserProfile;
         if (data.semester !== undefined && data.semester !== null) {
@@ -133,10 +155,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           merged.updatedAt = serverTimestamp();
           await setDoc(ref, merged, { merge: true });
           const updated = merged as UserProfile;
+          setCachedUserProfile(user.uid, updated);
           setUserProfile(updated);
           return updated;
         }
 
+        setCachedUserProfile(user.uid, data);
         setUserProfile(data);
         return data;
       }
@@ -174,12 +198,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           additionalData?.expectedGraduationYear || derived.expectedGraduationYear;
       }
 
+      if (requestId !== profileFetchSeqRef.current || auth.currentUser?.uid !== user.uid) {
+        console.info('[AuthContext] Discarding stale in-flight profile creation for:', user.uid);
+        return profilePayload as UserProfile;
+      }
+
       await setDoc(ref, profilePayload);
       const created = profilePayload as UserProfile;
+      setCachedUserProfile(user.uid, created);
       setUserProfile(created);
       return created;
     } catch (err) {
-      console.warn('Network issue fetching user profile, using local session profile:', err);
+      console.warn('Network issue fetching user profile, checking local cache:', err);
+      // Check for valid existing local cache before falling back to empty profile
+      const cached = getCachedUserProfile<UserProfile>(user.uid);
+      if (cached && (cached.profileCompleted || cached.section || cached.semester)) {
+        console.info('[AuthContext] Preserving valid cached profile during offline fetch:', user.uid);
+        if (requestId === profileFetchSeqRef.current && auth.currentUser?.uid === user.uid) {
+          setUserProfile(cached);
+        }
+        return cached;
+      }
+
+      if (requestId !== profileFetchSeqRef.current || auth.currentUser?.uid !== user.uid) {
+        console.info('[AuthContext] Discarding stale in-flight profile error handler for:', user.uid);
+        return (cached || {}) as UserProfile;
+      }
+
       const derived = deriveAcademicYears(additionalData?.universityId, user.email);
       const sem = additionalData?.semester !== undefined && additionalData?.semester !== null
         ? normalizeSemester(additionalData.semester)
@@ -221,6 +266,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (user) {
           setCurrentUser(user);
           setIsEmailVerified(Boolean(user.emailVerified));
+
+          // Pre-hydrate from localStorage for instant offline access without UI flicker
+          // Explicitly clear profile if the newly switched user does not have a cached profile
+          const cached = getCachedUserProfile<UserProfile>(user.uid);
+          setUserProfile(cached || null);
+
           await createOrFetchProfile(user);
         } else {
           setCurrentUser(null);
@@ -265,6 +316,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     validateEmailDomain(user.email);
     setCurrentUser(user);
     setIsEmailVerified(Boolean(user.emailVerified));
+    setUserProfile(getCachedUserProfile<UserProfile>(user.uid) || null);
     await createOrFetchProfile(user);
     return user;
   }
@@ -288,6 +340,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setCurrentUser(user);
     setIsEmailVerified(Boolean(user.emailVerified));
+    setUserProfile(null);
     await createOrFetchProfile(user, initialProfile);
     return user;
   }
@@ -307,6 +360,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setCurrentUser(user);
       setIsEmailVerified(Boolean(user.emailVerified));
+      setUserProfile(getCachedUserProfile<UserProfile>(user.uid) || null);
       await createOrFetchProfile(user);
       return user;
     } catch (err: unknown) {
@@ -364,6 +418,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function logout() {
+    profileFetchSeqRef.current++;
     await signOut(auth);
     // Thoroughly clear state to ensure no private information remains visible
     setCurrentUser(null);
@@ -378,6 +433,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function updateUserProfile(data: Partial<UserProfile>) {
     if (!currentUser) return;
+    profileFetchSeqRef.current++;
     const ref = doc(db, 'users', currentUser.uid);
     const cleaned: Record<string, any> = {};
     for (const [key, value] of Object.entries(data)) {
@@ -407,11 +463,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     cleaned.updatedAt = serverTimestamp();
 
     await setDoc(ref, cleaned, { merge: true });
+    setCachedUserProfile(currentUser.uid, merged as UserProfile);
     setUserProfile((prev) => (prev ? { ...prev, ...cleaned } : null));
   }
 
   async function deleteAccount() {
     if (!currentUser) return;
+    profileFetchSeqRef.current++;
+    clearCachedUserProfile(currentUser.uid);
     await deleteUser(currentUser);
     setCurrentUser(null);
     setUserProfile(null);

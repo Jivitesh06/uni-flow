@@ -131,9 +131,15 @@ export function isProfileComplete(
 
   const hasName = Boolean(profile.displayName && profile.displayName.trim().length > 0);
   const hasEmail = Boolean(profile.email && profile.email.trim().length > 0);
-  const hasSem = typeof profile.semester === 'number' && profile.semester >= 1 && profile.semester <= 8;
-  const hasSec = Boolean(profile.section && profile.section.trim().length > 0);
-  const hasRoll = Boolean(profile.universityId && profile.universityId.trim().length > 0);
+  const semNum =
+    typeof profile.semester === 'number'
+      ? profile.semester
+      : typeof profile.semester === 'string'
+      ? parseInt(profile.semester, 10)
+      : NaN;
+  const hasSem = !isNaN(semNum) && semNum >= 1 && semNum <= 8;
+  const hasSec = Boolean(profile.section && String(profile.section).trim().length > 0);
+  const hasRoll = Boolean(profile.universityId && String(profile.universityId).trim().length > 0);
 
   return Boolean(hasName && hasEmail && hasSem && hasSec && hasRoll);
 }

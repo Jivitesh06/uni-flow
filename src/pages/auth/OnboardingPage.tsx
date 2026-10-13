@@ -13,12 +13,25 @@ export function OnboardingPage() {
 
   const [displayName, setDisplayName] = useState(userProfile?.displayName || currentUser?.displayName || '');
   const [universityId, setUniversityId] = useState(userProfile?.universityId || '');
-  const [semester, setSemester] = useState<number>(userProfile?.semester || 5);
-  const [section, setSection] = useState(userProfile?.section || 'A');
+  const [semester, setSemester] = useState<number>(userProfile?.semester || 1);
+  const [section, setSection] = useState(userProfile?.section || '');
   const [studentGroup, setStudentGroup] = useState<'G1' | 'G2' | 'ALL'>(userProfile?.studentGroup || 'ALL');
   const [attendanceTarget, setAttendanceTarget] = useState<number>(userProfile?.attendanceTarget || 75);
+  const [hasUserEdited, setHasUserEdited] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Synchronize form fields once authoritative profile resolves (unless user is actively typing)
+  React.useEffect(() => {
+    if (!hasUserEdited && userProfile) {
+      if (userProfile.displayName) setDisplayName(userProfile.displayName);
+      if (userProfile.universityId) setUniversityId(userProfile.universityId);
+      if (userProfile.semester) setSemester(userProfile.semester);
+      if (userProfile.section) setSection(userProfile.section);
+      if (userProfile.studentGroup) setStudentGroup(userProfile.studentGroup);
+      if (userProfile.attendanceTarget) setAttendanceTarget(userProfile.attendanceTarget);
+    }
+  }, [userProfile, hasUserEdited]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -80,7 +93,10 @@ export function OnboardingPage() {
               <Input
                 placeholder="Alex Johnson"
                 value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
+                onChange={(e) => {
+                  setHasUserEdited(true);
+                  setDisplayName(e.target.value);
+                }}
                 required
               />
               {errors.displayName && <p className="text-xs text-red-500 mt-1">{errors.displayName}</p>}
@@ -106,7 +122,10 @@ export function OnboardingPage() {
               <Input
                 placeholder="e.g. 2411981260"
                 value={universityId}
-                onChange={(e) => setUniversityId(e.target.value)}
+                onChange={(e) => {
+                  setHasUserEdited(true);
+                  setUniversityId(e.target.value);
+                }}
                 required
               />
               {errors.universityId ? (
@@ -123,7 +142,10 @@ export function OnboardingPage() {
                 </label>
                 <select
                   value={semester}
-                  onChange={(e) => setSemester(Number(e.target.value))}
+                  onChange={(e) => {
+                    setHasUserEdited(true);
+                    setSemester(Number(e.target.value));
+                  }}
                   className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
@@ -141,9 +163,15 @@ export function OnboardingPage() {
                 </label>
                 <select
                   value={section}
-                  onChange={(e) => setSection(e.target.value)}
+                  onChange={(e) => {
+                    setHasUserEdited(true);
+                    setSection(e.target.value);
+                  }}
                   className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
+                  <option value="" disabled>
+                    Select Section...
+                  </option>
                   {['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((sec) => (
                     <option key={sec} value={sec}>
                       Section {sec}
@@ -163,7 +191,10 @@ export function OnboardingPage() {
                   <button
                     type="button"
                     key={grp}
-                    onClick={() => setStudentGroup(grp)}
+                    onClick={() => {
+                      setHasUserEdited(true);
+                      setStudentGroup(grp);
+                    }}
                     className={`py-2 px-3 text-xs font-semibold rounded-lg border transition ${
                       studentGroup === grp
                         ? 'border-blue-600 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-500'
@@ -190,7 +221,10 @@ export function OnboardingPage() {
                 max="100"
                 step="1"
                 value={attendanceTarget}
-                onChange={(e) => setAttendanceTarget(Number(e.target.value))}
+                onChange={(e) => {
+                  setHasUserEdited(true);
+                  setAttendanceTarget(Number(e.target.value));
+                }}
                 className="w-full accent-blue-600"
               />
               <p className="text-[11px] text-gray-400">Default Chitkara University requirement is 75%.</p>

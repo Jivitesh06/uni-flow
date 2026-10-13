@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   User,
   Bell,
@@ -47,13 +47,13 @@ export function SettingsPage() {
 
   const [displayName, setDisplayName] = useState(userProfile?.displayName ?? '');
   const [semester, setSemester] = useState<number>(() =>
-    normalizeSemester(userProfile?.semester ?? 5)
+    normalizeSemester(userProfile?.semester ?? 1)
   );
   const [section, setSection] = useState(() => {
-    const raw = userProfile?.section || 'A';
+    const raw = userProfile?.section || '';
     if (raw.includes('-')) {
       const match = raw.match(/[A-Za-z]$/);
-      return match ? match[0].toUpperCase() : 'A';
+      return match ? match[0].toUpperCase() : '';
     }
     return raw.toUpperCase();
   });
@@ -63,8 +63,30 @@ export function SettingsPage() {
   );
   const [college, setCollege] = useState(userProfile?.college ?? 'Chitkara University');
   const [target, setTarget] = useState(userProfile?.attendanceTarget ?? 75);
+  const [hasUserEdited, setHasUserEdited] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showIOSModal, setShowIOSModal] = useState(false);
+
+  // Synchronize form fields once authoritative profile resolves or changes (unless user actively editing)
+  useEffect(() => {
+    if (!hasUserEdited && userProfile) {
+      if (userProfile.displayName !== undefined) setDisplayName(userProfile.displayName);
+      if (userProfile.semester !== undefined) setSemester(normalizeSemester(userProfile.semester));
+      if (userProfile.section) {
+        const raw = userProfile.section;
+        if (raw.includes('-')) {
+          const match = raw.match(/[A-Za-z]$/);
+          setSection(match ? match[0].toUpperCase() : raw.toUpperCase());
+        } else {
+          setSection(raw.toUpperCase());
+        }
+      }
+      if (userProfile.universityId !== undefined) setUniversityId(userProfile.universityId);
+      if (userProfile.studentGroup !== undefined) setStudentGroup(userProfile.studentGroup || '');
+      if (userProfile.college !== undefined) setCollege(userProfile.college);
+      if (userProfile.attendanceTarget !== undefined) setTarget(userProfile.attendanceTarget);
+    }
+  }, [userProfile, hasUserEdited]);
 
   // Derive admission batch and expected graduation year automatically
   const derived = deriveAcademicYears(universityId, userProfile?.email);
@@ -109,6 +131,7 @@ export function SettingsPage() {
         program: cleaned.program,
         attendanceTarget: cleaned.attendanceTarget,
       });
+      setHasUserEdited(false);
       toast.success('Profile settings updated');
     } catch (err: unknown) {
       const msg = (err as Error).message || 'Failed to update settings';
@@ -171,7 +194,10 @@ export function SettingsPage() {
             <label className="text-xs font-bold uppercase tracking-wider text-gray-500">Full Name</label>
             <Input
               value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
+              onChange={(e) => {
+                setHasUserEdited(true);
+                setDisplayName(e.target.value);
+              }}
               placeholder="e.g. Alex Johnson"
               className="mt-1"
             />
@@ -183,7 +209,10 @@ export function SettingsPage() {
               <Input
                 placeholder="e.g. 2411981260"
                 value={universityId}
-                onChange={(e) => setUniversityId(e.target.value)}
+                onChange={(e) => {
+                  setHasUserEdited(true);
+                  setUniversityId(e.target.value);
+                }}
                 className="mt-1"
               />
             </div>
@@ -191,7 +220,10 @@ export function SettingsPage() {
               <label className="text-xs font-bold uppercase tracking-wider text-gray-500">Current Semester</label>
               <select
                 value={semester}
-                onChange={(e) => setSemester(Number(e.target.value))}
+                onChange={(e) => {
+                  setHasUserEdited(true);
+                  setSemester(Number(e.target.value));
+                }}
                 className="w-full mt-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
@@ -209,7 +241,10 @@ export function SettingsPage() {
               <Input
                 placeholder="e.g. A"
                 value={section}
-                onChange={(e) => setSection(e.target.value)}
+                onChange={(e) => {
+                  setHasUserEdited(true);
+                  setSection(e.target.value.toUpperCase());
+                }}
                 maxLength={2}
                 className="mt-1"
               />
@@ -221,7 +256,10 @@ export function SettingsPage() {
               <label className="text-xs font-bold uppercase tracking-wider text-gray-500">Student Group</label>
               <select
                 value={studentGroup}
-                onChange={(e) => setStudentGroup(e.target.value as 'G1' | 'G2' | 'ALL' | '')}
+                onChange={(e) => {
+                  setHasUserEdited(true);
+                  setStudentGroup(e.target.value as 'G1' | 'G2' | 'ALL' | '');
+                }}
                 className="w-full mt-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Not Assigned / Combined Only</option>
@@ -239,7 +277,10 @@ export function SettingsPage() {
             <Input
               placeholder="e.g. Chitkara University"
               value={college}
-              onChange={(e) => setCollege(e.target.value)}
+              onChange={(e) => {
+                setHasUserEdited(true);
+                setCollege(e.target.value);
+              }}
               className="mt-1"
             />
           </div>
@@ -296,7 +337,10 @@ export function SettingsPage() {
               max="95"
               step="1"
               value={target}
-              onChange={(e) => setTarget(+e.target.value)}
+              onChange={(e) => {
+                setHasUserEdited(true);
+                setTarget(+e.target.value);
+              }}
               className="w-full accent-blue-600 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg cursor-pointer"
             />
             <div className="flex justify-between text-[10px] text-gray-400 mt-1">
