@@ -38,25 +38,22 @@ export function AttendanceRing({
     (clampedPct === 0 ? 'no_data' : clampedPct >= target ? (clampedPct === target ? 'borderline' : 'safe') : 'shortage');
 
   let strokeColor = 'stroke-emerald-500 dark:stroke-emerald-400';
-  let trackColor = 'stroke-emerald-100 dark:stroke-emerald-950/40';
-  let textColor = 'text-emerald-600 dark:text-emerald-400';
-  let glowColor = 'drop-shadow-[0_0_6px_rgba(16,185,129,0.25)]';
+  let trackColor = 'stroke-slate-200 dark:stroke-slate-800';
+  let textColor = 'text-slate-900 dark:text-white';
+  let glowColor = '';
 
   if (resolvedStatus === 'borderline') {
     strokeColor = 'stroke-amber-500 dark:stroke-amber-400';
-    trackColor = 'stroke-amber-100 dark:stroke-amber-950/40';
-    textColor = 'text-amber-600 dark:text-amber-400';
-    glowColor = 'drop-shadow-[0_0_6px_rgba(245,158,11,0.25)]';
+    trackColor = 'stroke-slate-200 dark:stroke-slate-800';
+    textColor = 'text-slate-900 dark:text-white';
   } else if (resolvedStatus === 'shortage') {
     strokeColor = 'stroke-rose-500 dark:stroke-rose-400';
-    trackColor = 'stroke-rose-100 dark:stroke-rose-950/40';
-    textColor = 'text-rose-600 dark:text-rose-400';
-    glowColor = 'drop-shadow-[0_0_6px_rgba(244,63,94,0.25)]';
+    trackColor = 'stroke-slate-200 dark:stroke-slate-800';
+    textColor = 'text-slate-900 dark:text-white';
   } else if (resolvedStatus === 'no_data') {
     strokeColor = 'stroke-slate-300 dark:stroke-slate-700';
-    trackColor = 'stroke-slate-100 dark:stroke-slate-800';
+    trackColor = 'stroke-slate-100 dark:stroke-slate-800/60';
     textColor = 'text-slate-400 dark:text-slate-500';
-    glowColor = '';
   }
 
   // Calculate target notch angle (starting from top, which is -90deg)

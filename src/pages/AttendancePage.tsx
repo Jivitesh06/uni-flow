@@ -15,6 +15,7 @@ import {
   Check,
   ArrowRight,
   BookOpen,
+  BarChart2,
 } from 'lucide-react';
 import {
   collection,
@@ -429,13 +430,16 @@ export function AttendancePage() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-black text-gray-900 dark:text-white">Attendance Tracker</h2>
-          <p className="text-sm text-gray-500">
-            Monitor attendance percentage, set historical baselines, and maintain your {(target * 100).toFixed(0)}% target
-          </p>
+      {/* Header Bar matching reference image */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+            <BarChart2 className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Attendance</h2>
+            <p className="text-xs text-gray-400">Target: {(target * 100).toFixed(0)}% institutional requirement</p>
+          </div>
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">

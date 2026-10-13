@@ -56,17 +56,21 @@ server.listen(4173, '127.0.0.1', async () => {
   const userDataDir = '/tmp/chrome_cdp_qa_suite_' + Date.now();
   const chromeProcess = spawn(CHROME, [
     '--headless=new',
-    '--remote-debugging-port=9222',
+    '--remote-debugging-port=9333',
     '--disable-gpu',
+    '--no-sandbox',
     '--no-first-run',
     '--no-default-browser-check',
     '--user-data-dir=' + userDataDir,
-  ], { stdio: 'ignore' });
+  ], { stdio: 'pipe' });
+
+  chromeProcess.stderr.on('data', (d) => console.error('CHROME ERR:', d.toString()));
+  chromeProcess.stdout.on('data', (d) => console.log('CHROME OUT:', d.toString()));
 
   async function waitForCDP() {
     for (let i = 0; i < 25; i++) {
       try {
-        const res = await fetch('http://127.0.0.1:9222/json/version');
+        const res = await fetch('http://127.0.0.1:9333/json/version');
         if (res.ok) return true;
       } catch (_) {}
       await new Promise(r => setTimeout(r, 200));
@@ -81,7 +85,7 @@ server.listen(4173, '127.0.0.1', async () => {
     // Function to run a single test page
     async function capturePage(route, label, vp) {
       const url = `http://127.0.0.1:4173${route}?qa_preview=1`;
-      const targetRes = await fetch(`http://127.0.0.1:9222/json/new?${encodeURIComponent(url)}`, { method: 'PUT' });
+      const targetRes = await fetch(`http://127.0.0.1:9333/json/new?${encodeURIComponent(url)}`, { method: 'PUT' });
       const target = await targetRes.json();
 
       const ws = new WebSocket(target.webSocketDebuggerUrl);
@@ -140,7 +144,7 @@ server.listen(4173, '127.0.0.1', async () => {
 
       // Close page target
       ws.close();
-      await fetch(`http://127.0.0.1:9222/json/close/${target.id}`);
+      await fetch(`http://127.0.0.1:9333/json/close/${target.id}`);
 
       return {
         fileName,
@@ -168,7 +172,7 @@ server.listen(4173, '127.0.0.1', async () => {
 
     for (const rt of redirectTests) {
       const url = `http://127.0.0.1:4173${rt.from}?qa_preview=1`;
-      const targetRes = await fetch(`http://127.0.0.1:9222/json/new?${encodeURIComponent(url)}`, { method: 'PUT' });
+      const targetRes = await fetch(`http://127.0.0.1:9333/json/new?${encodeURIComponent(url)}`, { method: 'PUT' });
       const target = await targetRes.json();
       const ws = new WebSocket(target.webSocketDebuggerUrl);
       let id = 1;
@@ -197,12 +201,12 @@ server.listen(4173, '127.0.0.1', async () => {
       const finalPath = evalRes.result?.result?.value;
       console.log(`Redirect ${rt.from} -> ${finalPath} (Expected: ${rt.expected}) : ${finalPath === rt.expected ? 'PASS' : 'FAIL'}`);
       ws.close();
-      await fetch(`http://127.0.0.1:9222/json/close/${target.id}`);
+      await fetch(`http://127.0.0.1:9333/json/close/${target.id}`);
     }
 
     // Test Settings Presets Interaction
     console.log('\n--- Testing Settings Presets (50%, 75%, 95%) ---');
-    const settingsTarget = await (await fetch(`http://127.0.0.1:9222/json/new?${encodeURIComponent('http://127.0.0.1:4173/settings?qa_preview=1')}`, { method: 'PUT' })).json();
+    const settingsTarget = await (await fetch(`http://127.0.0.1:9333/json/new?${encodeURIComponent('http://127.0.0.1:4173/settings?qa_preview=1')}`, { method: 'PUT' })).json();
     const ws = new WebSocket(settingsTarget.webSocketDebuggerUrl);
     let id = 1;
     const callbacks = new Map();
@@ -264,7 +268,7 @@ server.listen(4173, '127.0.0.1', async () => {
     }
 
     ws.close();
-    await fetch(`http://127.0.0.1:9222/json/close/${settingsTarget.id}`);
+    await fetch(`http://127.0.0.1:9333/json/close/${settingsTarget.id}`);
 
     console.log('\nAll Visual QA captures and interaction checks complete!');
   } catch (err) {

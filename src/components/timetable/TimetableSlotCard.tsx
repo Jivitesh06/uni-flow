@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Clock,
   MapPin,
@@ -9,10 +8,11 @@ import {
   Beaker,
   Library,
   Users,
-  AlertCircle,
+  CheckCircle2,
+  ChevronRight,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { timeToMinutes } from '../../lib/timetableCalculations';
-import { Badge } from '../ui/badge';
 import type { TimetableSlot } from '../../types';
 
 interface TimetableSlotCardProps {
@@ -20,6 +20,7 @@ interface TimetableSlotCardProps {
   isToday: boolean;
   currentMinutes: number;
   viewMode?: 'grid' | 'agenda';
+  isNextClass?: boolean;
   onEdit?: (slot: TimetableSlot) => void;
   onDelete?: (slot: TimetableSlot) => void;
 }
@@ -29,6 +30,7 @@ export function TimetableSlotCard({
   isToday,
   currentMinutes,
   viewMode = 'grid',
+  isNextClass = false,
   onEdit,
   onDelete,
 }: TimetableSlotCardProps) {
@@ -38,7 +40,6 @@ export function TimetableSlotCard({
 
   const isNow = isToday && currentMinutes >= startMins && currentMinutes < endMins;
   const isPast = isToday && currentMinutes >= endMins;
-  const isUpcoming = isToday && currentMinutes < startMins;
   const isShared = !slot.isManual || slot.id.startsWith('shared_');
 
   // Multi-period lab detection
@@ -55,143 +56,154 @@ export function TimetableSlotCard({
     /^(?:Lib|Library|Free Period)$/i.test(slot.subjectCode) ||
     /^(?:Lib|Library|Free Period)$/i.test(slot.subjectName);
 
-  // Agenda / Daily view
+  // Agenda / Daily view matching reference image
   if (viewMode === 'agenda') {
     return (
-      <div
-        className={`group relative rounded-2xl border transition-all p-4 sm:p-5 flex items-start sm:items-center gap-4 bg-white dark:bg-gray-900 ${
-          isNow
-            ? 'border-2 border-emerald-500 bg-emerald-50/30 dark:bg-emerald-950/20 shadow-md ring-2 ring-emerald-500/20'
-            : isPast
-            ? 'border-gray-200/60 dark:border-gray-800 opacity-75'
-            : 'border-gray-200 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-sm'
-        }`}
-      >
-        {/* Color bar indicator */}
-        <div
-          className="w-2.5 h-16 sm:h-14 rounded-full flex-shrink-0"
-          style={{ backgroundColor: slot.color || '#3b82f6' }}
-        />
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap mb-1.5">
-            {/* Subject Code Badge */}
-            <span className="font-mono font-bold text-xs px-2.5 py-0.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200/80 dark:border-gray-700">
-              {slot.subjectCode}
-            </span>
-
-            {/* Subject Name */}
-            {slot.subjectName !== slot.subjectCode && (
-              <h4 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white truncate max-w-xs sm:max-w-md">
-                {slot.subjectName}
-              </h4>
-            )}
-
-            {/* Badges */}
-            {isLab && (
-              <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold border border-emerald-300/80 dark:border-emerald-700">
-                <Beaker className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                Lab (2× weight)
-              </span>
-            )}
-
-            {slot.group === 'G1' && (
-              <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-bold border border-amber-300/80 dark:border-amber-700">
-                <Users className="w-3 h-3 text-amber-600" />
-                Group 1
-              </span>
-            )}
-
-            {slot.group === 'G2' && (
-              <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 font-bold border border-purple-300/80 dark:border-purple-700">
-                <Users className="w-3 h-3 text-purple-600" />
-                Group 2
-              </span>
-            )}
-
-            {isNonAcademic && (
-              <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold border border-slate-300 dark:border-slate-700">
-                <Library className="w-3 h-3 text-slate-500" />
-                Non-Academic
-              </span>
-            )}
-
-            {/* Live status badge */}
-            {isNow && (
-              <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-600 text-white font-extrabold uppercase tracking-wide animate-pulse">
-                <span className="w-1.5 h-1.5 rounded-full bg-white" /> Live Now
-              </span>
-            )}
-            {isPast && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
-                Done
-              </span>
-            )}
-            {isUpcoming && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-medium border border-blue-200 dark:border-blue-800">
-                Upcoming
-              </span>
-            )}
-          </div>
-
-          {/* Details row: Time, Room, Faculty */}
-          <div className="flex flex-wrap items-center gap-y-1 gap-x-4 text-xs text-gray-500 dark:text-gray-400">
-            <span className="font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5 text-blue-500" />
-              {slot.startTime} – {slot.endTime}
-              <span className="text-[11px] text-gray-400 dark:text-gray-500 font-normal">
-                ({durationMins}m)
-              </span>
-            </span>
-
-            <span className="flex items-center gap-1">
-              <MapPin className="w-3.5 h-3.5 text-gray-400" />
-              {slot.room ? (
-                <span className="font-medium text-gray-700 dark:text-gray-300">Room {slot.room}</span>
-              ) : (
-                <span className="text-gray-400 italic">Room not listed</span>
-              )}
-            </span>
-
-            <span className="flex items-center gap-1">
-              <User className="w-3.5 h-3.5 text-gray-400" />
-              {slot.faculty ? (
-                <span className="text-gray-700 dark:text-gray-300">{slot.faculty}</span>
-              ) : (
-                <span className="text-gray-400 italic">Faculty TBA</span>
-              )}
-            </span>
-          </div>
+      <div className="flex items-start gap-3 sm:gap-4 relative group">
+        {/* Left Time Column with vertical line */}
+        <div className="w-14 sm:w-16 shrink-0 pt-1 text-right">
+          <p className="font-bold text-xs text-slate-900 dark:text-white leading-tight font-mono">
+            {slot.startTime}
+          </p>
+          <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+            {slot.endTime}
+          </p>
         </div>
 
-        {/* Action icons / Sync badge */}
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          {isShared ? (
-            <div
-              className="flex items-center gap-1 text-[11px] text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/80 px-2.5 py-1.5 rounded-xl border border-gray-100 dark:border-gray-800"
-              title="Official university section timetable"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
-              <span className="hidden sm:inline font-medium">Shared</span>
+        {/* Timeline Axis Node */}
+        <div className="flex flex-col items-center shrink-0 self-stretch pt-2">
+          <div
+            className={`w-3 h-3 rounded-full border-2 ${
+              isNow
+                ? 'bg-emerald-500 border-white ring-2 ring-emerald-500 shadow-sm animate-pulse'
+                : isPast
+                ? 'bg-slate-300 dark:bg-slate-700 border-white dark:border-slate-900'
+                : isNextClass
+                ? 'bg-blue-600 border-white ring-2 ring-blue-500 shadow-sm'
+                : 'bg-blue-400 border-white dark:border-slate-900'
+            }`}
+          />
+          <div className="w-0.5 flex-1 bg-slate-200 dark:bg-slate-800 my-1 group-last:hidden" />
+        </div>
+
+        {/* Right Session Card */}
+        <div
+          className={`flex-1 rounded-2xl border transition-all p-4 bg-white dark:bg-gray-900 shadow-sm mb-3 ${
+            isNextClass
+              ? 'border-2 border-blue-500 shadow-md ring-1 ring-blue-500/20'
+              : isNow
+              ? 'border-2 border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/20'
+              : isPast
+              ? 'border-slate-100 dark:border-slate-800/80 opacity-80'
+              : 'border-slate-100 dark:border-slate-800/80 hover:border-slate-200 dark:hover:border-slate-700'
+          }`}
+        >
+          {/* Next Class Header Tags */}
+          {isNextClass && (
+            <div className="flex items-center justify-between gap-2 pb-2.5 mb-2.5 border-b border-blue-100 dark:border-blue-900/40">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                Next Class
+              </span>
+              <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                Starts soon
+              </span>
             </div>
-          ) : (
-            <div className="flex items-center gap-1">
+          )}
+
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white truncate">
+                  {slot.subjectCode || slot.subjectName}
+                </h4>
+              </div>
+
+              {slot.subjectName !== slot.subjectCode && (
+                <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                  {slot.subjectName}
+                </p>
+              )}
+            </div>
+
+            {/* Checkmark or status icon */}
+            <div className="shrink-0 flex items-center gap-1.5">
+              {isPast && (
+                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+              )}
+              {isNow && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                  Live
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Badges: Type & Room */}
+          <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+            {isLab ? (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                Lab (2×)
+              </span>
+            ) : isNonAcademic ? (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                Non-Academic
+              </span>
+            ) : (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                Lecture
+              </span>
+            )}
+
+            {slot.room && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                {slot.room}
+              </span>
+            )}
+
+            {slot.group && slot.group !== 'ALL' && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                Group {slot.group}
+              </span>
+            )}
+
+            {slot.faculty && (
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium ml-auto truncate max-w-[140px]">
+                {slot.faculty}
+              </span>
+            )}
+          </div>
+
+          {/* If Next Class: Prominent Action Button matching reference */}
+          {isNextClass && (
+            <div className="mt-3 pt-2.5 border-t border-blue-100 dark:border-blue-900/40">
+              <Link to="/attendance" className="block">
+                <button
+                  type="button"
+                  className="w-full h-9 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                >
+                  Mark Attendance <ChevronRight className="w-4 h-4" />
+                </button>
+              </Link>
+            </div>
+          )}
+
+          {/* Edit / Delete actions for manual slots */}
+          {!isShared && (
+            <div className="flex items-center justify-end gap-2 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
               {onEdit && (
                 <button
                   onClick={() => onEdit(slot)}
-                  className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
-                  title="Edit slot"
+                  className="text-slate-400 hover:text-blue-600 flex items-center gap-1"
                 >
-                  <Edit2 className="w-4 h-4" />
+                  <Edit2 className="w-3 h-3" /> Edit
                 </button>
               )}
               {onDelete && (
                 <button
                   onClick={() => onDelete(slot)}
-                  className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                  title="Delete slot"
+                  className="text-slate-400 hover:text-red-600 flex items-center gap-1"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-3 h-3" /> Delete
                 </button>
               )}
             </div>
@@ -239,56 +251,29 @@ export function TimetableSlotCard({
                 G2
               </span>
             )}
-
-            {isNonAcademic && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-500/40 text-slate-100 font-bold border border-slate-300/40">
-                Non-Academic
-              </span>
-            )}
-
-            {slot.requiresReview && (
-              <span
-                className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-400/50 text-red-100 font-bold border border-red-300/50"
-                title={slot.reviewReason || 'Review Required'}
-              >
-                Review
-              </span>
-            )}
           </div>
         </div>
 
         {isNow && (
-          <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full bg-white text-emerald-700 font-black uppercase tracking-wider animate-pulse flex-shrink-0 shadow-sm">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Now
-          </span>
-        )}
-        {isPast && (
-          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/20 text-white font-semibold">
-            Done
+          <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full bg-white text-emerald-700 font-black uppercase tracking-wider animate-pulse shrink-0 shadow-sm">
+            Now
           </span>
         )}
       </div>
 
-      {/* Time & Room */}
       <div className="mt-2 pt-1.5 border-t border-white/20 flex items-center justify-between text-[10px] opacity-95 font-medium">
         <span className="flex items-center gap-1">
           <Clock className="w-3 h-3" /> {slot.startTime}–{slot.endTime}
         </span>
         <span>
-          {slot.room ? `📍 ${slot.room}` : <span className="opacity-70 italic">📍 No room</span>}
+          {slot.room ? slot.room : 'TBA'}
         </span>
       </div>
 
-      {/* Faculty */}
       <div className="text-[10px] opacity-85 mt-1 truncate">
-        {slot.faculty ? (
-          <span>👤 {slot.faculty}</span>
-        ) : (
-          <span className="opacity-70 italic">👤 Faculty TBA</span>
-        )}
+        {slot.faculty ? slot.faculty : ''}
       </div>
 
-      {/* Quick edit / delete actions on hover */}
       <div className="absolute top-2 right-2 hidden group-hover:flex items-center gap-1 bg-black/40 backdrop-blur-md rounded-lg p-1">
         {isShared ? (
           <span title="Official university timetable" className="p-1 text-white/80">

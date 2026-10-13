@@ -21,7 +21,9 @@ import {
   ShieldCheck,
   X,
   FileText,
+  GraduationCap,
 } from 'lucide-react';
+import { format } from 'date-fns';
 import {
   collection,
   addDoc,
@@ -127,13 +129,11 @@ export function TimetablePage() {
 
   type GroupFilter = 'my' | 'all' | 'G1' | 'G2';
   const [groupFilter, setGroupFilter] = useState<GroupFilter>('my');
-  const [view, setView] = useState<'weekly' | 'daily'>(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      return 'daily';
-    }
-    return 'weekly';
+  const [view, setView] = useState<'weekly' | 'daily'>('daily');
+  const [selectedDay, setSelectedDay] = useState(() => {
+    const today = new Date().getDay();
+    return today >= 1 && today <= 5 ? today : 1;
   });
-  const [selectedDay, setSelectedDay] = useState(() => new Date().getDay());
   const [showForm, setShowForm] = useState(false);
   const [editSlot, setEditSlot] = useState<TimetableSlot | null>(null);
   const [slotToDelete, setSlotToDelete] = useState<TimetableSlot | null>(null);
@@ -468,26 +468,6 @@ export function TimetablePage() {
     return rawActiveSlots.filter((s) => isSlotApplicableToStudent(s.group, userProfile?.studentGroup));
   }, [rawActiveSlots, groupFilter, userProfile?.studentGroup]);
 
-  // Free intervals calculation for daily view
-  function getDailyFreeSlots(day: number) {
-    const daySlots = activeSlots
-      .filter((s) => s.dayOfWeek === day)
-      .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
-    const free: { start: string; end: string }[] = [];
-    if (daySlots.length === 0) return free;
-    if (daySlots[0].startTime > '09:00') {
-      free.push({ start: '09:00', end: daySlots[0].startTime });
-    }
-    for (let i = 0; i < daySlots.length - 1; i++) {
-      if (daySlots[i].endTime < daySlots[i + 1].startTime) {
-        free.push({ start: daySlots[i].endTime, end: daySlots[i + 1].startTime });
-      }
-    }
-    if (daySlots[daySlots.length - 1].endTime < '17:00') {
-      free.push({ start: daySlots[daySlots.length - 1].endTime, end: '17:00' });
-    }
-    return free;
-  }
 
   const totalClasses = activeSlots.length;
   const labCount = useMemo(() => {
@@ -506,6 +486,51 @@ export function TimetablePage() {
   }, [activeSlots, todayDay]);
 
   const [mobileWeeklyDay, setMobileWeeklyDay] = useState(() => (todayDay >= 1 && todayDay <= 5 ? todayDay : 1));
+
+  const weekDates = useMemo(() => {
+    const now = currentTime;
+    const currentDay = now.getDay();
+    const diffToMon = currentDay === 0 ? -6 : 1 - currentDay;
+    const mon = new Date(now);
+    mon.setDate(now.getDate() + diffToMon);
+
+    return [1, 2, 3, 4, 5].map((d) => {
+      const targetDate = new Date(mon);
+      targetDate.setDate(mon.getDate() + (d - 1));
+      return {
+        dayIndex: d,
+        shortName: SHORT_DAYS[d],
+        dayNumber: targetDate.getDate(),
+        fullDate: targetDate,
+      };
+    });
+  }, [currentTime]);
+
+  const currentDayDate = useMemo(() => {
+    const item = weekDates.find((w) => w.dayIndex === selectedDay);
+    return item ? item.fullDate : currentTime;
+  }, [weekDates, selectedDay, currentTime]);
+
+  const dayAgendaSlots = useMemo(() => {
+    return activeSlots
+      .filter((s) => s.dayOfWeek === selectedDay)
+      .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+  }, [activeSlots, selectedDay]);
+
+  const completedSlotsCount = useMemo(() => {
+    if (selectedDay !== todayDay) {
+      return selectedDay < todayDay ? dayAgendaSlots.length : 0;
+    }
+    return dayAgendaSlots.filter((s) => timeToMinutes(s.endTime) <= currentMinutes).length;
+  }, [selectedDay, todayDay, dayAgendaSlots, currentMinutes]);
+
+  const remainingSlotsCount = Math.max(0, dayAgendaSlots.length - completedSlotsCount);
+
+  const nextSlotId = useMemo(() => {
+    if (selectedDay !== todayDay) return null;
+    const upcoming = dayAgendaSlots.find((s) => timeToMinutes(s.startTime) > currentMinutes);
+    return upcoming?.id || null;
+  }, [selectedDay, todayDay, dayAgendaSlots, currentMinutes]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -912,44 +937,70 @@ export function TimetablePage() {
       )}
 
       {/* ============================================================== */}
-      {/* 2. DAILY VIEW                                                  */}
+      {/* 2. DAILY VIEW (Agenda) matching Reference Image Column 2       */}
       {/* ============================================================== */}
       {view === 'daily' && (
-        <div className="space-y-5">
-          {/* Day selection tabs */}
-          <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1">
-            <div className="flex gap-2">
-              {DAYS.map((day, i) => {
-                const count = activeSlots.filter((s) => s.dayOfWeek === i).length;
-                const isToday = todayDay === i;
-                const isSelected = selectedDay === i;
+        <div className="space-y-4">
+          {/* Horizontal Day Selector (Mon-Fri) matching Reference */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5">
+            {weekDates.map((w) => {
+              const count = activeSlots.filter((s) => s.dayOfWeek === w.dayIndex).length;
+              const isSelected = selectedDay === w.dayIndex;
+              const isToday = todayDay === w.dayIndex;
 
-                return (
-                  <button
-                    key={i}
-                    onClick={() => setSelectedDay(i)}
-                    className={`flex-shrink-0 px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 ${
-                      isSelected
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-blue-400'
+              return (
+                <button
+                  key={w.dayIndex}
+                  type="button"
+                  onClick={() => setSelectedDay(w.dayIndex)}
+                  className={`flex-1 min-w-[62px] sm:min-w-[72px] py-2.5 px-2 rounded-2xl text-center transition-all flex flex-col items-center justify-center border shadow-sm ${
+                    isSelected
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/25 ring-2 ring-blue-500/20'
+                      : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200/90 dark:border-slate-800 hover:border-blue-300'
+                  }`}
+                >
+                  <span
+                    className={`text-[11px] font-bold uppercase tracking-wider ${
+                      isSelected ? 'text-blue-100' : 'text-slate-400 dark:text-slate-500'
                     }`}
                   >
-                    <span>{day}</span>
-                    <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                        isSelected
-                          ? 'bg-white/20 text-white'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                      }`}
-                    >
-                      {count}
-                    </span>
-                    {isToday && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="Today" />
+                    {w.shortName}
+                  </span>
+                  <span
+                    className={`text-base sm:text-lg font-black my-0.5 ${
+                      isSelected ? 'text-white' : 'text-slate-900 dark:text-white'
+                    }`}
+                  >
+                    {w.dayNumber}
+                  </span>
+                  <div className="h-1.5 flex items-center justify-center">
+                    {isSelected ? (
+                      <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs" />
+                    ) : count > 0 ? (
+                      <span className={`w-1.5 h-1.5 rounded-full ${isToday ? 'bg-amber-400' : 'bg-blue-500/70'}`} />
+                    ) : (
+                      <span className="w-1.5 h-1.5 opacity-0" />
                     )}
-                  </button>
-                );
-              })}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Day Summary Banner matching Reference */}
+          <div className="bg-gradient-to-r from-blue-50/90 via-indigo-50/60 to-white/90 dark:from-blue-950/40 dark:via-indigo-950/20 dark:to-slate-900 border border-blue-100/90 dark:border-blue-900/40 rounded-2xl p-3.5 sm:p-4 flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-3 sm:gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-sm shrink-0">
+                <GraduationCap className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base leading-tight">
+                  {selectedDay === todayDay ? 'Today, ' : ''}{format(currentDayDate, 'd MMM yyyy')}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  {dayAgendaSlots.length} classes • {completedSlotsCount} completed • {remainingSlotsCount} remaining
+                </p>
+              </div>
             </div>
 
             {selectedDay !== todayDay && (
@@ -957,56 +1008,74 @@ export function TimetablePage() {
                 variant="outline"
                 size="sm"
                 onClick={() => setSelectedDay(todayDay)}
-                className="text-xs whitespace-nowrap hidden sm:inline-flex"
+                className="text-xs h-8 px-2.5 bg-white/90 dark:bg-slate-900/90 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 font-semibold"
               >
                 Jump to Today
               </Button>
             )}
           </div>
 
-          <div className="space-y-3">
-            {activeSlots
-              .filter((s) => s.dayOfWeek === selectedDay)
-              .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime))
-              .map((slot) => (
-                <TimetableSlotCard
-                  key={slot.id}
-                  slot={slot}
-                  isToday={selectedDay === todayDay}
-                  currentMinutes={currentMinutes}
-                  viewMode="agenda"
-                  onEdit={openEdit}
-                  onDelete={(s) => setSlotToDelete(s)}
-                />
-              ))}
+          {/* Timeline Session Cards */}
+          <div className="space-y-1 pt-1">
+            {dayAgendaSlots.map((slot, index) => {
+              const isNext = slot.id === nextSlotId;
+              const nextSlotInList = dayAgendaSlots[index + 1];
+              const slotEndMinutes = timeToMinutes(slot.endTime);
+              const nextSlotStartMinutes = nextSlotInList ? timeToMinutes(nextSlotInList.startTime) : 0;
+              // A genuine free gap occurs only when there is a following slot, the gap is >= 30 mins,
+              // and no other scheduled slot on this day overlaps the interval.
+              const hasFreePeriodAfter =
+                Boolean(nextSlotInList) &&
+                nextSlotStartMinutes - slotEndMinutes >= 30 &&
+                !dayAgendaSlots.some((other) => {
+                  const oStart = timeToMinutes(other.startTime);
+                  const oEnd = timeToMinutes(other.endTime);
+                  return Math.max(slotEndMinutes, oStart) < Math.min(nextSlotStartMinutes, oEnd);
+                });
 
-            {activeSlots.filter((s) => s.dayOfWeek === selectedDay).length === 0 && (
-              <div className="text-center py-16 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-8">
-                <Calendar className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                <h4 className="font-bold text-gray-800 dark:text-gray-200">No classes on {DAYS[selectedDay]}</h4>
-                <p className="text-xs text-gray-400 mt-1">Enjoy your free day or schedule dedicated study blocks.</p>
+              return (
+                <React.Fragment key={slot.id}>
+                  <TimetableSlotCard
+                    slot={slot}
+                    isToday={selectedDay === todayDay}
+                    currentMinutes={currentMinutes}
+                    viewMode="agenda"
+                    isNextClass={isNext}
+                    onEdit={openEdit}
+                    onDelete={(s) => setSlotToDelete(s)}
+                  />
+
+                  {/* Free Period card during class intervals */}
+                  {hasFreePeriodAfter && nextSlotInList && (
+                    <div className="ml-16 sm:ml-20 -mt-1 mb-4 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 p-3 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 flex items-center justify-center text-sm shrink-0">
+                          ☕
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Free Period</p>
+                          <p className="text-[11px] text-slate-500">
+                            {slot.endTime} - {nextSlotInList.startTime} • Free time • Study • Library
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200/50 dark:border-amber-900/40 px-2 py-0.5 rounded-full shrink-0">
+                        Break
+                      </span>
+                    </div>
+                  )}
+                </React.Fragment>
+              );
+            })}
+
+            {dayAgendaSlots.length === 0 && (
+              <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 p-8 shadow-sm">
+                <Calendar className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                <h4 className="font-bold text-slate-800 dark:text-slate-200">No classes on {DAYS[selectedDay]}</h4>
+                <p className="text-xs text-slate-400 mt-1">Enjoy your free day or schedule dedicated study blocks.</p>
                 <Button size="sm" onClick={() => openAdd(selectedDay)} className="mt-4">
                   <Plus className="w-4 h-4 mr-1.5" /> Add Class for {DAYS[selectedDay]}
                 </Button>
-              </div>
-            )}
-
-            {/* Free intervals finder */}
-            {getDailyFreeSlots(selectedDay).length > 0 && (
-              <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40">
-                <h4 className="text-xs font-bold uppercase text-amber-800 dark:text-amber-400 tracking-wider mb-2 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5" /> Free Intervals on {DAYS[selectedDay]} (Study / Breaks)
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {getDailyFreeSlots(selectedDay).map((fs, idx) => (
-                    <span
-                      key={idx}
-                      className="text-xs px-3 py-1.5 rounded-xl bg-white dark:bg-gray-800 text-amber-800 dark:text-amber-300 font-semibold border border-amber-200 dark:border-amber-800 shadow-sm"
-                    >
-                      ☕ {fs.start} – {fs.end}
-                    </span>
-                  ))}
-                </div>
               </div>
             )}
           </div>
