@@ -6,14 +6,17 @@ import {
   playReminderChime,
   requestClassNotificationPermission,
   scheduleTimestampTriggerIfSupported,
-  NextClassReminderResult,
-} from '../lib/classReminderScheduler';
-import type { TimetableSlot, UserProfile } from '../types';
+  type NextClassReminderResult,
+} from '../lib/classReminderScheduler.ts';
+import type { TimetableSlot, UserProfile } from '../types/index.ts';
 import toast from 'react-hot-toast';
+
+export const TEST_SOUND_TOAST_ID = 'uniflow-test-sound';
 
 export interface UseClassReminderReturn {
   permission: NotificationPermission | 'unsupported';
   isEnabled: boolean;
+  isTestingSound?: boolean;
   nextReminderState: NextClassReminderResult;
   requestPermission: () => Promise<NotificationPermission>;
   toggleEnabled: () => void;
@@ -28,6 +31,19 @@ export function useClassReminder(
     if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
     return Notification.permission;
   });
+
+  const [isTestingSound, setIsTestingSound] = useState(false);
+  const isTestingSoundRef = useRef(false);
+  const soundCooldownTimerRef = useRef<NodeJS.Timeout | number | null>(null);
+
+  // Clean up any pending cooldown timer on unmount
+  useEffect(() => {
+    return () => {
+      if (soundCooldownTimerRef.current) {
+        clearTimeout(soundCooldownTimerRef.current as NodeJS.Timeout);
+      }
+    };
+  }, []);
 
   const [isEnabled, setIsEnabled] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
@@ -131,10 +147,13 @@ export function useClassReminder(
   }, []);
 
   const sendTestReminder = useCallback(async () => {
-    // 1. Play audio chime
-    playReminderChime();
+    // Throttle duplicate rapid clicks to prevent AudioContext and toast stacking
+    if (isTestingSoundRef.current) {
+      return;
+    }
+    isTestingSoundRef.current = true;
+    setIsTestingSound(true);
 
-    // 2. Mock test class slot
     const testSlot: TimetableSlot = {
       id: 'test-reminder-slot',
       uid: userProfile?.uid || 'test-user',
@@ -150,19 +169,51 @@ export function useClassReminder(
       isActive: true,
     };
 
-    if (permission === 'granted') {
-      await dispatchClassReminderNotification(testSlot, 10, userProfile?.uid);
-      toast.success('Test reminder sent with sound!', { icon: '🔔' });
-    } else {
-      toast('Played test audio chime. Enable notifications to receive visual alerts.', {
-        icon: '🔔',
+    try {
+      if (permission === 'granted') {
+        // dispatchClassReminderNotification handles playReminderChime() internally
+        await dispatchClassReminderNotification(testSlot, 10, userProfile?.uid);
+        toast.success('Test reminder sent with sound!', {
+          id: TEST_SOUND_TOAST_ID,
+          icon: '🔔',
+        });
+      } else {
+        const audioPlayed = playReminderChime();
+        if (audioPlayed) {
+          toast(
+            permission === 'denied'
+              ? 'Played test audio chime. Notifications are blocked in browser settings.'
+              : 'Played test audio chime. Enable notifications to receive visual alerts.',
+            {
+              id: TEST_SOUND_TOAST_ID,
+              icon: '🔔',
+            }
+          );
+        } else {
+          toast.error('Audio chime playback was blocked or is unsupported by browser.', {
+            id: TEST_SOUND_TOAST_ID,
+          });
+        }
+      }
+    } catch (err: unknown) {
+      toast.error('Failed to trigger test sound reminder.', {
+        id: TEST_SOUND_TOAST_ID,
       });
+    } finally {
+      if (soundCooldownTimerRef.current) {
+        clearTimeout(soundCooldownTimerRef.current as NodeJS.Timeout);
+      }
+      soundCooldownTimerRef.current = setTimeout(() => {
+        isTestingSoundRef.current = false;
+        setIsTestingSound(false);
+      }, 600);
     }
   }, [permission, userProfile?.uid]);
 
   return {
     permission,
     isEnabled,
+    isTestingSound,
     nextReminderState,
     requestPermission,
     toggleEnabled,

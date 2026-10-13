@@ -53,11 +53,13 @@ export function markReminderSent(slot: TimetableSlot, date = new Date()): void {
  * Synthesizes a melodic reminder chime using Web Audio API
  * Generates an audible chime even if device notification sounds are muted or blocked
  */
-export function playReminderChime(): void {
-  if (typeof window === 'undefined') return;
+export function playReminderChime(): boolean {
+  if (typeof window === 'undefined') return false;
   try {
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (!AudioCtx) return;
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return false;
     const ctx = new AudioCtx();
 
     if (ctx.state === 'suspended') {
@@ -92,16 +94,23 @@ export function playReminderChime(): void {
     osc2.start(now + 0.15);
     osc2.stop(now + 0.55);
 
-    // Clean up audio context
-    setTimeout(() => {
+    // Clean up audio context when tones complete
+    const cleanup = () => {
       try {
-        ctx.close().catch(() => {});
+        if (ctx.state !== 'closed') {
+          ctx.close().catch(() => {});
+        }
       } catch {
         // ignore
       }
-    }, 1000);
+    };
+    osc2.onended = cleanup;
+    setTimeout(cleanup, 1000);
+
+    return true;
   } catch (err) {
     console.warn('Web Audio chime playback error:', err);
+    return false;
   }
 }
 

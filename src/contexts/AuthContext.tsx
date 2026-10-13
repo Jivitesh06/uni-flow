@@ -203,6 +203,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return profilePayload as UserProfile;
       }
 
+      // If profile does not have full academic details (e.g. initial Google login before onboarding),
+      // do not write an incomplete placeholder document to Firestore.
+      // Set the pending in-memory state so OnboardingPage can collect their actual academic profile.
+      if (!hasAcademic) {
+        const pending = profilePayload as UserProfile;
+        if (requestId === profileFetchSeqRef.current && auth.currentUser?.uid === user.uid) {
+          setUserProfile(pending);
+        }
+        return pending;
+      }
+
       await setDoc(ref, profilePayload);
       const created = profilePayload as UserProfile;
       setCachedUserProfile(user.uid, created);
@@ -432,7 +443,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function updateUserProfile(data: Partial<UserProfile>) {
-    if (!currentUser) return;
+    if (!currentUser) throw new Error('No authenticated user found');
     profileFetchSeqRef.current++;
     const ref = doc(db, 'users', currentUser.uid);
     const cleaned: Record<string, any> = {};
@@ -446,6 +457,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     delete cleaned.gmailAccessToken;
     delete cleaned.gmailRefreshToken;
 
+    // CRITICAL: Always attach the authenticated user's canonical UID so that setDoc with merge:true
+    // satisfies firestore.rules `allow create: if ... request.resource.data.uid == uid` when document does not exist yet.
+    cleaned.uid = currentUser.uid;
+
+    if (!cleaned.email && (currentUser.email || userProfile?.email)) {
+      cleaned.email = normalizeCollegeEmail(currentUser.email || userProfile?.email || '');
+    }
+
+    if (cleaned.displayName === undefined && (currentUser.displayName || userProfile?.displayName)) {
+      cleaned.displayName = currentUser.displayName || userProfile?.displayName || 'Student';
+    }
+
+    if (cleaned.college === undefined && (userProfile?.college)) {
+      cleaned.college = userProfile.college;
+    }
+
+    if (cleaned.program === undefined && (userProfile?.program)) {
+      cleaned.program = userProfile.program;
+    }
+
     if (cleaned.semester !== undefined) {
       cleaned.semester = normalizeSemester(cleaned.semester);
     }
@@ -458,13 +489,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else {
       cleaned.attendanceTarget = Math.min(100, Math.max(50, Number(cleaned.attendanceTarget) || 75));
     }
-    const merged = { ...userProfile, ...cleaned };
+    const merged = { ...userProfile, ...cleaned, uid: currentUser.uid };
     cleaned.profileCompleted = isProfileComplete(merged as UserProfile);
     cleaned.updatedAt = serverTimestamp();
 
+    if (!userProfile?.createdAt && !cleaned.createdAt) {
+      cleaned.createdAt = serverTimestamp();
+    }
+
     await setDoc(ref, cleaned, { merge: true });
     setCachedUserProfile(currentUser.uid, merged as UserProfile);
-    setUserProfile((prev) => (prev ? { ...prev, ...cleaned } : null));
+    setUserProfile(merged as UserProfile);
   }
 
   async function deleteAccount() {

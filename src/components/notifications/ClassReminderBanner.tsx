@@ -14,6 +14,7 @@ export function ClassReminderBanner({ reminder, variant = 'banner' }: ClassRemin
   const {
     permission,
     isEnabled,
+    isTestingSound,
     nextReminderState,
     requestPermission,
     toggleEnabled,
@@ -40,6 +41,7 @@ export function ClassReminderBanner({ reminder, variant = 'banner' }: ClassRemin
           variant="outline"
           size="sm"
           onClick={sendTestReminder}
+          disabled={isTestingSound}
           className="whitespace-nowrap font-semibold border-amber-300 text-amber-800 dark:text-amber-300"
         >
           <Volume2 className="w-3.5 h-3.5 mr-1.5" /> Test Sound Only
@@ -81,6 +83,7 @@ export function ClassReminderBanner({ reminder, variant = 'banner' }: ClassRemin
             variant="outline"
             size="sm"
             onClick={sendTestReminder}
+            disabled={isTestingSound}
             className="border-white/30 text-white hover:bg-white/10 font-semibold whitespace-nowrap"
             title="Preview the audio chime without permissions"
           >
@@ -133,6 +136,7 @@ export function ClassReminderBanner({ reminder, variant = 'banner' }: ClassRemin
               variant="outline"
               size="sm"
               onClick={sendTestReminder}
+              disabled={isTestingSound}
               className="flex-1 text-xs font-semibold"
             >
               <Volume2 className="w-3.5 h-3.5 mr-1.5 text-blue-600" /> Send Test Reminder
@@ -186,6 +190,7 @@ export function ClassReminderBanner({ reminder, variant = 'banner' }: ClassRemin
           variant="outline"
           size="sm"
           onClick={sendTestReminder}
+          disabled={isTestingSound}
           className="text-xs font-semibold border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100/50"
         >
           <Volume2 className="w-3.5 h-3.5 mr-1.5 text-emerald-600" /> Send Test Reminder
