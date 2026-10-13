@@ -41,6 +41,9 @@ export interface TimetableSlot {
   sharedGroupId?: string;
   section?: string;
   group?: TimetableGroupScope; // 'G1' | 'G2' | 'ALL' (defaults to 'ALL' for legacy slots)
+  periods?: number; // Number of periods spanned (e.g. 1 for lecture, 2 for lab)
+  weight?: number;  // Attendance weight multiplier (defaults to periods or 1)
+  durationMinutes?: number;
   requiresReview?: boolean;
   reviewReason?: string;
   effectiveDate?: string;
@@ -56,6 +59,7 @@ export interface AttendanceRecord {
   lectureSlotId?: string;
   status: AttendanceStatus;
   source: AttendanceSource;
+  weight?: number; // Attendance weight (e.g. 1 for standard period, 2 for 2-period lab)
   group?: TimetableGroupScope; // applicable group ('G1' | 'G2' | 'ALL')
   notes?: string;
   createdAt: Timestamp;

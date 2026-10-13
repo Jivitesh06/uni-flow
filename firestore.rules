@@ -29,7 +29,8 @@ service cloud.firestore {
     function isPublisher() {
       return isSignedIn()
         && (request.auth.token.role in ['admin', 'publisher']
-            || exists(/databases/$(database)/documents/authorizedPublishers/$(request.auth.uid)));
+            || (exists(/databases/$(database)/documents/authorizedPublishers/$(request.auth.uid))
+                && get(/databases/$(database)/documents/authorizedPublishers/$(request.auth.uid)).data.active == true));
     }
 
     // ============================================================
@@ -39,19 +40,24 @@ service cloud.firestore {
       allow read: if isSignedIn() && isOwner(uid);
       allow create: if isSignedIn() && isOwner(uid)
         && request.resource.data.uid == uid
-        && request.resource.data.attendanceTarget is number
-        && request.resource.data.attendanceTarget >= 50
-        && request.resource.data.attendanceTarget <= 100;
+        && (!('attendanceTarget' in request.resource.data)
+            || (request.resource.data.attendanceTarget is number
+                && request.resource.data.attendanceTarget >= 50
+                && request.resource.data.attendanceTarget <= 100));
       allow update: if isSignedIn() && isOwner(uid)
-        // Clients must not write privileged fields
-        && !('role' in request.resource.data)
-        && !('gmailAccessToken' in request.resource.data)
+        // Clients must not write or alter privileged fields
         && !('gmailRefreshToken' in request.resource.data)
-        && !('refreshToken' in request.resource.data)
-        && !('_refreshToken' in request.resource.data)
-        && request.resource.data.attendanceTarget is number
-        && request.resource.data.attendanceTarget >= 50
-        && request.resource.data.attendanceTarget <= 100;
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'role',
+          'gmailAccessToken',
+          'gmailRefreshToken',
+          'refreshToken',
+          '_refreshToken'
+        ])
+        && (!('attendanceTarget' in request.resource.data)
+            || (request.resource.data.attendanceTarget is number
+                && request.resource.data.attendanceTarget >= 50
+                && request.resource.data.attendanceTarget <= 100));
       allow delete: if false; // Deletion only via Admin SDK
 
       // Subjects subcollection

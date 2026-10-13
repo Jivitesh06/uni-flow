@@ -14,7 +14,7 @@ interface PublicAuthRouteProps {
  * Otherwise, renders the public auth page.
  */
 export function PublicAuthRoute({ children }: PublicAuthRouteProps) {
-  const { currentUser, isEmailVerified, loading } = useAuth();
+  const { currentUser, userProfile, isEmailVerified, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -37,6 +37,9 @@ export function PublicAuthRoute({ children }: PublicAuthRouteProps) {
     const verified = Boolean(currentUser.emailVerified || isEmailVerified);
     if (!verified) {
       return <Navigate to="/verify-email" replace />;
+    }
+    if (userProfile && !userProfile.profileCompleted) {
+      return <Navigate to="/onboarding" replace />;
     }
     // Return to the previous requested location if provided in location.state
     const fromPath = (location.state as { from?: { pathname?: string } })?.from?.pathname || '/dashboard';

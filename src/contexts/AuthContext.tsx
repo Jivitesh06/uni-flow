@@ -22,6 +22,8 @@ import {
   parseStudentDetailsFromEmail,
 } from '../lib/collegeEmail.ts';
 
+import { isProfileComplete } from '../lib/academicProfile.ts';
+
 export interface UserProfile {
   uid: string;
   email: string;
@@ -38,8 +40,10 @@ export interface UserProfile {
   subjectGroups?: Record<string, 'G1' | 'G2'>;
   attendanceTarget: number;
   emailVerified: boolean;
+  profileCompleted?: boolean;
   role?: string;
   createdAt: unknown;
+  updatedAt?: unknown;
 }
 
 interface AuthContextType {
@@ -106,56 +110,83 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const snap = await getDoc(ref);
       if (snap.exists()) {
         const data = snap.data() as UserProfile;
-        // Normalize semester to number if string legacy
-        if (data.semester !== undefined) {
+        if (data.semester !== undefined && data.semester !== null) {
           data.semester = normalizeSemester(data.semester);
         }
+        data.profileCompleted = isProfileComplete(data);
+
         // Only update if explicit non-empty additionalData is provided (e.g. during registration)
         if (additionalData && Object.keys(additionalData).length > 0) {
-          const merged: UserProfile = { ...data, ...additionalData };
-          if (merged.semester !== undefined) {
+          const merged: Record<string, any> = { ...data };
+          for (const [k, v] of Object.entries(additionalData)) {
+            if (v !== undefined) {
+              merged[k] = v;
+            }
+          }
+          if (merged.semester !== undefined && merged.semester !== null) {
             merged.semester = normalizeSemester(merged.semester);
           }
           if (merged.section) {
             merged.section = normalizeSection(merged.section);
           }
+          merged.profileCompleted = isProfileComplete(merged as UserProfile);
+          merged.updatedAt = serverTimestamp();
           await setDoc(ref, merged, { merge: true });
-          setUserProfile(merged);
-          return merged;
+          const updated = merged as UserProfile;
+          setUserProfile(updated);
+          return updated;
         }
-        // Preserve existing profile information on every login
+
         setUserProfile(data);
         return data;
       }
 
       // Automatically derive academic years from universityId or email only when valid
       const derived = deriveAcademicYears(additionalData?.universityId, user.email);
+      const hasAcademic = Boolean(additionalData?.section && additionalData?.semester && additionalData?.universityId);
+      const sem = additionalData?.semester !== undefined && additionalData?.semester !== null
+        ? normalizeSemester(additionalData.semester)
+        : undefined;
+      const sec = additionalData?.section ? normalizeSection(additionalData.section) : '';
+      const roll = additionalData?.universityId ? String(additionalData.universityId).trim() : '';
 
-      // Create new profile with structured student fields
-      const profile: UserProfile = {
+      // Create new profile without silently defaulting section or semester
+      const profilePayload: Record<string, any> = {
         uid: user.uid,
         email: normalizeCollegeEmail(user.email ?? ''),
-        displayName: user.displayName ?? '',
-        photoURL: user.photoURL ?? undefined,
-        attendanceTarget: 75,
+        displayName: user.displayName || user.email?.split('@')[0] || 'Student',
+        attendanceTarget: additionalData?.attendanceTarget ?? 75,
         college: additionalData?.college || 'Chitkara University',
         program: additionalData?.program || 'BE-CSE',
-        semester: additionalData?.semester !== undefined ? normalizeSemester(additionalData.semester) : 5,
-        section: additionalData?.section ? normalizeSection(additionalData.section) : 'BE-CSE-5A',
-        universityId: additionalData?.universityId ? String(additionalData.universityId) : '',
-        batch: additionalData?.batch || derived.admissionYear || '',
-        expectedGraduationYear:
-          additionalData?.expectedGraduationYear || derived.expectedGraduationYear || undefined,
+        batch: additionalData?.batch || (sem === 5 ? '2024' : (derived.admissionYear || '2024')),
         emailVerified: user.emailVerified,
+        profileCompleted: hasAcademic,
         createdAt: serverTimestamp(),
-        ...additionalData,
       };
-      await setDoc(ref, profile);
-      setUserProfile(profile);
-      return profile;
+
+      if (user.photoURL) profilePayload.photoURL = user.photoURL;
+      if (sem !== undefined) profilePayload.semester = sem;
+      if (sec) profilePayload.section = sec;
+      if (roll) profilePayload.universityId = roll;
+      if (additionalData?.studentGroup) profilePayload.studentGroup = additionalData.studentGroup;
+      if (additionalData?.expectedGraduationYear || derived.expectedGraduationYear) {
+        profilePayload.expectedGraduationYear =
+          additionalData?.expectedGraduationYear || derived.expectedGraduationYear;
+      }
+
+      await setDoc(ref, profilePayload);
+      const created = profilePayload as UserProfile;
+      setUserProfile(created);
+      return created;
     } catch (err) {
       console.warn('Network issue fetching user profile, using local session profile:', err);
       const derived = deriveAcademicYears(additionalData?.universityId, user.email);
+      const sem = additionalData?.semester !== undefined && additionalData?.semester !== null
+        ? normalizeSemester(additionalData.semester)
+        : undefined;
+      const sec = additionalData?.section ? normalizeSection(additionalData.section) : '';
+      const roll = additionalData?.universityId ? String(additionalData.universityId).trim() : '';
+
       const fallbackProfile: UserProfile = {
         uid: user.uid,
         email: normalizeCollegeEmail(user.email ?? ''),
@@ -164,13 +195,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         attendanceTarget: 75,
         college: additionalData?.college || 'Chitkara University',
         program: additionalData?.program || 'BE-CSE',
-        semester: additionalData?.semester !== undefined ? normalizeSemester(additionalData.semester) : 5,
-        section: additionalData?.section ? normalizeSection(additionalData.section) : 'BE-CSE-5A',
-        universityId: additionalData?.universityId ? String(additionalData.universityId) : '',
-        batch: additionalData?.batch || derived.admissionYear || '',
+        semester: sem,
+        section: sec,
+        universityId: roll,
+        batch: additionalData?.batch || derived.admissionYear || '2024',
         expectedGraduationYear:
           additionalData?.expectedGraduationYear || derived.expectedGraduationYear || undefined,
         emailVerified: user.emailVerified,
+        profileCompleted: Boolean(sec && sem && roll),
         createdAt: null,
       };
       setUserProfile(fallbackProfile);
@@ -347,13 +379,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function updateUserProfile(data: Partial<UserProfile>) {
     if (!currentUser) return;
     const ref = doc(db, 'users', currentUser.uid);
-    const cleaned = { ...data };
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) {
+        cleaned[key] = value;
+      }
+    }
+    // Prevent client from writing privileged fields that violate firestore.rules
+    delete cleaned.role;
+    delete cleaned.gmailAccessToken;
+    delete cleaned.gmailRefreshToken;
+
     if (cleaned.semester !== undefined) {
       cleaned.semester = normalizeSemester(cleaned.semester);
     }
     if (cleaned.section !== undefined) {
       cleaned.section = normalizeSection(cleaned.section);
     }
+    // Ensure attendanceTarget is always valid number for firestore rules
+    if (cleaned.attendanceTarget === undefined) {
+      cleaned.attendanceTarget = userProfile?.attendanceTarget ?? 75;
+    } else {
+      cleaned.attendanceTarget = Math.min(100, Math.max(50, Number(cleaned.attendanceTarget) || 75));
+    }
+    const merged = { ...userProfile, ...cleaned };
+    cleaned.profileCompleted = isProfileComplete(merged as UserProfile);
+    cleaned.updatedAt = serverTimestamp();
+
     await setDoc(ref, cleaned, { merge: true });
     setUserProfile((prev) => (prev ? { ...prev, ...cleaned } : null));
   }

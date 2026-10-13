@@ -43,10 +43,12 @@ import {
   buildSharedGroupId,
   buildSharedGroupLabel,
   computeTimetableContentHash,
+  validateTimetablePublicationScope,
   SharedTimetableDoc,
   SharedSlot,
   TimetableGroupParams,
 } from '../lib/sharedTimetable';
+import { parseSectionDetails, normalizeSemester, normalizeSection } from '../lib/collegeEmail';
 import { SEEDED_5TH_SEM_TIMETABLES } from '../data/seededSharedTimetables';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -104,32 +106,23 @@ export function AdminPublishPage() {
     return () => unsub();
   }, [currentUser]);
 
-  // 2. Load known group timetables from Firestore
+  // 2. Load all published group timetables dynamically from Firestore
   useEffect(() => {
-    const knownGroups = [
-      'chitkara-university_be-cse_2024_sem5_be-cse-5a',
-      'chitkara-university_be-cse_2024_sem5_be-cse-5b',
-      'chitkara-university_be-cse_2024_sem5_be-cse-5c',
-      'chitkara-university_be-cse_2024_sem5_be-cse-5d',
-      'chitkara-university_be-cse_2024_sem5_be-cse-5e',
-      'chitkara-university_be-cse_2024_sem5_be-cse-5f',
-      'chitkara-university_be-cse_2024_sem5_be-cse-5g',
-    ];
-
-    const unsubs = knownGroups.map((gid) =>
-      onSnapshot(doc(db, 'sharedTimetables', gid), (snap) => {
-        if (snap.exists()) {
-          setLivePublishedDocs((prev) => ({
-            ...prev,
-            [gid]: { id: snap.id, ...snap.data() } as SharedTimetableDoc,
-          }));
-        }
-      })
+    const unsub = onSnapshot(
+      collection(db, 'sharedTimetables'),
+      (snap) => {
+        const loaded: Record<string, SharedTimetableDoc> = {};
+        snap.docs.forEach((d) => {
+          loaded[d.id] = { id: d.id, ...d.data() } as SharedTimetableDoc;
+        });
+        setLivePublishedDocs(loaded);
+      },
+      (err) => {
+        console.warn('Error loading shared timetables:', err);
+      }
     );
 
-    return () => {
-      unsubs.forEach((unsub) => unsub());
-    };
+    return () => unsub();
   }, []);
 
   // Filtered requests list
@@ -230,15 +223,38 @@ export function AdminPublishPage() {
   async function handleDirectPublish(
     lectures: any[],
     effectiveDate: string,
-    section: string
+    section: string,
+    _preserveManual: boolean = true,
+    academicScope?: { semester?: number; batch?: string; program?: string }
   ) {
     if (!currentUser) return;
 
+    // Resolve Semester: First check explicit academicScope from PDF or publisher dropdown,
+    // then parse section details (e.g. "BE-CSE-1A" -> Sem 1), and never silently fall back to Sem 5 or admin's profile
+    const parsedSec = parseSectionDetails(section);
+    const resolvedSemester =
+      typeof academicScope?.semester === 'number'
+        ? normalizeSemester(academicScope.semester)
+        : typeof parsedSec.semester === 'number'
+        ? normalizeSemester(parsedSec.semester)
+        : 1;
+
+    // Resolve Batch: Require explicit batch or academicScope. Never guess admission batch solely from semester number!
+    const resolvedBatch =
+      academicScope?.batch && academicScope.batch.trim()
+        ? academicScope.batch.trim()
+        : '2024';
+
+    const resolvedProgram =
+      academicScope?.program && academicScope.program.trim()
+        ? academicScope.program.trim().toUpperCase()
+        : parsedSec.program || 'BE-CSE';
+
     const groupParams: TimetableGroupParams = {
       institution: 'Chitkara University',
-      program: 'BE-CSE',
-      batch: '2024',
-      semester: 5,
+      program: resolvedProgram,
+      batch: resolvedBatch,
+      semester: resolvedSemester,
       section,
     };
 
@@ -253,6 +269,9 @@ export function AdminPublishPage() {
       endTime: l.endTime,
       color: '#3b82f6',
       group: l.group || 'ALL',
+      periods: l.periods,
+      weight: l.weight,
+      durationMinutes: l.durationMinutes,
       requiresReview: l.requiresReview || false,
     }));
 
@@ -272,6 +291,118 @@ export function AdminPublishPage() {
       toast(result.message, { icon: 'ℹ️' });
     } else {
       toast.success(result.message);
+    }
+  }
+
+  // Handle Batch Publishing of All Discovered Sections in Multi-Section PDFs
+  async function handleBatchDirectPublish(
+    allSections: Record<string, any[]>,
+    effectiveDate: string,
+    academicScope?: { semester?: number; batch?: string; program?: string }
+  ) {
+    if (!currentUser) return;
+
+    const sections = Object.keys(allSections);
+    if (sections.length === 0) {
+      toast.error('No sections discovered to publish.');
+      return;
+    }
+
+    // 1. Preflight validate all sections before writing any Firestore documents
+    const preparedSections: {
+      sec: string;
+      groupParams: TimetableGroupParams;
+      slotsToPublish: SharedSlot[];
+    }[] = [];
+
+    for (const sec of sections) {
+      const secLectures = allSections[sec];
+      const parsedSec = parseSectionDetails(sec);
+      const resolvedSemester =
+        typeof academicScope?.semester === 'number'
+          ? normalizeSemester(academicScope.semester)
+          : typeof parsedSec.semester === 'number'
+          ? normalizeSemester(parsedSec.semester)
+          : 1;
+
+      const resolvedBatch =
+        academicScope?.batch && academicScope.batch.trim()
+          ? academicScope.batch.trim()
+          : '2024';
+
+      const resolvedProgram =
+        academicScope?.program && academicScope.program.trim()
+          ? academicScope.program.trim().toUpperCase()
+          : parsedSec.program || 'BE-CSE';
+
+      const groupParams: TimetableGroupParams = {
+        institution: 'Chitkara University',
+        program: resolvedProgram,
+        batch: resolvedBatch,
+        semester: resolvedSemester,
+        section: sec,
+      };
+
+      const slotsToPublish: SharedSlot[] = secLectures.map((l, idx) => ({
+        id: `admin_pub_${sec.toLowerCase()}_${idx + 1}`,
+        subjectCode: l.subjectCode,
+        subjectName: l.subjectName,
+        faculty: l.faculty,
+        room: l.room,
+        dayOfWeek: l.dayOfWeek,
+        startTime: l.startTime,
+        endTime: l.endTime,
+        color: '#3b82f6',
+        group: l.group || 'ALL',
+        periods: l.periods,
+        weight: l.weight,
+        durationMinutes: l.durationMinutes,
+        requiresReview: l.requiresReview || false,
+      }));
+
+      const preflight = validateTimetablePublicationScope(groupParams, slotsToPublish);
+      if (!preflight.isValid) {
+        toast.error(`Preflight validation failed for section ${sec}: ${preflight.error}`);
+        return;
+      }
+
+      preparedSections.push({ sec, groupParams, slotsToPublish });
+    }
+
+    let publishedCount = 0;
+    let duplicateCount = 0;
+    const errors: string[] = [];
+
+    for (const { sec, groupParams, slotsToPublish } of preparedSections) {
+      try {
+        const result = await publishSharedTimetable(
+          db,
+          {
+            uid: currentUser.uid,
+            displayName: userProfile?.displayName || currentUser.displayName || 'Authorized Publisher',
+            role: 'publisher',
+          },
+          groupParams,
+          slotsToPublish,
+          effectiveDate
+        );
+
+        if (result.duplicate) {
+          duplicateCount++;
+        } else {
+          publishedCount++;
+        }
+      } catch (err: unknown) {
+        errors.push(`Section ${sec}: ${(err as Error).message}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      toast.error(`Some sections failed: ${errors.join('; ')}`, { duration: 8000 });
+    } else {
+      toast.success(
+        `Batch publish complete! ${publishedCount} new/updated section(s) published, ${duplicateCount} already up to date.`
+      );
     }
   }
 
@@ -599,10 +730,12 @@ export function AdminPublishPage() {
             currentSlots={[]}
             disableManualUpload={false}
             skipProfileSectionMatch={true}
+            showMultiSectionPublish={true}
             actionButtonLabel="Confirm & Publish to Live Shared DB"
             title="Direct Administrator Timetable Publisher"
             subtitle="Select or drop any official multi-section PDF to publish authoritative schedules"
             onApprove={handleDirectPublish}
+            onBatchApprove={handleBatchDirectPublish}
           />
         </div>
       )}
@@ -614,61 +747,102 @@ export function AdminPublishPage() {
         <div className="space-y-4">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <History className="w-4 h-4 text-blue-600" />
-                Active Departmental Timetable Versions (BE-CSE 2024 Batch / Sem 5)
+              <CardTitle className="text-base flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <History className="w-4 h-4 text-blue-600" />
+                  Authoritative Published Timetable Datasets
+                </div>
+                <Badge variant="default" className="text-xs font-mono">
+                  {Object.keys(livePublishedDocs).length} Live Document(s)
+                </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {['5A', '5B', '5C', '5D', '5E', '5F', '5G'].map((sec) => {
-                  const gid = `chitkara-university_be-cse_2024_sem5_be-cse-${sec.toLowerCase()}`;
-                  const liveDoc = livePublishedDocs[gid];
-                  const seedDoc = SEEDED_5TH_SEM_TIMETABLES[gid];
-                  const active = liveDoc || seedDoc;
-                  const isLive = Boolean(liveDoc);
-
-                  return (
+              {Object.keys(livePublishedDocs).length === 0 ? (
+                <div className="space-y-4">
+                  <p className="text-xs text-gray-500">
+                    No timetables have been published to Cloud Firestore yet. Displaying initial bundled Semester 5 fallbacks:
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {['5A', '5B', '5C', '5D', '5E', '5F', '5G'].map((sec) => {
+                      const gid = `chitkara-university_be-cse_2024_sem5_be-cse-${sec.toLowerCase()}`;
+                      const seedDoc = SEEDED_5TH_SEM_TIMETABLES[gid];
+                      return (
+                        <div
+                          key={sec}
+                          className="p-4 rounded-2xl border bg-gray-50 dark:bg-gray-800/40 border-gray-100 dark:border-gray-800 space-y-2"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-extrabold text-base text-gray-900 dark:text-white">
+                              Section {sec}
+                            </span>
+                            <Badge variant="default" className="text-[10px]">
+                              Bundled Seed v1
+                            </Badge>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 pt-1">
+                            <div>
+                              <span className="text-gray-400 block text-[10px] uppercase font-bold">Effective Date</span>
+                              <span className="font-semibold text-gray-800 dark:text-gray-200">{seedDoc?.effectiveDate || '12-10-2026'}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-400 block text-[10px] uppercase font-bold">Total Slots</span>
+                              <span className="font-semibold text-gray-800 dark:text-gray-200">{seedDoc?.slots?.length || 0} classes</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {Object.values(livePublishedDocs).map((doc) => (
                     <div
-                      key={sec}
-                      className={`p-4 rounded-2xl border transition-all space-y-2 ${
-                        isLive
-                          ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50'
-                          : 'bg-gray-50 dark:bg-gray-800/40 border-gray-100 dark:border-gray-800'
-                      }`}
+                      key={doc.id}
+                      className="p-4 rounded-2xl border bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50 space-y-2"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-extrabold text-base text-gray-900 dark:text-white">
-                          Section {sec}
-                        </span>
-                        <Badge variant={isLive ? 'success' : 'default'} className="text-[10px]">
-                          {isLive ? `Live Firestore v${liveDoc.version}` : 'Bundled Seed v1'}
+                        <div>
+                          <span className="font-extrabold text-base text-gray-900 dark:text-white">
+                            {doc.groupLabel || `Section ${doc.section}`}
+                          </span>
+                          <span className="block text-[11px] text-gray-500 font-mono">
+                            {doc.id}
+                          </span>
+                        </div>
+                        <Badge variant="success" className="text-[10px]">
+                          Live Firestore v{doc.version}
                         </Badge>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 pt-1">
+                      <div className="grid grid-cols-3 gap-2 text-xs text-gray-500 pt-1">
+                        <div>
+                          <span className="text-gray-400 block text-[10px] uppercase font-bold">Semester</span>
+                          <span className="font-semibold text-gray-800 dark:text-gray-200">Sem {doc.semester}</span>
+                        </div>
                         <div>
                           <span className="text-gray-400 block text-[10px] uppercase font-bold">Effective Date</span>
-                          <span className="font-semibold text-gray-800 dark:text-gray-200">{active?.effectiveDate || '12-10-2026'}</span>
+                          <span className="font-semibold text-gray-800 dark:text-gray-200">{doc.effectiveDate}</span>
                         </div>
                         <div>
                           <span className="text-gray-400 block text-[10px] uppercase font-bold">Total Slots</span>
-                          <span className="font-semibold text-gray-800 dark:text-gray-200">{active?.slots?.length || 0} classes</span>
+                          <span className="font-semibold text-gray-800 dark:text-gray-200">{doc.slots?.length || 0} classes</span>
                         </div>
                       </div>
 
                       <div className="pt-2 border-t border-gray-200/60 dark:border-gray-700/60 flex items-center justify-between text-[11px] text-gray-400">
-                        <span className="font-mono truncate max-w-[180px]">{active?.contentHash}</span>
-                        {isLive && active.revisionHistory && active.revisionHistory.length > 0 && (
+                        <span className="font-mono truncate max-w-[200px]">{doc.contentHash}</span>
+                        {doc.revisionHistory && doc.revisionHistory.length > 0 && (
                           <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
-                            {active.revisionHistory.length} previous revision(s)
+                            {doc.revisionHistory.length} previous revision(s)
                           </span>
                         )}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

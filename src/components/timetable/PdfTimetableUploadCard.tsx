@@ -49,13 +49,20 @@ interface PdfTimetableUploadCardProps {
     lectures: ExtractedLecture[],
     effectiveDate: string,
     section: string,
-    preserveManual: boolean
+    preserveManual: boolean,
+    academicScope?: { semester?: number; batch?: string; program?: string }
+  ) => Promise<void>;
+  onBatchApprove?: (
+    allSections: Record<string, ExtractedLecture[]>,
+    effectiveDate: string,
+    academicScope?: { semester?: number; batch?: string; program?: string }
   ) => Promise<void>;
   disableManualUpload?: boolean;
   actionButtonLabel?: string;
   title?: string;
   subtitle?: string;
   skipProfileSectionMatch?: boolean;
+  showMultiSectionPublish?: boolean;
 }
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -67,16 +74,19 @@ export function PdfTimetableUploadCard({
   userProgram,
   externalBuffer,
   onApprove,
+  onBatchApprove,
   disableManualUpload = true,
   actionButtonLabel,
   title,
   subtitle,
   skipProfileSectionMatch = false,
+  showMultiSectionPublish = false,
 }: PdfTimetableUploadCardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [batchApproving, setBatchApproving] = useState(false);
 
   // In-memory file cache
   const [fileBuffer, setFileBuffer] = useState<ArrayBuffer | null>(null);
@@ -88,6 +98,11 @@ export function PdfTimetableUploadCard({
   const [editableLectures, setEditableLectures] = useState<ExtractedLecture[]>([]);
   const [effectiveDate, setEffectiveDate] = useState<string>('');
   const [preserveManual, setPreserveManual] = useState<boolean>(true);
+
+  // Explicit Academic Scope Resolution state (distinguishes timetable scope from uploader's profile)
+  const [resolvedSemester, setResolvedSemester] = useState<number>(userSemester || 5);
+  const [resolvedBatch, setResolvedBatch] = useState<string>('2024');
+  const [resolvedProgram, setResolvedProgram] = useState<string>(userProgram || 'BE-CSE');
 
   // Editing modal state
   const [editingSlot, setEditingSlot] = useState<ExtractedLecture | null>(null);
@@ -133,6 +148,12 @@ export function PdfTimetableUploadCard({
       setParseResult(result);
       if (result.selectedSection) {
         setSelectedSection(result.selectedSection);
+      }
+      if (typeof result.detectedSemester === 'number') {
+        setResolvedSemester(result.detectedSemester);
+      }
+      if (result.detectedProgram) {
+        setResolvedProgram(result.detectedProgram);
       }
       setEditableLectures(result.lectures);
       setEffectiveDate(result.effectiveDate || result.generationDate || 'Immediate');
@@ -279,13 +300,54 @@ export function PdfTimetableUploadCard({
 
     setApproving(true);
     try {
-      await onApprove(editableLectures, effectiveDate, selectedSection, preserveManual);
+      await onApprove(editableLectures, effectiveDate, selectedSection, preserveManual, {
+        semester: resolvedSemester,
+        batch: resolvedBatch,
+        program: resolvedProgram,
+      });
       toast.success(`Successfully processed timetable for ${selectedSection}!`);
       handleReset();
     } catch (err: unknown) {
       toast.error((err as Error).message || 'Failed to update timetable');
     } finally {
       setApproving(false);
+    }
+  }
+
+  async function handleBatchApproveAllSections() {
+    if (!parseResult || !parseResult.allSectionLectures || !onBatchApprove) {
+      toast.error('No multi-section dataset available');
+      return;
+    }
+
+    // Check if any section has unresolved warnings / review items
+    const ambiguousSections: string[] = [];
+    Object.entries(parseResult.allSectionLectures).forEach(([sec, secSlots]) => {
+      if (secSlots.some((s) => s.requiresReview)) {
+        ambiguousSections.push(sec);
+      }
+    });
+
+    if (ambiguousSections.length > 0) {
+      const proceed = confirm(
+        `Notice: Section(s) [${ambiguousSections.join(', ')}] contain ambiguous group markers (e.g. combined G1/G2). Do you wish to confirm and publish all sections anyway?`
+      );
+      if (!proceed) return;
+    }
+
+    setBatchApproving(true);
+    try {
+      await onBatchApprove(parseResult.allSectionLectures, effectiveDate, {
+        semester: resolvedSemester,
+        batch: resolvedBatch,
+        program: resolvedProgram,
+      });
+      toast.success(`Successfully published all ${parseResult.sectionsFound.length} detected sections!`);
+      handleReset();
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Failed to batch publish sections');
+    } finally {
+      setBatchApproving(false);
     }
   }
 
@@ -399,9 +461,71 @@ export function PdfTimetableUploadCard({
               </div>
 
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={handleReset} disabled={approving}>
+                <Button variant="outline" size="sm" onClick={handleReset} disabled={approving || batchApproving}>
                   Reset
                 </Button>
+              </div>
+            </div>
+
+            {/* Academic Scope Configuration & Detection Banner */}
+            <div className="p-4 rounded-2xl bg-white dark:bg-gray-900 border border-blue-100 dark:border-blue-900/40 shadow-sm space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-gray-100 dark:border-gray-800 pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                    Target Academic Scope:
+                  </span>
+                  <Badge variant="default" className="text-[10px] bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border-blue-200">
+                    {parseResult?.detectedSemester ? 'Auto-Detected from PDF' : 'Explicit Selection Required'}
+                  </Badge>
+                </div>
+                <div className="text-[11px] text-gray-500 font-mono">
+                  Target ID: <code className="text-blue-600 font-semibold">{resolvedProgram.toLowerCase()}_{resolvedBatch}_sem{resolvedSemester}_{selectedSection.toLowerCase()}</code>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">
+                    Semester
+                  </label>
+                  <select
+                    value={resolvedSemester}
+                    onChange={(e) => setResolvedSemester(Number(e.target.value))}
+                    className="w-full h-8 text-xs rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 px-2 font-semibold"
+                  >
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
+                      <option key={s} value={s}>
+                        Semester {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">
+                    Admission Batch Year
+                  </label>
+                  <input
+                    type="text"
+                    value={resolvedBatch}
+                    onChange={(e) => setResolvedBatch(e.target.value.trim())}
+                    placeholder="e.g. 2024"
+                    className="w-full h-8 text-xs rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 px-2.5 font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">
+                    Degree Program
+                  </label>
+                  <input
+                    type="text"
+                    value={resolvedProgram}
+                    onChange={(e) => setResolvedProgram(e.target.value.trim().toUpperCase())}
+                    placeholder="BE-CSE"
+                    className="w-full h-8 text-xs rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 px-2.5 font-semibold"
+                  />
+                </div>
               </div>
             </div>
 
@@ -587,19 +711,33 @@ export function PdfTimetableUploadCard({
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={handleReset} disabled={approving}>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button variant="outline" size="sm" onClick={handleReset} disabled={approving || batchApproving}>
                   Dismiss
                 </Button>
                 <Button
                   size="sm"
                   onClick={handleApproveTimetable}
                   loading={approving}
+                  disabled={batchApproving}
                   className="font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
                   <Check className="w-4 h-4 mr-1.5" />
-                  {actionButtonLabel || 'Approve & Update Timetable'}
+                  {actionButtonLabel || `Approve & Update Section ${selectedSection}`}
                 </Button>
+
+                {showMultiSectionPublish && onBatchApprove && parseResult && parseResult.sectionsFound.length > 1 && (
+                  <Button
+                    size="sm"
+                    onClick={handleBatchApproveAllSections}
+                    loading={batchApproving}
+                    disabled={approving}
+                    className="font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                  >
+                    <Layers className="w-4 h-4 mr-1.5" />
+                    Publish All Detected Sections ({parseResult.sectionsFound.length})
+                  </Button>
+                )}
               </div>
             </div>
           </div>

@@ -184,16 +184,18 @@ export function TimetablePage() {
     section: string
   ) {
     if (!currentUser) return;
-    if (!groupParams) {
+    if (!groupParams || !userProfile?.section) {
       toast.error('Please configure your section in Settings first');
       return;
     }
 
-    const targetGroupId = buildSharedGroupId({ ...groupParams, section });
-    const targetGroupLabel = buildSharedGroupLabel({ ...groupParams, section });
+    // Lock student change request submission strictly to their own canonical section
+    const targetSection = normalizeSection(userProfile.section);
+    const targetGroupId = buildSharedGroupId({ ...groupParams, section: targetSection });
+    const targetGroupLabel = buildSharedGroupLabel({ ...groupParams, section: targetSection });
 
     const sharedSlots: SharedSlot[] = lectures.map((l, idx) => ({
-      id: `req_${section.toLowerCase()}_${idx + 1}`,
+      id: `req_${targetSection.toLowerCase()}_${idx + 1}`,
       subjectCode: l.subjectCode,
       subjectName: l.subjectName,
       faculty: l.faculty,
@@ -203,6 +205,9 @@ export function TimetablePage() {
       endTime: l.endTime,
       color: '#3b82f6',
       group: l.group || 'ALL',
+      periods: l.periods,
+      weight: l.weight || (l.periodsSpanned && l.periodsSpanned > 1 ? l.periodsSpanned : 1),
+      durationMinutes: l.durationMinutes,
       requiresReview: l.requiresReview || false,
     }));
 
@@ -218,7 +223,7 @@ export function TimetablePage() {
         program: groupParams.program || 'BE-CSE',
         batch: groupParams.batch || '2024',
         semester: normalizeSemester(groupParams.semester),
-        section: normalizeSection(section),
+        section: targetSection,
         groupId: targetGroupId,
         groupLabel: targetGroupLabel,
         effectiveDate,
@@ -233,7 +238,7 @@ export function TimetablePage() {
       });
 
       toast.success(
-        `Timetable update request submitted for Section ${section}! An administrator will review and publish it.`
+        `Timetable update request submitted for Section ${targetSection}! An administrator will review and publish it.`
       );
       setShowPdfRequestModal(false);
     } catch (err: unknown) {

@@ -42,6 +42,9 @@ export interface SharedSlot {
   endTime: string;   // HH:mm
   color?: string;
   group?: TimetableGroupScope; // 'G1' | 'G2' | 'ALL'
+  periods?: number;
+  weight?: number;
+  durationMinutes?: number;
   requiresReview?: boolean;
 }
 
@@ -213,6 +216,9 @@ export function mergeSharedAndPersonalSlots(
     isActive: true,
     isManual: false,
     group: s.group || 'ALL',
+    periods: s.periods,
+    weight: s.weight,
+    durationMinutes: s.durationMinutes,
     requiresReview: s.requiresReview || false,
     section: groupId ? groupId.split('_').pop() : undefined,
   }));
@@ -235,6 +241,95 @@ export function mergeSharedAndPersonalSlots(
 }
 
 /**
+ * Validates that document identity, group parameters, and slot metadata strictly agree.
+ * Rejects inconsistent payloads with clear errors rather than silently publishing corrupt data.
+ */
+export function validateTimetablePublicationScope(
+  groupParams: TimetableGroupParams,
+  slots: SharedSlot[]
+): { isValid: boolean; error?: string; canonicalGroupId: string; canonicalGroupLabel: string } {
+  if (!groupParams.section || !groupParams.section.trim()) {
+    return {
+      isValid: false,
+      error: 'Section is required to publish a shared timetable.',
+      canonicalGroupId: '',
+      canonicalGroupLabel: '',
+    };
+  }
+
+  const batch = (groupParams.batch || '').toString().trim();
+  if (!batch) {
+    return {
+      isValid: false,
+      error: 'Admission batch year is required and cannot be empty or assumed.',
+      canonicalGroupId: '',
+      canonicalGroupLabel: '',
+    };
+  }
+
+  const rawSem =
+    typeof groupParams.semester === 'number'
+      ? groupParams.semester
+      : typeof groupParams.semester === 'string'
+      ? parseInt(groupParams.semester, 10)
+      : NaN;
+
+  if (isNaN(rawSem) || rawSem < 1 || rawSem > 8) {
+    return {
+      isValid: false,
+      error: `Invalid semester: ${groupParams.semester}. Must be between 1 and 8.`,
+      canonicalGroupId: '',
+      canonicalGroupLabel: '',
+    };
+  }
+
+  const semNum = normalizeSemester(groupParams.semester);
+
+  const canonicalGroupId = buildSharedGroupId(groupParams);
+  const canonicalGroupLabel = buildSharedGroupLabel(groupParams);
+
+  // Validate that canonical groupId embeds the exact target batch, semester, and section
+  const cleanBatch = batch.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const semSlug = `sem${semNum}`;
+  if (!canonicalGroupId.includes(cleanBatch)) {
+    return {
+      isValid: false,
+      error: `Document ID mismatch: Generated ID "${canonicalGroupId}" does not contain batch "${cleanBatch}".`,
+      canonicalGroupId,
+      canonicalGroupLabel,
+    };
+  }
+
+  if (!canonicalGroupId.includes(semSlug)) {
+    return {
+      isValid: false,
+      error: `Document ID mismatch: Generated ID "${canonicalGroupId}" does not contain semester slug "${semSlug}".`,
+      canonicalGroupId,
+      canonicalGroupLabel,
+    };
+  }
+
+  // Validate slots metadata
+  for (let i = 0; i < slots.length; i++) {
+    const s = slots[i];
+    if (!s.subjectCode || !s.startTime || !s.endTime || typeof s.dayOfWeek !== 'number') {
+      return {
+        isValid: false,
+        error: `Slot #${i + 1} has invalid or missing core timetable properties.`,
+        canonicalGroupId,
+        canonicalGroupLabel,
+      };
+    }
+  }
+
+  return {
+    isValid: true,
+    canonicalGroupId,
+    canonicalGroupLabel,
+  };
+}
+
+/**
  * Attempts to publish a shared timetable update to Firestore.
  * Requires publisher authorization; ordinary students will be rejected by security rules.
  */
@@ -245,8 +340,14 @@ export async function publishSharedTimetable(
   slots: SharedSlot[],
   effectiveDate: string
 ): Promise<{ success: boolean; version: number; duplicate: boolean; message: string }> {
-  const groupId = buildSharedGroupId(groupParams);
-  const groupLabel = buildSharedGroupLabel(groupParams);
+  // Preflight validation: Enforce canonical document identity and reject inconsistent scopes
+  const validation = validateTimetablePublicationScope(groupParams, slots);
+  if (!validation.isValid) {
+    throw new Error(`Publish Preflight Validation Failed: ${validation.error}`);
+  }
+
+  const groupId = validation.canonicalGroupId;
+  const groupLabel = validation.canonicalGroupLabel;
   const contentHash = computeTimetableContentHash(slots, effectiveDate);
 
   const docRef = doc(db, 'sharedTimetables', groupId);

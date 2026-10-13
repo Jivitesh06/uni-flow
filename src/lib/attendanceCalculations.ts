@@ -84,9 +84,62 @@ export function filterAttendanceRecordsByGroup<T extends { group?: string | null
 }
 
 /**
+ * Determines the lecture period count and attendance weight from duration/period metadata.
+ *
+ * Rules:
+ * - One-period class: weight 1
+ * - Two-period lab: weight 2
+ * - A continuous lab spanning consecutive periods records as ONE event with weight 2
+ * - If parser/timing cannot determine weight reliably, flags session for review instead of guessing.
+ */
+export function calculateLectureWeight(slot: {
+  startTime?: string;
+  endTime?: string;
+  periods?: number;
+  weight?: number;
+  subjectName?: string;
+  room?: string;
+}): { weight: number; isConfident: boolean; reason?: string } {
+  if (typeof slot.weight === 'number' && slot.weight > 0) {
+    return { weight: slot.weight, isConfident: true };
+  }
+  if (typeof slot.periods === 'number' && slot.periods > 0) {
+    return { weight: slot.periods, isConfident: true };
+  }
+
+  if (slot.startTime && slot.endTime) {
+    const [sh, sm] = slot.startTime.split(':').map(Number);
+    const [eh, em] = slot.endTime.split(':').map(Number);
+    if (!isNaN(sh) && !isNaN(sm) && !isNaN(eh) && !isNaN(em)) {
+      const duration = (eh * 60 + em) - (sh * 60 + sm);
+      if (duration >= 35 && duration <= 65) {
+        return { weight: 1, isConfident: true };
+      }
+      if (duration >= 80 && duration <= 125) {
+        return { weight: 2, isConfident: true };
+      }
+      if (duration >= 135 && duration <= 175) {
+        return { weight: 3, isConfident: true };
+      }
+      if (duration >= 180 && duration <= 245) {
+        return { weight: 4, isConfident: true };
+      }
+      return {
+        weight: 1,
+        isConfident: false,
+        reason: `Non-standard slot duration of ${duration} minutes`,
+      };
+    }
+  }
+
+  return { weight: 1, isConfident: false, reason: 'Timing duration unavailable' };
+}
+
+/**
  * Combines manually configured previous baseline and lecture-by-lecture records without double-counting.
- * Backward compatible with legacy attendanceBaselines documents.
+ * Backward compatible with legacy attendanceBaselines documents and legacy unweighted records.
  * Group-aware: filters out records belonging to other groups when studentGroup is specified.
+ * Weight-aware: correctly accumulates weighted periods for multi-period labs (e.g. 2 periods).
  */
 export function calculateSubjectAttendance(
   subject: {
@@ -95,7 +148,7 @@ export function calculateSubjectAttendance(
     baselineAttended?: number;
     baselineConducted?: number;
   },
-  records: Array<{ status: string; subjectId?: string; group?: string | null }>,
+  records: Array<{ status: string; subjectId?: string; group?: string | null; weight?: number }>,
   target: number = 0.75,
   fallbackBaseline?: { attended?: number; conducted?: number } | null,
   studentGroup?: string | null
@@ -113,8 +166,14 @@ export function calculateSubjectAttendance(
   const baselineConducted = hasBaseline ? Math.max(0, Math.floor(rawBaselineConducted)) : 0;
   const baselineAttended = hasBaseline ? Math.max(0, Math.min(baselineConducted, Math.floor(rawBaselineAttended ?? 0))) : 0;
 
-  const loggedAttended = applicableRecords.filter((r) => r.status === 'present').length;
-  const loggedConducted = applicableRecords.filter((r) => r.status !== 'not_marked' && r.status !== 'cancelled').length;
+  // Accumulate weighted period counts: default to weight 1 if weight is omitted on historical records
+  const loggedAttended = applicableRecords
+    .filter((r) => r.status === 'present')
+    .reduce((sum, r) => sum + (typeof r.weight === 'number' && r.weight > 0 ? r.weight : 1), 0);
+
+  const loggedConducted = applicableRecords
+    .filter((r) => r.status !== 'not_marked' && r.status !== 'cancelled')
+    .reduce((sum, r) => sum + (typeof r.weight === 'number' && r.weight > 0 ? r.weight : 1), 0);
 
   const totalAttended = baselineAttended + loggedAttended;
   const totalConducted = baselineConducted + loggedConducted;

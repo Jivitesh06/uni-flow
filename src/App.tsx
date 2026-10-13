@@ -20,6 +20,7 @@ import { EmailSyncPage } from './pages/EmailSyncPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { AdminRoute } from './components/auth/AdminRoute';
 import { AdminPublishPage } from './pages/AdminPublishPage';
+import { OnboardingPage } from './pages/auth/OnboardingPage';
 import { useAuth } from './contexts/AuthContext';
 
 function RootLandingRoute() {
@@ -80,6 +81,7 @@ export default function App() {
 
             {/* Protected application routes */}
             <Route element={<ProtectedRoute />}>
+              <Route path="/onboarding" element={<OnboardingPage />} />
               <Route element={<AppLayout />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/timetable" element={<TimetablePage />} />

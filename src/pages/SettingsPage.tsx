@@ -32,6 +32,7 @@ import {
   validateSectionLetter,
   formatFullSection,
 } from '../lib/collegeEmail.ts';
+import { validateAcademicProfile } from '../lib/academicProfile.ts';
 import toast from 'react-hot-toast';
 
 export function SettingsPage() {
@@ -73,30 +74,44 @@ export function SettingsPage() {
     '2028';
 
   async function handleSave() {
-    let validatedSection: string;
-    try {
-      validatedSection = validateSectionLetter(section);
-    } catch (err) {
-      toast.error((err as Error).message);
+    const validation = validateAcademicProfile({
+      displayName,
+      email: userProfile?.email || currentUser?.email || '',
+      universityId,
+      semester,
+      section,
+      studentGroup: studentGroup || 'ALL',
+      attendanceTarget: target,
+      college,
+      program: userProfile?.program || 'BE-CSE',
+    });
+
+    if (!validation.isValid || !validation.cleaned) {
+      const firstError = Object.values(validation.errors)[0];
+      toast.error(firstError || 'Please check the highlighted fields');
       return;
     }
+
+    const { cleaned } = validation;
 
     setSaving(true);
     try {
       await updateUserProfile({
-        displayName: displayName.trim(),
-        semester: Number(semester),
-        section: validatedSection,
-        studentGroup: (studentGroup || null) as 'G1' | 'G2' | 'ALL' | null,
-        universityId: universityId.trim(),
-        batch: currentBatch,
-        expectedGraduationYear: Number(currentGradYear),
-        college: college.trim(),
-        attendanceTarget: Number(target),
+        displayName: cleaned.displayName,
+        semester: cleaned.semester,
+        section: cleaned.section,
+        studentGroup: (cleaned.studentGroup === 'ALL' ? null : cleaned.studentGroup),
+        universityId: cleaned.universityId,
+        batch: cleaned.batch,
+        expectedGraduationYear: cleaned.expectedGraduationYear,
+        college: cleaned.college,
+        program: cleaned.program,
+        attendanceTarget: cleaned.attendanceTarget,
       });
       toast.success('Profile settings updated');
-    } catch {
-      toast.error('Failed to update settings');
+    } catch (err: unknown) {
+      const msg = (err as Error).message || 'Failed to update settings';
+      toast.error(msg);
     } finally {
       setSaving(false);
     }

@@ -7,7 +7,8 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import toast from 'react-hot-toast';
 
-import { deriveAcademicYears, normalizeSection, validateSectionLetter } from '../../lib/collegeEmail.ts';
+import { deriveAcademicYears, normalizeSection } from '../../lib/collegeEmail.ts';
+import { validateAcademicProfile } from '../../lib/academicProfile.ts';
 
 export function RegisterPage() {
   const { signUp } = useAuth();
@@ -24,6 +25,7 @@ export function RegisterPage() {
   // Structured Academic Student Details
   const [semester, setSemester] = useState<number>(5);
   const [section, setSection] = useState('A');
+  const [studentGroup, setStudentGroup] = useState<'G1' | 'G2' | 'ALL'>('ALL');
   const [universityId, setUniversityId] = useState('');
 
   async function handleSubmit(e: React.FormEvent) {
@@ -38,33 +40,34 @@ export function RegisterPage() {
       return;
     }
 
-    const trimmedEmail = email.trim().toLowerCase();
-    if (!trimmedEmail.endsWith('@chitkarauniversity.edu.in')) {
-      toast.error('Only @chitkarauniversity.edu.in emails are permitted to register.');
+    const validation = validateAcademicProfile({
+      displayName: name,
+      email,
+      universityId,
+      semester,
+      section,
+      studentGroup,
+    });
+
+    if (!validation.isValid || !validation.cleaned) {
+      const firstError = Object.values(validation.errors)[0];
+      toast.error(firstError || 'Please correct the highlighted fields.');
       return;
     }
 
-    let validatedSection: string;
-    try {
-      validatedSection = validateSectionLetter(section);
-    } catch (err) {
-      toast.error((err as Error).message);
-      return;
-    }
-
-    const trimmedRoll = universityId.trim();
-    const derived = deriveAcademicYears(trimmedRoll, trimmedEmail);
+    const { cleaned } = validation;
 
     setLoading(true);
     try {
-      await signUp(trimmedEmail, password, name, {
-        universityId: trimmedRoll,
-        semester: Number(semester) || 1,
-        section: validatedSection,
-        batch: derived.admissionYear,
-        expectedGraduationYear: derived.expectedGraduationYear,
-        college: 'Chitkara University',
-        program: 'BE-CSE',
+      await signUp(cleaned.email, password, cleaned.displayName, {
+        universityId: cleaned.universityId,
+        semester: cleaned.semester,
+        section: cleaned.section,
+        studentGroup: cleaned.studentGroup,
+        batch: cleaned.batch,
+        expectedGraduationYear: cleaned.expectedGraduationYear,
+        college: cleaned.college,
+        program: cleaned.program,
       });
       toast.success('Account created! A verification email has been sent to your inbox.');
       navigate('/verify-email');
@@ -190,14 +193,39 @@ export function RegisterPage() {
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Section
                 </label>
-                <Input
-                  placeholder="e.g. A"
+                <select
                   value={section}
                   onChange={(e) => setSection(e.target.value)}
-                  maxLength={2}
-                  required
-                />
-                <p className="text-[11px] text-gray-400 mt-1">Enter your section letter only.</p>
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                >
+                  {['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((sec) => (
+                    <option key={sec} value={sec}>
+                      Section {sec}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Lab Group
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {(['G1', 'G2', 'ALL'] as const).map((grp) => (
+                  <button
+                    type="button"
+                    key={grp}
+                    onClick={() => setStudentGroup(grp)}
+                    className={`py-1.5 px-3 text-xs font-semibold rounded-lg border transition ${
+                      studentGroup === grp
+                        ? 'border-blue-600 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-500'
+                        : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300'
+                    }`}
+                  >
+                    {grp === 'ALL' ? 'All Classes' : `Group ${grp}`}
+                  </button>
+                ))}
               </div>
             </div>
             <div>

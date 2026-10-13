@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { GraduationCap } from 'lucide-react';
 
 export function ProtectedRoute() {
-  const { currentUser, isEmailVerified, loading } = useAuth();
+  const { currentUser, userProfile, isEmailVerified, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -31,6 +31,17 @@ export function ProtectedRoute() {
   const verified = Boolean(currentUser.emailVerified || isEmailVerified);
   if (!verified) {
     return <Navigate to="/verify-email" replace />;
+  }
+
+  // If user profile is incomplete, force onboarding unless already on onboarding route
+  const profileComplete = userProfile?.profileCompleted ?? false;
+  if (!profileComplete && location.pathname !== '/onboarding') {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  // If user profile is already complete and they attempt to open /onboarding, redirect to /dashboard
+  if (profileComplete && location.pathname === '/onboarding') {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <Outlet />;

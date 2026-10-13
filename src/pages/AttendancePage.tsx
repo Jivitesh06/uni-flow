@@ -40,6 +40,7 @@ import {
   buildSharedGroupId,
   TimetableGroupParams,
 } from '../lib/sharedTimetable.ts';
+import { isSlotApplicableToStudent } from '../lib/collegeEmail.ts';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -94,8 +95,27 @@ export function AttendancePage() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<'all' | 'at_risk'>('all');
-  const [markingSubjectId, setMarkingSubjectId] = useState<string | null>(null);
+  const [markingKey, setMarkingKey] = useState<string | null>(null);
   const [customDate, setCustomDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
+
+  const studentGroup = userProfile?.studentGroup;
+
+  const targetDateObj = useMemo(() => {
+    const [year, month, day] = customDate.split('-').map(Number);
+    return new Date(year, month - 1, day, 0, 0, 0, 0);
+  }, [customDate]);
+
+  const selectedDayOfWeek = targetDateObj.getDay();
+
+  const scheduledSlotsForDate = useMemo(() => {
+    return effectiveSlots
+      .filter(
+        (s) =>
+          s.dayOfWeek === selectedDayOfWeek &&
+          isSlotApplicableToStudent(s.group, studentGroup)
+      )
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+  }, [effectiveSlots, selectedDayOfWeek, studentGroup]);
 
   // Baseline editing modal state
   const [baselineModalSubject, setBaselineModalSubject] = useState<Subject | null>(null);
@@ -123,8 +143,6 @@ export function AttendancePage() {
     );
     return () => unsub();
   }, [uid]);
-
-  const studentGroup = userProfile?.studentGroup;
 
   // Map each subject to its comprehensive aggregate attendance (group-aware)
   const subjectAggregates = useMemo(() => {
@@ -198,23 +216,27 @@ export function AttendancePage() {
     }
   }
 
-  // Mark attendance for a subject (either today or selected custom date)
-  async function markAttendance(subjectId: string, status: 'present' | 'absent', lectureSlotId?: string) {
-    const [year, month, day] = customDate.split('-').map(Number);
-    const targetDate = new Date(year, month - 1, day, 0, 0, 0, 0);
+  // Mark attendance for a subject session (either today or selected custom date)
+  async function markAttendance(
+    subjectId: string,
+    status: 'present' | 'absent',
+    lectureSlotId?: string,
+    weight?: number,
+    notes?: string
+  ) {
+    const targetDate = targetDateObj;
     const dateTs = Timestamp.fromDate(targetDate);
 
     const sub = allSubjects.find((s) => s.id === subjectId) || allSubjects.find((s) => matchesSubjectRecord(s, subjectId));
 
-    // Prevent duplicate attendance records for the same lecture/date
+    // Prevent duplicate attendance records for the same session/date
     const existing = attendance.find((a) => {
-      if (!matchesSubjectRecord(sub || subjectId, a.subjectId)) return false;
       if (a.date.toDate().toDateString() !== targetDate.toDateString()) return false;
       if (a.status === 'cancelled') return false;
-      if (lectureSlotId && a.lectureSlotId) {
+      if (lectureSlotId) {
         return a.lectureSlotId === lectureSlotId;
       }
-      return !lectureSlotId;
+      return !a.lectureSlotId && matchesSubjectRecord(sub || subjectId, a.subjectId);
     });
 
     if (existing) {
@@ -222,24 +244,32 @@ export function AttendancePage() {
       return;
     }
 
-    setMarkingSubjectId(subjectId);
+    const effectiveWeight = weight && weight >= 1 ? weight : 1;
+    const markKey = lectureSlotId ? `${subjectId}-${lectureSlotId}` : subjectId;
+    setMarkingKey(markKey);
     try {
       await addDoc(collection(db, `users/${uid}/attendance`), {
         uid,
         subjectId: sub?.id || subjectId,
         date: dateTs,
         lectureSlotId: lectureSlotId || null,
+        weight: effectiveWeight,
         status,
+        notes: notes || null,
         group: userProfile?.studentGroup || 'ALL',
         source: 'manual',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
-      toast.success(`Marked ${status} for ${format(targetDate, 'MMM d')}`);
+      toast.success(
+        effectiveWeight > 1
+          ? `Marked ${status} (${effectiveWeight}-period lab, weight ${effectiveWeight}) for ${format(targetDate, 'MMM d')}`
+          : `Marked ${status} for ${format(targetDate, 'MMM d')}`
+      );
     } catch {
       toast.error('Failed to record attendance');
     } finally {
-      setMarkingSubjectId(null);
+      setMarkingKey(null);
     }
   }
 
@@ -372,6 +402,141 @@ export function AttendancePage() {
         </Card>
       )}
 
+      {/* Scheduled Classes for Selected Date */}
+      <Card className="border border-blue-100 dark:border-blue-900/40 shadow-sm overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-blue-50/50 via-indigo-50/30 to-purple-50/20 dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-purple-950/10 pb-3 border-b border-gray-100 dark:border-gray-800">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <CardTitle className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <CalendarIcon className="w-4 h-4 text-blue-600" />
+                Classes Scheduled for {format(targetDateObj, 'EEEE, MMM d')}
+              </CardTitle>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Mark attendance independently per scheduled lecture or lab session
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                {scheduledSlotsForDate.length} {scheduledSlotsForDate.length === 1 ? 'Session' : 'Sessions'}
+              </span>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-4 sm:p-5">
+          {scheduledSlotsForDate.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <p className="text-sm font-medium">No classes scheduled for {format(targetDateObj, 'EEEE')} in your timetable.</p>
+              <p className="text-xs text-gray-400 mt-1">
+                You can still log attendance manually or adjust baseline counts on individual subject cards below.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {scheduledSlotsForDate.map((slot) => {
+                const sessionRecord = attendance.find(
+                  (a) =>
+                    a.date.toDate().toDateString() === targetDateObj.toDateString() &&
+                    a.lectureSlotId === slot.id &&
+                    a.status !== 'cancelled'
+                );
+                const markKey = `${slot.subjectId}-${slot.id}`;
+                const isMarkingThis = markingKey === markKey;
+                const slotWeight = slot.weight && slot.weight > 0 ? slot.weight : 1;
+
+                return (
+                  <div
+                    key={slot.id}
+                    className="p-4 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900/60 shadow-sm flex flex-col justify-between gap-3 relative"
+                    style={{ borderLeft: `4px solid ${slot.color || '#3b82f6'}` }}
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-bold text-sm text-gray-900 dark:text-white leading-tight">
+                            {slot.subjectName}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5 font-mono">{slot.subjectCode}</p>
+                        </div>
+                        {slotWeight > 1 ? (
+                          <Badge variant="warning" className="text-[10px] shrink-0 font-bold">
+                            🔬 Lab ({slotWeight}×)
+                          </Badge>
+                        ) : (
+                          <Badge variant="default" className="text-[10px] shrink-0">
+                            1 Period
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="mt-2.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
+                        <span>⏰ {slot.startTime} – {slot.endTime}</span>
+                        {slot.room && <span>📍 {slot.room}</span>}
+                        {slot.faculty && <span>👤 {slot.faculty}</span>}
+                        {slot.group && slot.group !== 'ALL' && (
+                          <span className="font-semibold text-blue-600 dark:text-blue-400">
+                            Group {slot.group}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+                      {sessionRecord ? (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            {sessionRecord.status === 'present' ? (
+                              <Badge variant="success" className="font-bold text-xs">
+                                <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                                Present {sessionRecord.weight && sessionRecord.weight > 1 ? `(${sessionRecord.weight}×)` : ''}
+                              </Badge>
+                            ) : (
+                              <Badge variant="danger" className="font-bold text-xs">
+                                <XCircle className="w-3.5 h-3.5 mr-1" />
+                                Absent {sessionRecord.weight && sessionRecord.weight > 1 ? `(${sessionRecord.weight}×)` : ''}
+                              </Badge>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => {
+                              setEditingRecord(sessionRecord);
+                              setCorrectionNote(sessionRecord.notes || '');
+                            }}
+                            className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                          >
+                            Correct
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-green-300 dark:border-green-800 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/40 font-bold"
+                            onClick={() => markAttendance(slot.subjectId, 'present', slot.id, slotWeight)}
+                            loading={isMarkingThis}
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Present
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-red-300 dark:border-red-800 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 font-bold"
+                            onClick={() => markAttendance(slot.subjectId, 'absent', slot.id, slotWeight)}
+                            loading={isMarkingThis}
+                          >
+                            <XCircle className="w-3.5 h-3.5 mr-1" /> Absent
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Filter Options */}
       <div className="flex gap-2 flex-wrap items-center justify-between">
         <div className="flex gap-2 flex-wrap items-center">
@@ -474,7 +639,7 @@ export function AttendancePage() {
             };
             const { stats, baselineAttended, baselineConducted, loggedAttended, loggedConducted, totalAttended, totalConducted, hasBaseline } = agg;
             const subAtt = attendance.filter((a) => matchesSubjectRecord(sub, a.subjectId));
-            const isMarking = markingSubjectId === sub.id;
+            const isMarking = markingKey === sub.id;
 
             return (
               <Card
