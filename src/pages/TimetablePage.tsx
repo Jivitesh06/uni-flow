@@ -656,88 +656,6 @@ export function TimetablePage() {
         ))}
 
 
-      {/* Shared Section Schedule Info Banner */}
-      {sharedDoc ? (
-        <div className="bg-gradient-to-r from-blue-600/10 via-blue-500/5 to-transparent border border-blue-200 dark:border-blue-800/60 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
-          <div className="flex items-start gap-3">
-            <div className="p-2.5 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 mt-0.5">
-              <Users className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h4 className="text-sm font-bold text-gray-900 dark:text-white">
-                  Shared Section Schedule
-                </h4>
-                <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold font-mono">
-                  v{sharedDoc.version}
-                </span>
-                <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 font-semibold">
-                  Section {sharedDoc.section}
-                </span>
-                {isOfflineCached && (
-                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 font-semibold">
-                    Offline Cache / Pre-seeded
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 leading-relaxed">
-                {sharedDoc.groupLabel} · Effective: {sharedDoc.effectiveDate || 'Current Semester'} ({sharedDoc.slots.length} departmental lectures)
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 text-xs font-medium">
-            {isOfflineCached ? (
-              <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-amber-500" />
-                <span>Offline / Saved Copy</span>
-              </span>
-            ) : (
-              <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Synced in real-time</span>
-              </span>
-            )}
-          </div>
-        </div>
-      ) : sharedStatus === 'not_published' ? (
-        <div className="bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-sm">
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 mt-0.5">
-              <Users className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="font-bold text-amber-900 dark:text-amber-200">
-                Official Timetable Not Yet Published
-              </p>
-              <p className="text-amber-800 dark:text-amber-300 mt-0.5">
-                No departmental shared timetable has been published yet for Semester {userProfile?.semester || 1} Section {userProfile?.section || 'A'}.
-                You can add personal class slots below or check back once your department office uploads the schedule.
-              </p>
-            </div>
-          </div>
-        </div>
-      ) : sharedStatus === 'invalid_profile' ? (
-        <div className="bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/60 rounded-2xl p-4 flex items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2.5 text-blue-900 dark:text-blue-200">
-            <Users className="w-4 h-4 text-blue-600" />
-            <span>Set your Semester and Section in Settings to link your section's official timetable automatically.</span>
-          </div>
-          <Link to="/settings" className="font-bold text-blue-600 dark:text-blue-400 hover:underline shrink-0">
-            Edit Profile &rarr;
-          </Link>
-        </div>
-      ) : userProfile?.section ? (
-        <div className="bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-800 rounded-2xl p-3 px-4 flex items-center justify-between text-xs text-gray-500">
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-blue-500" />
-            <span>
-              Academic Section: <strong>{userProfile.section}</strong> (Semester {userProfile.semester || 1})
-            </span>
-          </div>
-          <span className="text-[11px] text-gray-400">Personal & Shared views merged</span>
-        </div>
-      ) : null}
-
       {/* Empty State when no slots configured */}
       {!slotsLoading && activeSlots.length === 0 && (
         <div className="text-center py-16 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-8 shadow-sm">
@@ -762,9 +680,6 @@ export function TimetablePage() {
           </div>
         </div>
       )}
-
-      {/* Timetable Visual Legend */}
-      {activeSlots.length > 0 && <TimetableLegend />}
 
       {/* ============================================================== */}
       {/* 1. WEEKLY VIEW                                                 */}

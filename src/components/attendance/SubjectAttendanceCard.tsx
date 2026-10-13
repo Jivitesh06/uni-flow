@@ -86,62 +86,58 @@ export function SubjectAttendanceCard({
   return (
     <Card className="overflow-hidden border border-slate-100 dark:border-slate-800/80 bg-white dark:bg-gray-900 rounded-3xl shadow-sm hover:shadow-md transition-all">
       <CardContent className="p-4 sm:p-5">
-        {/* Main Subject Row matching reference image */}
+        {/* Main Subject Row matching Reference Image 5 */}
         <div
           onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-3.5 sm:gap-4 cursor-pointer select-none"
+          className="flex items-center gap-4 sm:gap-5 cursor-pointer select-none"
         >
-          {/* Mini Progress Ring */}
-          <div className="shrink-0">
+          {/* Larger Progress Ring on Left (approx 90-100px) */}
+          <div className="shrink-0 flex items-center justify-center">
             <AttendanceRing
               percentage={percentage}
-              size={54}
-              strokeWidth={5}
+              size={90}
+              strokeWidth={7.5}
               target={targetPercent}
               status={status}
               showTargetIndicator={false}
-              className="shrink-0"
+              className="shrink-0 drop-shadow-xs"
             />
           </div>
 
-          {/* Subject Titles and Guidance */}
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <h4 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white truncate">
+          {/* Subject Titles, Prominent Ratio, and Guidance on Right */}
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="font-black text-base sm:text-lg text-slate-900 dark:text-white truncate tracking-tight">
                 {subject.code || subject.name}
               </h4>
-              {subject.code && subject.code !== subject.name && (
-                <span className="text-xs text-slate-400 dark:text-slate-500 font-medium truncate hidden sm:inline">
-                  • {subject.name}
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${statusPillClass}`}>
+                  {statusLabel}
                 </span>
-              )}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpanded((p) => !p);
+                  }}
+                  className="p-0.5 text-slate-300 dark:text-slate-600 hover:text-slate-500 transition-colors"
+                  aria-label={expanded ? 'Collapse subject actions' : 'Expand subject actions'}
+                >
+                  {expanded ? <ChevronDown className="w-4 h-4 text-blue-600" /> : <ChevronRight className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
-            <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5">
-              {totalAttended} / {totalConducted} classes
+            {/* Prominent Ratio */}
+            <p className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight leading-none py-0.5">
+              {totalAttended} <span className="text-slate-400 dark:text-slate-500 font-bold text-xs sm:text-sm">/ {totalConducted} classes</span>
             </p>
 
-            <p className={`text-[11px] font-medium mt-0.5 ${guidanceColor} truncate`}>
+            {/* Concise Guidance line */}
+            <p className={`text-xs font-semibold ${guidanceColor} truncate leading-tight`}>
               {guidanceText}
             </p>
-          </div>
-
-          {/* Status Pill & Expand Chevron */}
-          <div className="flex items-center gap-2 shrink-0">
-            <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${statusPillClass}`}>
-              {statusLabel}
-            </span>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setExpanded((p) => !p);
-              }}
-              className="p-1 text-slate-300 dark:text-slate-600 hover:text-slate-500 transition-colors"
-              aria-label={expanded ? 'Collapse subject actions' : 'Expand subject actions'}
-            >
-              {expanded ? <ChevronDown className="w-4 h-4 text-blue-600" /> : <ChevronRight className="w-4 h-4" />}
-            </button>
           </div>
         </div>
 

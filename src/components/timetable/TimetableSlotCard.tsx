@@ -10,6 +10,7 @@ import {
   Users,
   CheckCircle2,
   ChevronRight,
+  Calendar,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { timeToMinutes } from '../../lib/timetableCalculations';
@@ -56,6 +57,11 @@ export function TimetableSlotCard({
     /^(?:Lib|Library|Free Period)$/i.test(slot.subjectCode) ||
     /^(?:Lib|Library|Free Period)$/i.test(slot.subjectName);
 
+  const diffMins = isToday && startMins > currentMinutes ? startMins - currentMinutes : 0;
+  const countdownText = diffMins > 0
+    ? `In ${Math.floor(diffMins / 60) > 0 ? `${Math.floor(diffMins / 60)}h ` : ''}${diffMins % 60}m`
+    : 'Starts soon';
+
   // Agenda / Daily view matching reference image
   if (viewMode === 'agenda') {
     return (
@@ -77,7 +83,7 @@ export function TimetableSlotCard({
               isNow
                 ? 'bg-emerald-500 border-white ring-2 ring-emerald-500 shadow-sm animate-pulse'
                 : isPast
-                ? 'bg-slate-300 dark:bg-slate-700 border-white dark:border-slate-900'
+                ? 'bg-emerald-500 border-white dark:border-slate-900 ring-1 ring-emerald-500/30'
                 : isNextClass
                 ? 'bg-blue-600 border-white ring-2 ring-blue-500 shadow-sm'
                 : 'bg-blue-400 border-white dark:border-slate-900'
@@ -105,7 +111,7 @@ export function TimetableSlotCard({
                 Next Class
               </span>
               <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">
-                Starts soon
+                {countdownText}
               </span>
             </div>
           )}
@@ -181,7 +187,7 @@ export function TimetableSlotCard({
                   type="button"
                   className="w-full h-9 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all"
                 >
-                  Mark Attendance <ChevronRight className="w-4 h-4" />
+                  <Calendar className="w-3.5 h-3.5 mr-0.5" /> Mark Attendance <ChevronRight className="w-4 h-4" />
                 </button>
               </Link>
             </div>

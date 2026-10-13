@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
@@ -19,14 +19,19 @@ export function AppLayout() {
   const { pathname } = useLocation();
   const title = titles[pathname] ?? 'UniFlow';
 
+  // Reset scroll position to top on page navigation
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [pathname]);
+
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen min-h-[100dvh] flex flex-col lg:flex-row lg:h-screen lg:overflow-hidden bg-gray-50 dark:bg-gray-950">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="flex flex-col flex-1 min-w-0 lg:ml-64">
+      <div className="flex flex-col flex-1 min-w-0 lg:ml-64 min-h-screen min-h-[100dvh] lg:min-h-0">
         <OfflineBanner />
         <TopBar onMenuClick={() => setSidebarOpen(true)} title={title} />
-        {/* pb-24 ensures mobile content is not covered by the fixed bottom navigation bar */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 pb-24 lg:pb-8">
+        {/* pb-28 ensures mobile content is not covered by the fixed bottom navigation bar and allows fluid upward swipe */}
+        <main className="flex-1 p-4 md:p-6 lg:p-8 pb-28 lg:pb-8 lg:overflow-y-auto overscroll-y-contain">
           <Outlet />
         </main>
         <BottomNav />

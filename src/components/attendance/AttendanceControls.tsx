@@ -33,45 +33,7 @@ export function AttendanceControls({
 
   return (
     <div className="space-y-3">
-      {/* Search Input & Sort Row */}
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <Input
-            type="text"
-            placeholder="Search subjects..."
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-9 pr-8 text-xs bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 rounded-2xl h-10 shadow-sm"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => onSearchChange('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              title="Clear search"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl px-3 h-10 shadow-sm text-xs shrink-0">
-          <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-          <select
-            value={sortMode}
-            onChange={(e) => onSortChange(e.target.value as AttendanceSortType)}
-            className="bg-transparent font-semibold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer pr-1 text-xs"
-          >
-            <option value="lowest">Lowest %</option>
-            <option value="highest">Highest %</option>
-            <option value="name">Name</option>
-            <option value="classes">Classes</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Filter Chips matching the Reference Image */}
+      {/* Filter Chips matching Reference Image 5 directly below the Overview */}
       <div className="flex items-center gap-2 flex-wrap">
         {/* All (N) */}
         <button
@@ -111,6 +73,44 @@ export function AttendanceControls({
         >
           Below 75% ({counts.shortage})
         </button>
+      </div>
+
+      {/* Search Input & Sort Row */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Input
+            type="text"
+            placeholder="Search subjects..."
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="pl-9 pr-8 text-xs bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 rounded-2xl h-9 shadow-sm"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => onSearchChange('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              title="Clear search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl px-3 h-9 shadow-sm text-xs shrink-0">
+          <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          <select
+            value={sortMode}
+            onChange={(e) => onSortChange(e.target.value as AttendanceSortType)}
+            className="bg-transparent font-semibold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer pr-1 text-xs"
+          >
+            <option value="lowest">Lowest %</option>
+            <option value="highest">Highest %</option>
+            <option value="name">Name</option>
+            <option value="classes">Classes</option>
+          </select>
+        </div>
       </div>
     </div>
   );

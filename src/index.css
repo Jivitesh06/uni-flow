@@ -14,4 +14,13 @@
 }
 
 * { box-sizing: border-box; }
-body { @apply bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 font-sans; }
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  @apply bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 font-sans;
+  min-height: 100%;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: none;
+}
