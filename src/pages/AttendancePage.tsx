@@ -644,9 +644,9 @@ export function AttendancePage() {
           <p className="text-xs text-gray-500 max-w-sm mx-auto mb-5 leading-relaxed">
             Add your semester subjects to start tracking lecture attendance, setting historical baselines, and monitoring minimum targets.
           </p>
-          <Link to="/subjects">
+          <Link to="/timetable">
             <Button size="sm">
-              Add Your First Subject <ArrowRight className="w-4 h-4 ml-1.5" />
+              Set Up Timetable Schedule <ArrowRight className="w-4 h-4 ml-1.5" />
             </Button>
           </Link>
         </div>

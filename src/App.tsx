@@ -85,10 +85,10 @@ export default function App() {
               <Route element={<AppLayout />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/timetable" element={<TimetablePage />} />
-                <Route path="/subjects" element={<SubjectsPage />} />
+                <Route path="/subjects" element={<Navigate to="/attendance" replace />} />
                 <Route path="/attendance" element={<AttendancePage />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
-                <Route path="/email-sync" element={<EmailSyncPage />} />
+                <Route path="/email-sync" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/settings" element={<SettingsPage />} />
 
                 {/* Protected Admin Publishing Console */}

@@ -127,7 +127,12 @@ export function TimetablePage() {
 
   type GroupFilter = 'my' | 'all' | 'G1' | 'G2';
   const [groupFilter, setGroupFilter] = useState<GroupFilter>('my');
-  const [view, setView] = useState<'weekly' | 'daily'>('weekly');
+  const [view, setView] = useState<'weekly' | 'daily'>(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      return 'daily';
+    }
+    return 'weekly';
+  });
   const [selectedDay, setSelectedDay] = useState(() => new Date().getDay());
   const [showForm, setShowForm] = useState(false);
   const [editSlot, setEditSlot] = useState<TimetableSlot | null>(null);
@@ -625,33 +630,6 @@ export function TimetablePage() {
           </div>
         ))}
 
-      {/* Pending Weekly Revisions Notification */}
-      {pendingRevisions.length > 0 && (
-        <div className="bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent border border-amber-300 dark:border-amber-700/60 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
-          <div className="flex items-start gap-3">
-            <div className="p-2.5 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 mt-0.5">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                Weekly Timetable Revision Pending Review
-                <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200 font-bold">
-                  {pendingRevisions.length} new
-                </span>
-              </h4>
-              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 leading-relaxed">
-                Found schedule revisions in your college email attachments ({pendingRevisions[0].weekLabel || 'Weekly Update'}). Review added, cancelled, or shifted classes before updating.
-              </p>
-            </div>
-          </div>
-          <Link to="/email-sync" className="w-full sm:w-auto">
-            <Button size="sm" className="w-full sm:w-auto whitespace-nowrap bg-amber-600 hover:bg-amber-700 text-white font-semibold">
-              Review Changes
-              <ArrowRight className="w-4 h-4 ml-1.5" />
-            </Button>
-          </Link>
-        </div>
-      )}
 
       {/* Shared Section Schedule Info Banner */}
       {sharedDoc ? (

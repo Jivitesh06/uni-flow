@@ -1,5 +1,5 @@
-import React from 'react';
-import { Bell, BellOff, BellRing, Volume2, ShieldAlert, Sparkles, Check } from 'lucide-react';
+import { useState } from 'react';
+import { Bell, BellOff, BellRing, Volume2, ShieldAlert, X } from 'lucide-react';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -21,11 +21,17 @@ export function ClassReminderBanner({ reminder, variant = 'banner' }: ClassRemin
     sendTestReminder,
   } = reminder;
 
-  const { nextSlot, formattedCountdown, minutesUntilStart, isWithin10MinWindow } = nextReminderState;
+  const { nextSlot, formattedCountdown, isWithin10MinWindow } = nextReminderState;
 
+  const [dismissed, setDismissed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('uniflow_dismiss_reminder_prompt') === 'true';
+  });
+
+  // Actionable alert: Reminders are blocked in the browser
   if (permission === 'denied') {
     return (
-      <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
+      <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
         <div className="flex items-start gap-3">
           <ShieldAlert className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
           <div>
@@ -33,7 +39,7 @@ export function ClassReminderBanner({ reminder, variant = 'banner' }: ClassRemin
               Class Reminders are blocked in your browser
             </p>
             <p className="text-amber-700 dark:text-amber-400 mt-0.5 leading-relaxed">
-              To receive 10-minute class alerts with sound, tap the <strong>site info/lock icon</strong> in your browser address bar and set <strong>Notifications to Allow</strong>.
+              To receive 10-minute class alerts, tap the lock icon in your address bar and set <strong>Notifications to Allow</strong>.
             </p>
           </div>
         </div>
@@ -42,7 +48,7 @@ export function ClassReminderBanner({ reminder, variant = 'banner' }: ClassRemin
           size="sm"
           onClick={sendTestReminder}
           disabled={isTestingSound}
-          className="whitespace-nowrap font-semibold border-amber-300 text-amber-800 dark:text-amber-300"
+          className="whitespace-nowrap font-semibold border-amber-300 text-amber-800 dark:text-amber-300 h-8 text-xs shrink-0"
         >
           <Volume2 className="w-3.5 h-3.5 mr-1.5" /> Test Sound Only
         </Button>
@@ -50,51 +56,68 @@ export function ClassReminderBanner({ reminder, variant = 'banner' }: ClassRemin
     );
   }
 
+  // Permission not yet requested: show non-intrusive dismissible prompt if not dismissed
   if (permission === 'default') {
+    if (variant === 'banner' && dismissed) {
+      return null;
+    }
+
     return (
-      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-start gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center flex-shrink-0">
-            <BellRing className="w-5 h-5 text-white animate-bounce" />
+      <div className="relative p-4 rounded-2xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 text-blue-950 dark:text-blue-100 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5">
+        <div className="flex items-start gap-3 pr-6 sm:pr-0">
+          <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center flex-shrink-0">
+            <BellRing className="w-4 h-4" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h4 className="font-bold text-sm">Smart Class Reminders</h4>
-              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-white/25">
-                10 Mins Before
-              </span>
-            </div>
-            <p className="text-xs text-blue-100 mt-1 max-w-lg">
-              Receive a phone chime and notification 10 minutes before every scheduled class, even when the tab is in the background.
+            <h4 className="font-bold text-xs sm:text-sm text-blue-900 dark:text-white">
+              Get Class Reminders
+            </h4>
+            <p className="text-xs text-blue-700 dark:text-blue-300 mt-0.5 max-w-lg leading-relaxed">
+              Receive a melodic chime and notification 10 minutes before every scheduled class.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 shrink-0">
           <Button
-            variant="secondary"
             size="sm"
             onClick={requestPermission}
-            className="bg-white text-blue-600 hover:bg-blue-50 font-bold whitespace-nowrap shadow-sm"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs h-8 whitespace-nowrap shadow-sm"
           >
-            <Bell className="w-3.5 h-3.5 mr-1.5 text-blue-600" /> Enable Reminders
+            <Bell className="w-3.5 h-3.5 mr-1.5" /> Turn On
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={sendTestReminder}
             disabled={isTestingSound}
-            className="border-white/30 text-white hover:bg-white/10 font-semibold whitespace-nowrap"
+            className="border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 font-semibold text-xs h-8 whitespace-nowrap"
             title="Preview the audio chime without permissions"
           >
-            <Volume2 className="w-3.5 h-3.5 mr-1.5" /> Test Sound
+            <Volume2 className="w-3.5 h-3.5 mr-1" /> Test Sound
           </Button>
+
+          {variant === 'banner' && (
+            <button
+              type="button"
+              onClick={() => {
+                setDismissed(true);
+                localStorage.setItem('uniflow_dismiss_reminder_prompt', 'true');
+              }}
+              className="absolute top-2.5 right-2.5 sm:static p-1 rounded-lg text-blue-400 hover:text-blue-700 dark:hover:text-blue-200"
+              aria-label="Dismiss reminder prompt"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
     );
   }
 
-  // Permission is GRANTED
+  // Permission is GRANTED:
+  // Inside Settings (variant === 'card'), show settings management card.
+  // On the Dashboard (variant === 'banner'), DO NOT show a permanent banner!
   if (variant === 'card') {
     return (
       <Card className="border-emerald-100 dark:border-emerald-950/60 shadow-sm">
@@ -156,46 +179,6 @@ export function ClassReminderBanner({ reminder, variant = 'banner' }: ClassRemin
     );
   }
 
-  // Default compact banner when granted
-  return (
-    <div className="p-3.5 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-900/40 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center flex-shrink-0">
-          <Check className="w-4 h-4" />
-        </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-emerald-900 dark:text-emerald-200">
-              10-Minute Class Reminders Active
-            </span>
-            <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-200/60 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300">
-              Chime + Push
-            </span>
-          </div>
-          {nextSlot ? (
-            <p className="text-emerald-700 dark:text-emerald-400 mt-0.5">
-              Next alert for <strong>{nextSlot.subjectName}</strong> ({nextSlot.startTime}) in{' '}
-              <strong className="font-mono">{formattedCountdown}</strong>
-            </p>
-          ) : (
-            <p className="text-emerald-700/80 dark:text-emerald-400/80 mt-0.5">
-              All classes completed for today. Tomorrow's classes will alert on schedule.
-            </p>
-          )}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2 self-end sm:self-auto">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={sendTestReminder}
-          disabled={isTestingSound}
-          className="text-xs font-semibold border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100/50"
-        >
-          <Volume2 className="w-3.5 h-3.5 mr-1.5 text-emerald-600" /> Send Test Reminder
-        </Button>
-      </div>
-    </div>
-  );
+  // When granted and variant === 'banner', return null to prevent permanent clutter on the dashboard
+  return null;
 }

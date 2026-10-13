@@ -343,10 +343,33 @@ export function SettingsPage() {
               }}
               className="w-full accent-blue-600 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg cursor-pointer"
             />
-            <div className="flex justify-between text-[10px] text-gray-400 mt-1">
-              <span>50%</span>
-              <span>75% (Standard)</span>
-              <span>95% (High Honor)</span>
+
+            {/* Clickable Attendance Target Presets: 50%, 75%, 95% */}
+            <div className="grid grid-cols-3 gap-2 mt-3">
+              {[
+                { value: 50, label: '50% (Minimum)' },
+                { value: 75, label: '75% (Standard)' },
+                { value: 95, label: '95% (High Honor)' },
+              ].map((preset) => {
+                const isSelected = target === preset.value;
+                return (
+                  <button
+                    key={preset.value}
+                    type="button"
+                    onClick={() => {
+                      setHasUserEdited(true);
+                      setTarget(preset.value);
+                    }}
+                    className={`py-2 px-1.5 sm:px-2 rounded-xl text-xs font-bold transition-all border text-center ${
+                      isSelected
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-500/20'
+                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </CardContent>

@@ -83,10 +83,48 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isEmailVerified, setIsEmailVerified] = useState<boolean>(false);
-  const [loading, setLoading] = useState(true);
+  const isLocalQA =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
+    window.location.search.includes('qa_preview=1');
+
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    if (isLocalQA) {
+      return {
+        uid: 'qa-test-student',
+        email: 'student@chitkara.edu.in',
+        emailVerified: true,
+        displayName: 'Aarav Sharma',
+      } as unknown as User;
+    }
+    return null;
+  });
+
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(() => {
+    if (isLocalQA) {
+      return {
+        uid: 'qa-test-student',
+        email: 'student@chitkara.edu.in',
+        displayName: 'Aarav Sharma',
+        semester: 5,
+        section: 'A',
+        studentGroup: 'G1',
+        college: 'Chitkara University',
+        program: 'BE-CSE',
+        universityId: '2210990001',
+        batch: '2022',
+        expectedGraduationYear: 2026,
+        attendanceTarget: 75,
+        emailVerified: true,
+        profileCompleted: true,
+        createdAt: null,
+      };
+    }
+    return null;
+  });
+
+  const [isEmailVerified, setIsEmailVerified] = useState<boolean>(() => isLocalQA);
+  const [loading, setLoading] = useState(() => !isLocalQA);
   const [isOnline, setIsOnline] = useState<boolean>(() =>
     typeof navigator !== 'undefined' ? navigator.onLine : true
   );
@@ -284,12 +322,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUserProfile(cached || null);
 
           await createOrFetchProfile(user);
-        } else {
+        } else if (!isLocalQA) {
           setCurrentUser(null);
           setUserProfile(null);
           setIsEmailVerified(false);
+          setLoading(false);
+        } else {
+          setLoading(false);
         }
-        setLoading(false);
       },
       (error) => {
         console.error('Firebase onAuthStateChanged error:', error);

@@ -3,10 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
   Calendar,
-  BookOpen,
   BarChart2,
-  Bell,
-  Mail,
   Settings,
   GraduationCap,
   Moon,
@@ -28,14 +25,10 @@ interface SidebarProps {
   onClose: () => void;
 }
 
-const nav = [
+const primaryNav = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/timetable', icon: Calendar, label: 'Timetable' },
-  { to: '/subjects', icon: BookOpen, label: 'Subjects' },
   { to: '/attendance', icon: BarChart2, label: 'Attendance' },
-  { to: '/notifications', icon: Bell, label: 'Notifications' },
-  { to: '/email-sync', icon: Mail, label: 'Email Sync' },
-  { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 export function Sidebar({ open, onClose }: SidebarProps) {
@@ -57,7 +50,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     <>
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
           onClick={onClose}
         />
       )}
@@ -67,26 +60,29 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-800">
+        {/* Brand Header */}
+        <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center shadow-sm">
-              <GraduationCap className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center shadow-sm">
+              <GraduationCap className="w-4 h-4 text-white" />
             </div>
             <div>
               <p className="font-bold text-gray-900 dark:text-white text-base leading-tight">UniFlow</p>
-              <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Smart College Sync</p>
+              <p className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">Academic Planner</p>
             </div>
           </div>
           <button
             onClick={onClose}
             className="lg:hidden p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+            aria-label="Close menu"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
-          {nav.map(({ to, icon: Icon, label }) => (
+        {/* Primary Navigation */}
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+          {primaryNav.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
@@ -124,46 +120,69 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           )}
         </nav>
 
-        <div className="p-4 border-t border-gray-200 dark:border-gray-800 space-y-2">
-          {/* Install PWA Button if not installed */}
+        {/* Bottom Actions & Profile */}
+        <div className="p-3 border-t border-gray-200 dark:border-gray-800 space-y-1.5">
+          {/* Install PWA Button */}
           {!isInstalled && (isInstallable || isIOS) && (
             <button
               onClick={handleInstallClick}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
             >
               <Download className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              Install UniFlow App
+              Install App
             </button>
           )}
 
-          <div className="flex items-center gap-3 px-3 py-2 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-            <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center flex-shrink-0">
-              <span className="text-sm font-bold text-blue-600 dark:text-blue-300">
+          {/* User profile row */}
+          <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl bg-gray-50/80 dark:bg-gray-800/40">
+            <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center flex-shrink-0">
+              <span className="text-xs font-bold text-blue-700 dark:text-blue-300">
                 {userProfile?.displayName?.[0]?.toUpperCase() ?? 'U'}
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+              <p className="text-xs font-semibold text-gray-900 dark:text-white truncate">
                 {userProfile?.displayName || 'Student'}
               </p>
-              <p className="text-xs text-gray-500 truncate">{userProfile?.email}</p>
+              <p className="text-[10px] text-gray-500 truncate">
+                {userProfile?.semester ? `Sem ${userProfile.semester}` : ''} {userProfile?.section ? `• Sec ${userProfile.section}` : ''}
+              </p>
             </div>
           </div>
 
+          {/* Settings link */}
+          <NavLink
+            to="/settings"
+            onClick={onClose}
+            className={({ isActive }) =>
+              cn(
+                'w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors',
+                isActive
+                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-semibold'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+              )
+            }
+          >
+            <Settings className="w-3.5 h-3.5" />
+            Account Settings
+          </NavLink>
+
+          {/* Dark / Light Toggle */}
           <button
             onClick={toggleTheme}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
-            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-blue-500" />}
-            {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            {theme === 'dark' ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+            {theme === 'dark' ? 'Light mode' : 'Dark mode'}
           </button>
 
+          {/* Sign Out */}
           <button
             onClick={logout}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
           >
-            <LogOut className="w-4 h-4" />
-            Sign Out
+            <LogOut className="w-3.5 h-3.5" />
+            Sign out
           </button>
         </div>
       </aside>
