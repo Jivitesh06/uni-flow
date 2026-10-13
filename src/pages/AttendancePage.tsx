@@ -275,6 +275,43 @@ export function AttendancePage() {
     }
   }
 
+  /**
+   * For a given subject (on the selected date), finds the earliest scheduled
+   * session that has NOT yet been marked (no non-cancelled attendance record
+   * with that session's slot ID for the target date).
+   *
+   * If all scheduled sessions are already marked, returns null.
+   * If no scheduled sessions exist for that subject, returns null (legacy path).
+   */
+  function resolveNextUnmarkedSlotForSubject(
+    subjectId: string
+  ): { slot: TimetableSlot; weight: number } | null {
+    const slotsForSubject = scheduledSlotsForDate.filter(
+      (s) =>
+        s.subjectId === subjectId ||
+        matchesSubjectRecord(
+          allSubjects.find((sub) => sub.id === subjectId) || subjectId,
+          s.subjectId,
+          resolutionContext
+        )
+    );
+    if (slotsForSubject.length === 0) return null;
+
+    for (const slot of slotsForSubject) {
+      const alreadyMarked = attendance.some(
+        (a) =>
+          a.lectureSlotId === slot.id &&
+          a.date.toDate().toDateString() === targetDateObj.toDateString() &&
+          a.status !== 'cancelled'
+      );
+      if (!alreadyMarked) {
+        return { slot, weight: slot.weight && slot.weight > 0 ? slot.weight : 1 };
+      }
+    }
+    // All sessions for this subject on this date are already marked
+    return null;
+  }
+
   // Attendance correction workflow
   async function handleCorrection(recordId: string, newStatus: 'present' | 'absent' | 'cancelled') {
     try {
@@ -641,7 +678,9 @@ export function AttendancePage() {
             };
             const { stats, baselineAttended, baselineConducted, loggedAttended, loggedConducted, totalAttended, totalConducted, hasBaseline } = agg;
             const subAtt = attendance.filter((a) => matchesSubjectRecord(sub, a.subjectId));
-            const isMarking = markingKey === sub.id;
+            const isMarking =
+              markingKey === sub.id ||
+              (markingKey?.startsWith(`${sub.id}-`) ?? false);
 
             return (
               <Card
@@ -765,7 +804,22 @@ export function AttendancePage() {
                       variant="outline"
                       size="sm"
                       className="flex-1 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/50 font-bold"
-                      onClick={() => markAttendance(sub.id, 'present')}
+                      onClick={() => {
+                        const next = resolveNextUnmarkedSlotForSubject(sub.id);
+                        if (next) {
+                          markAttendance(next.slot.subjectId || sub.id, 'present', next.slot.id, next.weight);
+                        } else {
+                          const hasScheduled = scheduledSlotsForDate.some((s) =>
+                            matchesSubjectRecord(sub, s.subjectId, resolutionContext)
+                          );
+                          if (hasScheduled) {
+                            toast.error('All scheduled sessions for this date are already marked. Use Correct to edit.');
+                          } else {
+                            // No scheduled session on this day — legacy unlinked mark
+                            markAttendance(sub.id, 'present');
+                          }
+                        }
+                      }}
                       loading={isMarking}
                     >
                       <CheckCircle2 className="w-4 h-4 mr-1.5" /> Present
@@ -774,7 +828,22 @@ export function AttendancePage() {
                       variant="outline"
                       size="sm"
                       className="flex-1 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 font-bold"
-                      onClick={() => markAttendance(sub.id, 'absent')}
+                      onClick={() => {
+                        const next = resolveNextUnmarkedSlotForSubject(sub.id);
+                        if (next) {
+                          markAttendance(next.slot.subjectId || sub.id, 'absent', next.slot.id, next.weight);
+                        } else {
+                          const hasScheduled = scheduledSlotsForDate.some((s) =>
+                            matchesSubjectRecord(sub, s.subjectId, resolutionContext)
+                          );
+                          if (hasScheduled) {
+                            toast.error('All scheduled sessions for this date are already marked. Use Correct to edit.');
+                          } else {
+                            // No scheduled session on this day — legacy unlinked mark
+                            markAttendance(sub.id, 'absent');
+                          }
+                        }
+                      }}
                       loading={isMarking}
                     >
                       <XCircle className="w-4 h-4 mr-1.5" /> Absent
