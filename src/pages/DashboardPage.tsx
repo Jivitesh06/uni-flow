@@ -19,7 +19,7 @@ import {
   buildTimetableSubjectEquivalenceMap,
   matchesSubjectRecord,
 } from '../lib/attendanceCalculations';
-import { calculateLiveClassState } from '../lib/timetableCalculations';
+import { calculateLiveClassState, calculateDailySlotSessionNumber } from '../lib/timetableCalculations';
 import { getGreeting } from '../lib/greeting';
 import { LiveClassCard } from '../components/timetable/LiveClassCard';
 import { useSharedTimetable } from '../hooks/useSharedTimetable';
@@ -364,6 +364,8 @@ export function DashboardPage() {
                     a.status === 'present'
                 );
 
+                const sessionInfo = calculateDailySlotSessionNumber(slot, todaySlots);
+
                 return (
                   <div key={slot.id} className="flex items-center gap-3 relative">
                     {/* Status node */}
@@ -377,11 +379,18 @@ export function DashboardPage() {
 
                     {/* Class Details */}
                     <div className="min-w-0 flex-1 flex items-center justify-between gap-2">
-                      <div>
-                        <p className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
-                          {slot.subjectCode || slot.subjectName}
-                        </p>
-                        <p className="text-[11px] text-slate-400 font-medium truncate">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
+                            {slot.subjectCode || slot.subjectName}
+                          </p>
+                          {sessionInfo && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                              L{sessionInfo.sessionNumber}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
                           {slot.startTime} – {slot.endTime}
                           {slot.room ? ` • ${slot.room}` : ''}
                         </p>

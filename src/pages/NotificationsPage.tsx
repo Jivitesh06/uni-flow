@@ -1,9 +1,11 @@
 import { Bell, Check, Trash2, AlertTriangle, Calendar, Mail } from 'lucide-react';
 import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { useState } from 'react';
 import { format } from 'date-fns';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useCollection } from '../hooks/useFirestore';
+import { markNotificationDismissed } from '../lib/classReminderScheduler';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -14,6 +16,8 @@ export function NotificationsPage() {
   const { currentUser } = useAuth();
   const uid = currentUser?.uid ?? '';
   const { data: notifications } = useCollection<Notification>(`users/${uid}/notifications`);
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
 
   async function markRead(id: string) {
     try {
@@ -24,11 +28,27 @@ export function NotificationsPage() {
   }
 
   async function deleteNotif(id: string) {
+    if (!uid || deletingIds.has(id)) return;
+    setDeletingIds((prev) => new Set(prev).add(id));
+    setHiddenIds((prev) => new Set(prev).add(id));
+    markNotificationDismissed(id, uid);
+
     try {
       await deleteDoc(doc(db, `users/${uid}/notifications/${id}`));
       toast.success('Notification removed');
     } catch {
+      setHiddenIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
       toast.error('Failed to delete notification');
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   }
 
@@ -37,6 +57,8 @@ export function NotificationsPage() {
     const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
     return timeB - timeA;
   });
+
+  const visibleNotifications = sorted.filter((n) => !hiddenIds.has(n.id));
 
   const typeConfig: Record<
     string,
@@ -52,11 +74,11 @@ export function NotificationsPage() {
     <div className="space-y-6 max-w-4xl mx-auto">
       <div>
         <p className="text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400">
-          Timetable updates, attendance alerts, and reminder feeds ({sorted.filter((n) => !n.read).length} unread)
+          Timetable updates, attendance alerts, and reminder feeds ({visibleNotifications.filter((n) => !n.read).length} unread)
         </p>
       </div>
 
-      {sorted.length === 0 ? (
+      {visibleNotifications.length === 0 ? (
         <div className="text-center py-20 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800">
           <Bell className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">No notifications</h3>
@@ -64,7 +86,7 @@ export function NotificationsPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {sorted.map((n) => {
+          {visibleNotifications.map((n) => {
             const cfg = typeConfig[n.type] ?? { label: n.type, variant: 'info' as const, icon: Bell };
             const Icon = cfg.icon;
 
@@ -119,9 +141,10 @@ export function NotificationsPage() {
                       variant="ghost"
                       size="sm"
                       onClick={() => deleteNotif(n.id)}
+                      disabled={deletingIds.has(n.id)}
                       title="Delete notification"
                     >
-                      <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-500" />
+                      <Trash2 className={`w-4 h-4 ${deletingIds.has(n.id) ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-red-500'}`} />
                     </Button>
                   </div>
                 </CardContent>

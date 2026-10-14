@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCollection } from '../../hooks/useFirestore';
+import { markNotificationDismissed } from '../../lib/classReminderScheduler';
 import { Badge } from '../ui/badge';
 import toast from 'react-hot-toast';
 import type { Notification } from '../../types';
@@ -14,6 +15,8 @@ export function NotificationPopover() {
   const uid = currentUser?.uid ?? '';
   const { data: notifications } = useCollection<Notification>(`users/${uid}/notifications`);
   const [isOpen, setIsOpen] = useState(false);
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Close on click outside or Escape
@@ -42,7 +45,8 @@ export function NotificationPopover() {
     return timeB - timeA;
   });
 
-  const unreadCount = sorted.filter((n) => !n.read).length;
+  const visibleNotifications = sorted.filter((n) => !hiddenIds.has(n.id));
+  const unreadCount = visibleNotifications.filter((n) => !n.read).length;
 
   async function markRead(id: string) {
     if (!uid) return;
@@ -57,7 +61,7 @@ export function NotificationPopover() {
     if (!uid) return;
     try {
       const batch = writeBatch(db);
-      const unreadList = sorted.filter((n) => !n.read);
+      const unreadList = visibleNotifications.filter((n) => !n.read);
       unreadList.forEach((n) => {
         batch.update(doc(db, `users/${uid}/notifications/${n.id}`), { read: true });
       });
@@ -69,12 +73,27 @@ export function NotificationPopover() {
   }
 
   async function deleteNotif(id: string) {
-    if (!uid) return;
+    if (!uid || deletingIds.has(id)) return;
+    setDeletingIds((prev) => new Set(prev).add(id));
+    setHiddenIds((prev) => new Set(prev).add(id));
+    markNotificationDismissed(id, uid);
+
     try {
       await deleteDoc(doc(db, `users/${uid}/notifications/${id}`));
       toast.success('Notification removed');
     } catch {
+      setHiddenIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
       toast.error('Failed to remove notification');
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   }
 
@@ -142,14 +161,14 @@ export function NotificationPopover() {
 
           {/* List */}
           <div className="overflow-y-auto max-h-[60vh] divide-y divide-gray-100 dark:divide-gray-800">
-            {sorted.length === 0 ? (
+            {visibleNotifications.length === 0 ? (
               <div className="text-center py-10 px-4">
                 <Bell className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
                 <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">No notifications</p>
                 <p className="text-[11px] text-gray-400 mt-0.5">You're all caught up with your classes!</p>
               </div>
             ) : (
-              sorted.slice(0, 15).map((n) => {
+              visibleNotifications.slice(0, 15).map((n) => {
                 const cfg = typeConfig[n.type] ?? {
                   label: n.type,
                   variant: 'info' as const,
@@ -211,7 +230,12 @@ export function NotificationPopover() {
                       <button
                         type="button"
                         onClick={() => deleteNotif(n.id)}
-                        className="p-1 rounded text-gray-400 hover:text-red-500"
+                        disabled={deletingIds.has(n.id)}
+                        className={`p-1 rounded transition-colors ${
+                          deletingIds.has(n.id)
+                            ? 'text-gray-300 cursor-not-allowed'
+                            : 'text-gray-400 hover:text-red-500'
+                        }`}
                         title="Delete notification"
                       >
                         <Trash2 className="w-3.5 h-3.5" />

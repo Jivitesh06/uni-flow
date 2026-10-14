@@ -70,7 +70,7 @@ export function useClassReminder(
       result.nextSlot &&
       result.isWithin10MinWindow
     ) {
-      if (!hasReminderBeenSent(result.nextSlot, now)) {
+      if (!hasReminderBeenSent(result.nextSlot, now, userProfile?.uid)) {
         dispatchClassReminderNotification(
           result.nextSlot,
           result.minutesUntilStart || 10,

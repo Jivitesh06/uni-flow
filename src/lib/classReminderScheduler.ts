@@ -1,4 +1,4 @@
-import { collection, addDoc, serverTimestamp, setDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, setDoc, doc, getDoc } from 'firebase/firestore';
 import { db } from './firebase.ts';
 import { isSlotApplicableToStudent } from './collegeEmail.ts';
 import type { TimetableSlot, UserProfile } from '../types';
@@ -12,14 +12,93 @@ export interface NextClassReminderResult {
   todaySlotsCount: number;
 }
 
+const DISMISSED_KEY_PREFIX = 'uniflow_dismissed_notifications_';
+const inFlightDispatches = new Set<string>();
+
 /**
  * Formats a Date object to YYYY-MM-DD for stable daily deduplication keys
  */
-export function getLocalDateKey(date = new Date()): string {
+export function getLocalDateKey(date: Date | string = new Date()): string {
+  if (typeof date === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+    const parsed = new Date(date);
+    if (!isNaN(parsed.getTime())) {
+      date = parsed;
+    } else {
+      return date;
+    }
+  }
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
+}
+
+/**
+ * Constructs a canonical deterministic notification document ID.
+ * Prevents duplicate document creation across StrictMode, multiple listeners,
+ * re-renders, or multi-tab instances.
+ */
+export function buildDeterministicNotificationId(
+  uid: string,
+  slot: TimetableSlot,
+  date: Date | string = new Date(),
+  type = 'class_reminder',
+  offsetMinutes = 10
+): string {
+  const dateKey = getLocalDateKey(date);
+  const rawId = slot.id || slot.subjectCode || 'class';
+  const cleanSlotId = rawId.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const cleanUid = uid.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const cleanTime = (slot.startTime || 'time').replace(/[^a-zA-Z0-9_-]/g, '');
+  return `${cleanUid}_${cleanSlotId}_${dateKey}_${cleanTime}_${type}_${offsetMinutes}m`;
+}
+
+function getSafeLocalStorage(): Storage | null {
+  if (typeof window !== 'undefined' && window.localStorage) return window.localStorage;
+  if (typeof globalThis !== 'undefined' && (globalThis as any).localStorage) return (globalThis as any).localStorage;
+  return null;
+}
+
+/**
+ * Retrieves the set of dismissed/deleted notification IDs for the given user.
+ */
+export function getDismissedNotificationIds(uid?: string): Set<string> {
+  const storage = getSafeLocalStorage();
+  if (!storage || !uid) return new Set();
+  try {
+    const raw = storage.getItem(`${DISMISSED_KEY_PREFIX}${uid}`);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return new Set(Array.isArray(parsed) ? parsed : []);
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * Records that a notification was deleted or dismissed so that the background scheduler
+ * or subsequent page visits will never recreate or redeliver it.
+ */
+export function markNotificationDismissed(notificationId: string, uid?: string): void {
+  const storage = getSafeLocalStorage();
+  if (!storage || !uid || !notificationId) return;
+  try {
+    const ids = getDismissedNotificationIds(uid);
+    ids.add(notificationId);
+    const arr = Array.from(ids).slice(-200);
+    storage.setItem(`${DISMISSED_KEY_PREFIX}${uid}`, JSON.stringify(arr));
+  } catch {
+    // ignore quota
+  }
+}
+
+/**
+ * Checks whether a notification with this ID has been dismissed or deleted.
+ */
+export function isNotificationDismissedOrDeleted(notificationId: string, uid?: string): boolean {
+  if (!uid || !notificationId) return false;
+  return getDismissedNotificationIds(uid).has(notificationId);
 }
 
 /**
@@ -34,7 +113,11 @@ export function buildReminderStorageKey(slot: TimetableSlot, date = new Date()):
 /**
  * Checks whether a reminder for this class slot has already been dispatched today
  */
-export function hasReminderBeenSent(slot: TimetableSlot, date = new Date()): boolean {
+export function hasReminderBeenSent(slot: TimetableSlot, date = new Date(), uid?: string): boolean {
+  if (uid) {
+    const detId = buildDeterministicNotificationId(uid, slot, date, 'class_reminder', 10);
+    if (isNotificationDismissedOrDeleted(detId, uid)) return true;
+  }
   if (typeof window === 'undefined' || !window.localStorage) return false;
   const key = buildReminderStorageKey(slot, date);
   return localStorage.getItem(key) !== null;
@@ -209,81 +292,111 @@ export async function dispatchClassReminderNotification(
   minutesLeft: number,
   uid?: string
 ): Promise<boolean> {
-  // Always play the Web Audio chime for instant audible feedback
-  playReminderChime();
+  const deterministicId = uid
+    ? buildDeterministicNotificationId(uid, slot, new Date(), 'class_reminder', minutesLeft)
+    : `local_${slot.id || slot.subjectCode}_${getLocalDateKey()}_${slot.startTime}_${minutesLeft}m`;
 
-  const title = `Class in ${minutesLeft} mins: ${slot.subjectName}`;
-  const body = `${slot.startTime} – ${slot.endTime} | Room: ${slot.room || 'TBA'}${
-    slot.faculty ? ` | Faculty: ${slot.faculty}` : ''
-  }`;
+  // 1. Check if user has previously dismissed or deleted this notification
+  if (uid && isNotificationDismissedOrDeleted(deterministicId, uid)) {
+    return false;
+  }
 
-  const options = {
-    body,
-    icon: '/icons/icon-192x192.png',
-    badge: '/favicon.svg',
-    tag: `uniflow-class-reminder-${slot.id || slot.subjectCode}-${slot.startTime}`,
-    renotify: true,
-    requireInteraction: true,
-    data: {
-      url: '/dashboard',
-      classId: slot.id,
-      startTime: slot.startTime,
-      subjectCode: slot.subjectCode,
-    },
-  } as NotificationOptions & { renotify?: boolean };
+  // 2. Prevent concurrent duplicate dispatches
+  if (inFlightDispatches.has(deterministicId)) {
+    return false;
+  }
+  inFlightDispatches.add(deterministicId);
 
-  let notificationShown = false;
+  try {
+    // Always play the Web Audio chime for instant audible feedback
+    playReminderChime();
 
-  // 1. Try displaying via Service Worker registration
-  if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
-    try {
-      const reg = await navigator.serviceWorker.ready;
-      if (reg && 'showNotification' in reg) {
-        await reg.showNotification(title, options);
-        notificationShown = true;
+    const title = `Class in ${minutesLeft} mins: ${slot.subjectName}`;
+    const body = `${slot.startTime} – ${slot.endTime} | Room: ${slot.room || 'TBA'}${
+      slot.faculty ? ` | Faculty: ${slot.faculty}` : ''
+    }`;
+
+    const options = {
+      body,
+      icon: '/icons/icon-192x192.png',
+      badge: '/favicon.svg',
+      tag: `uniflow-class-reminder-${slot.id || slot.subjectCode}-${slot.startTime}`,
+      renotify: true,
+      requireInteraction: true,
+      data: {
+        url: '/dashboard',
+        classId: slot.id,
+        startTime: slot.startTime,
+        subjectCode: slot.subjectCode,
+      },
+    } as NotificationOptions & { renotify?: boolean };
+
+    let notificationShown = false;
+
+    // 1. Try displaying via Service Worker registration
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        if (reg && 'showNotification' in reg) {
+          await reg.showNotification(title, options);
+          notificationShown = true;
+        }
+      } catch (err) {
+        console.warn('Service worker showNotification failed, trying fallback:', err);
       }
-    } catch (err) {
-      console.warn('Service worker showNotification failed, trying fallback:', err);
     }
-  }
 
-  // 2. Fallback to standard Notification constructor if service worker wasn't ready
-  if (!notificationShown && typeof window !== 'undefined' && 'Notification' in window) {
-    try {
-      if (Notification.permission === 'granted') {
-        const notif = new Notification(title, options);
-        notif.onclick = () => {
-          window.focus();
-          window.location.href = '/dashboard';
-          notif.close();
-        };
-        notificationShown = true;
+    // 2. Fallback to standard Notification constructor if service worker wasn't ready
+    if (!notificationShown && typeof window !== 'undefined' && 'Notification' in window) {
+      try {
+        if (Notification.permission === 'granted') {
+          const notif = new Notification(title, options);
+          notif.onclick = () => {
+            window.focus();
+            window.location.href = '/dashboard';
+            notif.close();
+          };
+          notificationShown = true;
+        }
+      } catch (err) {
+        console.warn('Fallback Notification constructor failed:', err);
       }
-    } catch (err) {
-      console.warn('Fallback Notification constructor failed:', err);
     }
-  }
 
-  // 3. Mark reminder as sent locally to avoid duplicates today
-  markReminderSent(slot);
+    // 3. Mark reminder as sent locally to avoid duplicates today
+    markReminderSent(slot);
 
-  // 4. Log reminder in Firestore user notifications subcollection for cross-device history
-  if (uid) {
-    try {
-      await addDoc(collection(db, 'users', uid, 'notifications'), {
-        uid,
-        type: 'class_reminder',
-        title,
-        body,
-        read: false,
-        createdAt: serverTimestamp(),
-      });
-    } catch (err) {
-      console.warn('Failed to record notification in Firestore:', err);
+    // 4. Log reminder in Firestore user notifications subcollection with deterministic ID (idempotent write)
+    if (uid) {
+      try {
+        const notifRef = doc(db, 'users', uid, 'notifications', deterministicId);
+        const existingSnap = await getDoc(notifRef);
+        if (!existingSnap.exists()) {
+          await setDoc(notifRef, {
+            uid,
+            type: 'class_reminder',
+            title,
+            body,
+            read: false,
+            slotId: slot.id || null,
+            subjectCode: slot.subjectCode || null,
+            classDate: getLocalDateKey(),
+            reminderOffset: minutesLeft,
+            createdAt: serverTimestamp(),
+          });
+        }
+      } catch (err) {
+        console.warn('Failed to record notification in Firestore:', err);
+      }
     }
-  }
 
-  return notificationShown;
+    return notificationShown;
+  } finally {
+    // Release in-flight lock after brief debounce window to absorb strict mode/multi-component renders
+    setTimeout(() => {
+      inFlightDispatches.delete(deterministicId);
+    }, 4000);
+  }
 }
 
 /**

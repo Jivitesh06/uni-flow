@@ -12,6 +12,7 @@ interface AttendanceControlsProps {
   onFilterChange: (mode: AttendanceFilterType) => void;
   sortMode: AttendanceSortType;
   onSortChange: (sort: AttendanceSortType) => void;
+  targetPercent?: number;
   counts: {
     total: number;
     safe: number;
@@ -27,6 +28,7 @@ export function AttendanceControls({
   onFilterChange,
   sortMode,
   onSortChange,
+  targetPercent = 75,
   counts,
 }: AttendanceControlsProps) {
   const onTrackCount = counts.safe + counts.borderline;
@@ -61,7 +63,7 @@ export function AttendanceControls({
           On Track ({onTrackCount})
         </button>
 
-        {/* Below 75% (N) */}
+        {/* Below Target% (N) */}
         <button
           type="button"
           onClick={() => onFilterChange('shortage')}
@@ -71,7 +73,7 @@ export function AttendanceControls({
               : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60 hover:bg-rose-100/60'
           }`}
         >
-          Below 75% ({counts.shortage})
+          Below {targetPercent}% ({counts.shortage})
         </button>
       </div>
 

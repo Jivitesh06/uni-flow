@@ -43,7 +43,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
-import { timeToMinutes } from '../lib/timetableCalculations';
+import { timeToMinutes, calculateDailySlotSessionNumber } from '../lib/timetableCalculations';
 import { useSharedTimetable } from '../hooks/useSharedTimetable';
 import {
   mergeSharedAndPersonalSlots,
@@ -947,6 +947,8 @@ export function TimetablePage() {
                   return Math.max(slotEndMinutes, oStart) < Math.min(nextSlotStartMinutes, oEnd);
                 });
 
+              const sessionInfo = calculateDailySlotSessionNumber(slot, dayAgendaSlots);
+
               return (
                 <React.Fragment key={slot.id}>
                   <TimetableSlotCard
@@ -955,25 +957,26 @@ export function TimetablePage() {
                     currentMinutes={currentMinutes}
                     viewMode="agenda"
                     isNextClass={isNext}
+                    sessionNumber={sessionInfo?.sessionNumber}
                     onEdit={openEdit}
                     onDelete={(s) => setSlotToDelete(s)}
                   />
 
                   {/* Free Period card during class intervals */}
                   {hasFreePeriodAfter && nextSlotInList && (
-                    <div className="ml-16 sm:ml-20 -mt-1 mb-4 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 p-3 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 flex items-center justify-center text-sm shrink-0">
+                    <div className="ml-16 sm:ml-20 -mt-1 mb-4 rounded-2xl border border-dashed border-amber-200/80 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/20 p-3.5 sm:p-4 flex items-center justify-between gap-3 shadow-sm">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center justify-center text-base shrink-0 shadow-xs">
                           ☕
                         </div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Free Period</p>
-                          <p className="text-[11px] text-slate-500">
-                            {slot.endTime} - {nextSlotInList.startTime} • Free time • Study • Library
+                        <div className="min-w-0">
+                          <p className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 truncate">Free Period</p>
+                          <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5">
+                            <span className="font-semibold text-slate-700 dark:text-slate-300 font-mono">{slot.endTime} – {nextSlotInList.startTime}</span> • Free time • Library
                           </p>
                         </div>
                       </div>
-                      <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200/50 dark:border-amber-900/40 px-2 py-0.5 rounded-full shrink-0">
+                      <span className="text-[10px] sm:text-xs font-semibold text-amber-700 dark:text-amber-400 bg-amber-100/80 dark:bg-amber-950/60 border border-amber-300/60 dark:border-amber-800/60 px-2.5 py-1 rounded-full shrink-0">
                         Break
                       </span>
                     </div>

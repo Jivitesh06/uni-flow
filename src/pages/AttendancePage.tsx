@@ -32,7 +32,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { format } from 'date-fns';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useCollection } from '../hooks/useFirestore';
@@ -52,6 +52,7 @@ import { Progress } from '../components/ui/progress';
 import {
   calculateAttendanceStats,
   calculateSubjectAttendance,
+  calculateLectureWeight,
   validateAttendanceBaseline,
   canonicalizeSubjectsForAttendance,
   buildTimetableSubjectEquivalenceMap,
@@ -104,6 +105,8 @@ export function AttendancePage() {
 
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+  const subjectParam = searchParams.get('subject');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<AttendanceFilterType>('all');
   const [sortMode, setSortMode] = useState<AttendanceSortType>('lowest');
@@ -182,6 +185,21 @@ export function AttendancePage() {
     }
     return calculateAttendanceStats(totalAttended, totalConducted, target);
   }, [subjectAggregates, target]);
+
+  // If navigated with ?subject=..., automatically focus and select that subject
+  useEffect(() => {
+    if (subjectParam && allSubjects.length > 0 && !selectedSubjectId) {
+      const match = allSubjects.find(
+        (s) =>
+          s.id === subjectParam ||
+          (s.code && s.code.toUpperCase() === subjectParam.toUpperCase()) ||
+          matchesSubjectRecord(s, subjectParam, resolutionContext)
+      );
+      if (match) {
+        setSelectedSubjectId(match.id);
+      }
+    }
+  }, [subjectParam, allSubjects, selectedSubjectId, resolutionContext]);
 
   // Open Baseline Modal
   function handleOpenBaseline(sub: Subject) {
@@ -316,7 +334,8 @@ export function AttendancePage() {
           a.status !== 'cancelled'
       );
       if (!alreadyMarked) {
-        return { slot, weight: slot.weight && slot.weight > 0 ? slot.weight : 1 };
+        const derived = calculateLectureWeight(slot);
+        return { slot, weight: derived.weight > 0 ? derived.weight : 1 };
       }
     }
     // All sessions for this subject on this date are already marked
@@ -561,6 +580,7 @@ export function AttendancePage() {
         }}
         sortMode={sortMode}
         onSortChange={setSortMode}
+        targetPercent={Math.round(target * 100)}
         counts={counts}
       />
 
@@ -700,15 +720,20 @@ export function AttendancePage() {
             </div>
 
             {(() => {
+              const agg = baselineModalSubject ? subjectAggregates.get(baselineModalSubject.id) : null;
               const val = validateAttendanceBaseline(baselineAttendedInput, baselineConductedInput);
-              const previewPct = val.conducted > 0 ? ((val.attended / val.conducted) * 100).toFixed(1) : '0.0';
+              const loggedConducted = agg?.loggedConducted ?? 0;
+              const loggedAttended = agg?.loggedAttended ?? 0;
+              const combinedConducted = (val.isValid ? val.conducted : 0) + loggedConducted;
+              const combinedAttended = (val.isValid ? val.attended : 0) + loggedAttended;
+              const combinedPct = combinedConducted > 0 ? ((combinedAttended / combinedConducted) * 100).toFixed(1) : '0.0';
 
               return (
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300">
-                        Total Classes Conducted
+                        Baseline Conducted
                       </label>
                       <Input
                         type="number"
@@ -723,7 +748,7 @@ export function AttendancePage() {
 
                     <div>
                       <label className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300">
-                        Classes Attended
+                        Baseline Attended
                       </label>
                       <Input
                         type="number"
@@ -737,14 +762,28 @@ export function AttendancePage() {
                     </div>
                   </div>
 
+                  {loggedConducted > 0 && (
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/40 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                      <span>Recorded UniFlow logs:</span>
+                      <span className="font-bold text-slate-700 dark:text-slate-300">
+                        +{loggedAttended} / +{loggedConducted} classes
+                      </span>
+                    </div>
+                  )}
+
                   {/* Focused Live Attendance Preview */}
                   {val.isValid ? (
                     <div className="p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                        Live Attendance Preview:
-                      </span>
-                      <span className="text-lg font-black text-blue-600 dark:text-blue-400 tracking-tight">
-                        {previewPct}%
+                      <div className="text-xs">
+                        <span className="font-semibold text-slate-600 dark:text-slate-300 block">
+                          Total Combined Attendance:
+                        </span>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                          {combinedAttended} / {combinedConducted} classes
+                        </span>
+                      </div>
+                      <span className="text-xl font-black text-blue-600 dark:text-blue-400 tracking-tight">
+                        {combinedPct}%
                       </span>
                     </div>
                   ) : (

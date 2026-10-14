@@ -22,6 +22,7 @@ interface TimetableSlotCardProps {
   currentMinutes: number;
   viewMode?: 'grid' | 'agenda';
   isNextClass?: boolean;
+  sessionNumber?: number;
   onEdit?: (slot: TimetableSlot) => void;
   onDelete?: (slot: TimetableSlot) => void;
 }
@@ -32,6 +33,7 @@ export function TimetableSlotCard({
   currentMinutes,
   viewMode = 'grid',
   isNextClass = false,
+  sessionNumber,
   onEdit,
   onDelete,
 }: TimetableSlotCardProps) {
@@ -104,17 +106,27 @@ export function TimetableSlotCard({
               : 'border-slate-100 dark:border-slate-800/80 hover:border-slate-200 dark:hover:border-slate-700'
           }`}
         >
-          {/* Next Class Header Tags */}
-          {isNextClass && (
+          {/* Header Tags: Live Class vs Upcoming */}
+          {isNow ? (
+            <div className="flex items-center justify-between gap-2 pb-2.5 mb-2.5 border-b border-emerald-100 dark:border-emerald-900/40">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                Live Class
+              </span>
+              <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
+                In progress
+              </span>
+            </div>
+          ) : isNextClass ? (
             <div className="flex items-center justify-between gap-2 pb-2.5 mb-2.5 border-b border-blue-100 dark:border-blue-900/40">
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
-                Next Class
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                Upcoming
               </span>
               <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">
                 {countdownText}
               </span>
             </div>
-          )}
+          ) : null}
 
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
@@ -122,6 +134,11 @@ export function TimetableSlotCard({
                 <h4 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white truncate">
                   {slot.subjectCode || slot.subjectName}
                 </h4>
+                {typeof sessionNumber === 'number' && sessionNumber > 0 && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-900/40">
+                    Lecture {sessionNumber}
+                  </span>
+                )}
               </div>
 
               {slot.subjectName !== slot.subjectCode && (
@@ -179,13 +196,16 @@ export function TimetableSlotCard({
             )}
           </div>
 
-          {/* If Next Class: Prominent Action Button matching reference */}
-          {isNextClass && (
-            <div className="mt-3 pt-2.5 border-t border-blue-100 dark:border-blue-900/40">
-              <Link to="/attendance" className="block">
+          {/* Only Show Prominent Mark Attendance on Live Slot (In Progress) */}
+          {isNow && !isNonAcademic && (
+            <div className="mt-3 pt-2.5 border-t border-emerald-100 dark:border-emerald-900/40">
+              <Link
+                to={`/attendance?subject=${encodeURIComponent(slot.subjectId || slot.subjectCode)}&slot=${encodeURIComponent(slot.id)}`}
+                className="block"
+              >
                 <button
                   type="button"
-                  className="w-full h-9 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                  className="w-full h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all"
                 >
                   <Calendar className="w-3.5 h-3.5 mr-0.5" /> Mark Attendance <ChevronRight className="w-4 h-4" />
                 </button>

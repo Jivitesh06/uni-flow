@@ -379,6 +379,40 @@ export function extractBatch(
   return undefined;
 }
 
+/**
+ * Normalizes section queries (e.g., "5C", "C", "Section C", "BE-CSE-5C") to compare against
+ * PDF parsed section codes like "BE-CSE-5C".
+ */
+export function matchesTargetSection(pdfSection: string, targetSection: string): boolean {
+  if (!pdfSection || !targetSection) return false;
+  const sNorm = pdfSection.trim().toUpperCase();
+  const tNorm = targetSection.trim().toUpperCase();
+
+  if (sNorm === tNorm) return true;
+
+  // Extract trailing section identifier like '5C', '5A', 'C', 'A'
+  const extractSec = (str: string) => {
+    const cleaned = str.replace(/^(BE[-_ ]?CSE[-_ ]?|SECTION[-_ ]?|SEC[-_ ]?)/i, '').trim();
+    return cleaned;
+  };
+
+  const sClean = extractSec(sNorm);
+  const tClean = extractSec(tNorm);
+
+  if (sClean === tClean) return true;
+
+  // Check if target is just the letter (e.g., 'C' matching '5C')
+  if (tClean.length === 1 && sClean.endsWith(tClean)) {
+    return true;
+  }
+  // Check if pdf section ends with target
+  if (sNorm.endsWith(tNorm) || sNorm.endsWith(`-${tNorm}`) || sNorm.endsWith(`_${tNorm}`)) {
+    return true;
+  }
+
+  return false;
+}
+
 interface RawTextItem {
   str: string;
   x: number;
@@ -472,7 +506,7 @@ export async function parseChitkaraPdf(
   // If user selected a section, find that page. Otherwise default to user selection or Page 1.
   let selectedPage = pageSections[0];
   if (targetSection) {
-    const found = pageSections.find((p) => p.section.toUpperCase() === targetSection.toUpperCase());
+    const found = pageSections.find((p) => matchesTargetSection(p.section, targetSection));
     if (found) {
       selectedPage = found;
     } else {

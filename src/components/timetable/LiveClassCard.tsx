@@ -37,6 +37,7 @@ export function LiveClassCard({
     currentSlot,
     startingSoonSlot,
     nextSlot,
+    targetSlotSessionNumber,
     currentFreePeriod,
     nextScheduledDay,
     timeRemainingFormatted,
@@ -81,10 +82,24 @@ export function LiveClassCard({
             >
               {/* Badge Row */}
               <div className="flex items-center justify-between gap-3">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
-                  <Compass className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                  {isOngoing ? 'Class In Progress' : 'Next Class'}
-                </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                      isOngoing
+                        ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
+                        : 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
+                    }`}
+                  >
+                    <Compass className={`w-3.5 h-3.5 ${isOngoing ? 'text-emerald-600 dark:text-emerald-400 animate-pulse' : 'text-blue-600 dark:text-blue-400'}`} />
+                    {isOngoing ? 'Live Class' : 'Next Class'}
+                  </span>
+
+                  {typeof targetSlotSessionNumber === 'number' && targetSlotSessionNumber > 0 && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100/80 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200 border border-blue-200/80 dark:border-blue-800/80">
+                      Lecture {targetSlotSessionNumber}
+                    </span>
+                  )}
+                </div>
 
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
                   {isOngoing ? 'Ends in ' + timeRemainingFormatted : 'In ' + (minutesUntilNext ? formatMinutesDiff(minutesUntilNext) : timeRemainingFormatted)}
@@ -134,6 +149,23 @@ export function LiveClassCard({
                   </div>
                 )}
               </div>
+
+              {/* Prominent Mark Attendance Button for Live Class */}
+              {isOngoing && currentSlot && (
+                <div className="pt-2">
+                  <Link
+                    to={`/attendance?subject=${encodeURIComponent(currentSlot.subjectId || currentSlot.subjectCode)}&slot=${encodeURIComponent(currentSlot.id)}`}
+                    className="block"
+                  >
+                    <button
+                      type="button"
+                      className="w-full h-10 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition-all"
+                    >
+                      <Calendar className="w-4 h-4" /> Mark Attendance <ChevronRight className="w-4 h-4 ml-0.5" />
+                    </button>
+                  </Link>
+                </div>
+              )}
             </motion.div>
           ) : status === 'NO_MORE_CLASSES_TODAY' ? (
             <motion.div

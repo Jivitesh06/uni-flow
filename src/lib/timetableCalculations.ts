@@ -26,6 +26,8 @@ export interface LiveDashboardState {
   currentSlot: TimetableSlot | null;
   startingSoonSlot: TimetableSlot | null;
   nextSlot: TimetableSlot | null;
+  targetSlotSessionNumber?: number; // Chronological 1-based session of target subject on today's schedule
+  totalSubjectSessionsToday?: number; // Total scheduled sessions for this subject on today's schedule
   currentFreePeriod: FreePeriod | null;
   todaySlots: TimetableSlot[];
   remainingSlots: TimetableSlot[];
@@ -66,6 +68,53 @@ export function formatDurationMinutes(totalMinutes: number): string {
   if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
   if (hours > 0) return `${hours}h`;
   return `${minutes}m`;
+}
+
+/**
+ * Normalizes subject key to match slots belonging to the same academic subject.
+ */
+export function getSubjectMatchKey(slot?: { subjectId?: string; subjectCode?: string; subjectName?: string } | null): string {
+  if (!slot) return '';
+  if (slot.subjectId && slot.subjectId.trim()) return slot.subjectId.trim().toUpperCase();
+  if (slot.subjectCode && slot.subjectCode.trim()) return slot.subjectCode.trim().toUpperCase();
+  if (slot.subjectName && slot.subjectName.trim()) return slot.subjectName.trim().toUpperCase();
+  return '';
+}
+
+/**
+ * Calculates the chronological 1-based session/lecture number of a slot among all
+ * scheduled sessions of that same subject on a given day's timetable.
+ * Multi-period labs spanning consecutive hours count as one scheduled session unless
+ * distinct slots exist.
+ */
+export function calculateDailySlotSessionNumber(
+  targetSlot: TimetableSlot | null | undefined,
+  daySlots: TimetableSlot[]
+): { sessionNumber: number; totalSessions: number } | null {
+  if (!targetSlot) return null;
+  const targetKey = getSubjectMatchKey(targetSlot);
+  if (!targetKey) return null;
+
+  // Filter day slots for this same subject and sort chronologically by startTime, then endTime
+  const subjectSlots = daySlots
+    .filter((s) => s.isActive !== false && getSubjectMatchKey(s) === targetKey)
+    .sort((a, b) => {
+      const startDiff = timeToMinutes(a.startTime) - timeToMinutes(b.startTime);
+      if (startDiff !== 0) return startDiff;
+      return timeToMinutes(a.endTime) - timeToMinutes(b.endTime);
+    });
+
+  if (subjectSlots.length === 0) return null;
+
+  const foundIndex = subjectSlots.findIndex(
+    (s) => s.id === targetSlot.id || (s.startTime === targetSlot.startTime && s.endTime === targetSlot.endTime)
+  );
+
+  const sessionNumber = foundIndex >= 0 ? foundIndex + 1 : 1;
+  return {
+    sessionNumber,
+    totalSessions: subjectSlots.length,
+  };
 }
 
 /**
@@ -153,11 +202,14 @@ export function calculateLiveClassState(
   if (currentSlot) {
     const endMin = timeToMinutes(currentSlot.endTime);
     const minutesRemaining = Math.max(0, endMin - currentMinutes);
+    const sessionInfo = calculateDailySlotSessionNumber(currentSlot, todaySlots);
     return {
       status: 'LIVE_NOW',
       currentSlot,
       startingSoonSlot: null,
       nextSlot,
+      targetSlotSessionNumber: sessionInfo?.sessionNumber,
+      totalSubjectSessionsToday: sessionInfo?.totalSessions,
       currentFreePeriod: null,
       todaySlots,
       remainingSlots,
@@ -172,6 +224,7 @@ export function calculateLiveClassState(
   if (nextSlot) {
     const startMin = timeToMinutes(nextSlot.startTime);
     const minutesUntil = startMin - currentMinutes;
+    const sessionInfo = calculateDailySlotSessionNumber(nextSlot, todaySlots);
 
     if (minutesUntil <= startingSoonWindowMinutes && minutesUntil > 0) {
       return {
@@ -179,6 +232,8 @@ export function calculateLiveClassState(
         currentSlot: null,
         startingSoonSlot: nextSlot,
         nextSlot,
+        targetSlotSessionNumber: sessionInfo?.sessionNumber,
+        totalSubjectSessionsToday: sessionInfo?.totalSessions,
         currentFreePeriod: null,
         todaySlots,
         remainingSlots,
@@ -206,6 +261,8 @@ export function calculateLiveClassState(
       currentSlot: null,
       startingSoonSlot: null,
       nextSlot,
+      targetSlotSessionNumber: sessionInfo?.sessionNumber,
+      totalSubjectSessionsToday: sessionInfo?.totalSessions,
       currentFreePeriod: freePeriod,
       todaySlots,
       remainingSlots,
