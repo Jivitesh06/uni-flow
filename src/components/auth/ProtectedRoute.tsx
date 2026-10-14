@@ -1,6 +1,8 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { getCachedUserProfile } from '../../lib/profileStorage';
 import { GraduationCap } from 'lucide-react';
+import type { UserProfile } from '../../contexts/AuthContext';
 
 export function ProtectedRoute() {
   const { currentUser, userProfile, isEmailVerified, loading, authError, retryAuthProfile, logout } = useAuth();
@@ -42,8 +44,10 @@ export function ProtectedRoute() {
     return <Navigate to="/verify-email" replace />;
   }
 
-  // If user profile could not be resolved due to network error/timeout and no cached profile exists
-  const profileComplete = userProfile?.profileCompleted ?? false;
+  // Check profile completion with fallback to local cached profile to eliminate race conditions
+  const cachedProfile = currentUser?.uid ? getCachedUserProfile<UserProfile>(currentUser.uid) : null;
+  const effectiveProfile = userProfile || cachedProfile;
+  const profileComplete = effectiveProfile?.profileCompleted ?? false;
   if (!profileComplete && authError) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 p-4">

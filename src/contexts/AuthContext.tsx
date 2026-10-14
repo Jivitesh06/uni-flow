@@ -70,7 +70,7 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<User>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
-  updateUserProfile: (data: Partial<UserProfile>) => Promise<void>;
+  updateUserProfile: (data: Partial<UserProfile>) => Promise<UserProfile>;
   deleteAccount: () => Promise<void>;
   resendVerificationEmail: () => Promise<void>;
   reloadUser: () => Promise<boolean>;
@@ -254,6 +254,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!hasAcademic) {
         const pending = profilePayload as UserProfile;
         if (requestId === profileFetchSeqRef.current && auth.currentUser?.uid === user.uid) {
+          setCachedUserProfile(user.uid, pending);
           setUserProfile(pending);
         }
         return pending;
@@ -563,7 +564,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await sendPasswordResetEmail(auth, normalizedEmail);
   }
 
-  async function updateUserProfile(data: Partial<UserProfile>) {
+  async function updateUserProfile(data: Partial<UserProfile>): Promise<UserProfile> {
     if (!currentUser) throw new Error('No authenticated user found');
     profileFetchSeqRef.current++;
     const ref = doc(db, 'users', currentUser.uid);
@@ -610,17 +611,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else {
       cleaned.attendanceTarget = Math.min(100, Math.max(50, Number(cleaned.attendanceTarget) || 75));
     }
-    const merged = { ...userProfile, ...cleaned, uid: currentUser.uid };
-    cleaned.profileCompleted = isProfileComplete(merged as UserProfile);
+
+    if (!cleaned.batch && !userProfile?.batch) {
+      const derived = deriveAcademicYears(cleaned.universityId || userProfile?.universityId, cleaned.email || currentUser.email);
+      cleaned.batch = derived.admissionYear || '2024';
+    }
+
+    // Evaluate completeness on candidate merged profile
+    const candidateProfile = { ...userProfile, ...cleaned, uid: currentUser.uid };
+    const complete = isProfileComplete(candidateProfile as UserProfile);
+    cleaned.profileCompleted = complete;
     cleaned.updatedAt = serverTimestamp();
 
     if (!userProfile?.createdAt && !cleaned.createdAt) {
       cleaned.createdAt = serverTimestamp();
     }
 
+    // Persist to Firestore first to verify network permissions and schema validity
     await setDoc(ref, cleaned, { merge: true });
+
+    // Construct the authoritative in-memory profile with profileCompleted explicitly guaranteed
+    const merged: UserProfile = {
+      ...candidateProfile,
+      ...cleaned,
+      uid: currentUser.uid,
+      email: cleaned.email || userProfile?.email || currentUser.email || '',
+      displayName: cleaned.displayName || userProfile?.displayName || currentUser.displayName || 'Student',
+      attendanceTarget: cleaned.attendanceTarget ?? userProfile?.attendanceTarget ?? 75,
+      emailVerified: Boolean(currentUser.emailVerified || userProfile?.emailVerified),
+      profileCompleted: complete,
+      createdAt: userProfile?.createdAt || null,
+    };
+
     setCachedUserProfile(currentUser.uid, merged as UserProfile);
     setUserProfile(merged as UserProfile);
+    return merged;
   }
 
   async function deleteAccount() {

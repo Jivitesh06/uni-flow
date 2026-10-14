@@ -20,6 +20,14 @@ export function OnboardingPage() {
   const [hasUserEdited, setHasUserEdited] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const isSubmittingRef = React.useRef(false);
+
+  // Automatically navigate to dashboard if authoritative profile is already complete
+  React.useEffect(() => {
+    if (userProfile?.profileCompleted) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [userProfile?.profileCompleted, navigate]);
 
   // Synchronize form fields once authoritative profile resolves (unless user is actively typing)
   React.useEffect(() => {
@@ -35,6 +43,7 @@ export function OnboardingPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading || isSubmittingRef.current) return;
     setErrors({});
 
     const validation = validateAcademicProfile({
@@ -56,16 +65,22 @@ export function OnboardingPage() {
       return;
     }
 
+    isSubmittingRef.current = true;
     setLoading(true);
     try {
-      await updateUserProfile(validation.cleaned);
-      toast.success('Academic profile complete! Welcome to UniFlow 🎉');
-      navigate('/dashboard', { replace: true });
+      const savedProfile = await updateUserProfile(validation.cleaned);
+      if (savedProfile?.profileCompleted) {
+        toast.success('Academic profile complete! Welcome to UniFlow 🎉', { id: 'onboarding-success' });
+        navigate('/dashboard', { replace: true });
+      } else {
+        toast.error('Profile could not be completed. Please check all required fields.', { id: 'onboarding-error' });
+      }
     } catch (err: unknown) {
       const msg = (err as Error).message || 'Failed to save profile. Please try again.';
-      toast.error(msg);
+      toast.error(msg, { id: 'onboarding-error' });
     } finally {
       setLoading(false);
+      isSubmittingRef.current = false;
     }
   }
 
