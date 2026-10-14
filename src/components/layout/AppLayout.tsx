@@ -23,6 +23,10 @@ export function AppLayout() {
   // Reset scroll position to top on page navigation
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    const mainEl = document.getElementById('main-content');
+    if (mainEl && mainEl.scrollTop > 0) {
+      mainEl.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    }
   }, [pathname]);
 
   return (
@@ -32,7 +36,10 @@ export function AppLayout() {
         <OfflineBanner />
         <TopBar onMenuClick={() => setSidebarOpen(true)} title={title} />
         {/* pb-28 ensures mobile content is not covered by the fixed bottom navigation bar and allows fluid upward swipe */}
-        <main className="flex-1 p-4 md:p-6 lg:p-8 pb-28 lg:pb-8 lg:overflow-y-auto overscroll-y-contain no-scrollbar">
+        <main
+          id="main-content"
+          className="flex-1 p-4 md:p-6 lg:p-8 pb-28 lg:pb-8 lg:overflow-y-auto overscroll-y-contain no-scrollbar"
+        >
           <Outlet />
         </main>
         <BottomNav />
