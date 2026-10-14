@@ -90,20 +90,28 @@ export function SubjectAttendanceCard({
     ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border-amber-200 dark:border-amber-800/60'
     : 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border-rose-200 dark:border-rose-800/60';
 
+  const guidancePillClass = hasNoData
+    ? 'bg-slate-50 text-slate-500 dark:bg-slate-800/40 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+    : isHealthy
+    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60'
+    : isBorderline
+    ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60'
+    : 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60';
+
   return (
     <Card className="overflow-hidden border border-slate-100 dark:border-slate-800/80 bg-white dark:bg-gray-900 rounded-3xl shadow-sm hover:shadow-md transition-all">
-      <CardContent className="p-4 sm:p-5">
-        {/* Main Subject Row matching Reference Image 5 */}
+      <CardContent className="p-5 sm:p-6">
+        {/* Main Subject Row */}
         <div
           onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-4 sm:gap-5 cursor-pointer select-none"
+          className="flex items-center gap-5 sm:gap-6 cursor-pointer select-none"
         >
-          {/* Progress Ring on Left */}
+          {/* Prominent, Thicker Circular Progress Ring */}
           <div className="shrink-0 flex items-center justify-center">
             <AttendanceRing
               percentage={percentage}
-              size={56}
-              strokeWidth={5.5}
+              size={92}
+              strokeWidth={8.5}
               target={targetPercent}
               status={status}
               showTargetIndicator={false}
@@ -111,15 +119,15 @@ export function SubjectAttendanceCard({
             />
           </div>
 
-          {/* Subject Titles, Prominent Ratio, and Guidance on Right */}
-          <div className="min-w-0 flex-1 space-y-1">
+          {/* Subject Titles, Prominent Ratio, Guidance & Faculty/Room on Right */}
+          <div className="min-w-0 flex-1 space-y-1.5">
             <div className="flex items-center justify-between gap-2">
-              <h4 className="font-black text-base sm:text-lg text-slate-900 dark:text-white truncate tracking-tight">
+              <h4 className="font-black text-lg sm:text-xl text-slate-900 dark:text-white truncate tracking-tight">
                 {subject.code || subject.name}
               </h4>
 
-              <div className="flex items-center gap-1.5 shrink-0">
-                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${statusPillClass}`}>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${statusPillClass}`}>
                   {statusLabel}
                 </span>
                 <button
@@ -128,7 +136,7 @@ export function SubjectAttendanceCard({
                     e.stopPropagation();
                     setExpanded((p) => !p);
                   }}
-                  className="p-0.5 text-slate-300 dark:text-slate-600 hover:text-slate-500 transition-colors"
+                  className="w-7 h-7 rounded-full bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
                   aria-label={expanded ? 'Collapse subject actions' : 'Expand subject actions'}
                 >
                   {expanded ? <ChevronDown className="w-4 h-4 text-blue-600" /> : <ChevronRight className="w-4 h-4" />}
@@ -136,10 +144,16 @@ export function SubjectAttendanceCard({
               </div>
             </div>
 
+            {subject.name && subject.name !== subject.code && (
+              <p className="text-xs text-slate-400 dark:text-slate-500 font-medium truncate -mt-1">
+                {subject.name}
+              </p>
+            )}
+
             {/* Prominent Ratio with inline subtle edit icon */}
-            <div className="flex items-center gap-1.5 py-0.5">
-              <p className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight leading-none">
-                {totalAttended} <span className="text-slate-400 dark:text-slate-500 font-bold text-xs sm:text-sm">/ {totalConducted} classes</span>
+            <div className="flex items-baseline gap-2 pt-0.5">
+              <p className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
+                {totalAttended} <span className="text-slate-400 dark:text-slate-500 font-bold text-sm sm:text-base">/ {totalConducted} classes</span>
               </p>
               <button
                 type="button"
@@ -159,10 +173,20 @@ export function SubjectAttendanceCard({
               </button>
             </div>
 
-            {/* Concise Guidance line */}
-            <p className={`text-xs font-semibold ${guidanceColor} truncate leading-tight`}>
-              {guidanceText}
-            </p>
+            {/* Guidance Badge */}
+            <div className="pt-0.5 flex items-center gap-1.5 flex-wrap">
+              <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 ${guidancePillClass}`}>
+                {guidanceText}
+              </span>
+            </div>
+
+            {/* Authoritative Faculty & Room quick metadata row */}
+            {(subject.faculty || (subject as any).room) && (
+              <div className="flex items-center gap-3 pt-0.5 text-xs text-slate-500 dark:text-slate-400 font-medium truncate">
+                {subject.faculty && <span className="truncate">👤 {subject.faculty}</span>}
+                {(subject as any).room && <span className="truncate">📍 {(subject as any).room}</span>}
+              </div>
+            )}
           </div>
         </div>
 
