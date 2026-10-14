@@ -128,22 +128,28 @@ export function formatFullSection(
   const cleanProg = (program || 'BE-CSE').trim().toUpperCase();
   const cleanSem = normalizeSemester(semester);
   const cleanSec = (sectionLetter || 'A').trim().toUpperCase();
-  // If already a full canonical or hyphenated label (e.g. "BE-CSE-5A" or "ME-2B")
-  if (cleanSec.includes('-')) {
-    return cleanSec;
+
+  // Parse section details from cleanSec
+  const parsed = parseSectionDetails(cleanSec);
+  if (parsed.program && parsed.semester && parsed.sectionLetter) {
+    return `${parsed.program}-${parsed.semester}${parsed.sectionLetter}`;
   }
-  // If string contains number + letter like "5A", extract the letter
-  const letterMatch = cleanSec.match(/[A-Z]$/);
-  const letter = letterMatch ? letterMatch[0] : cleanSec;
-  return `${cleanProg}-${cleanSem}${letter}`;
+
+  const letter = parsed.sectionLetter || (cleanSec.match(/[A-Z]$/)?.[0] ?? 'A');
+  const sem = parsed.semester ?? cleanSem;
+  return `${cleanProg}-${sem}${letter}`;
 }
 
 /**
  * Parses program, semester, and section letter from an arbitrary section identifier.
  * Examples:
  * - "BE-CSE-5A" -> { program: "BE-CSE", semester: 5, sectionLetter: "A" }
+ * - "BE-CSE-5-C" -> { program: "BE-CSE", semester: 5, sectionLetter: "C" }
  * - "5A" -> { semester: 5, sectionLetter: "A" }
- * - "A" -> { sectionLetter: "A" }
+ * - "5-C" -> { semester: 5, sectionLetter: "C" }
+ * - "Section C" -> { sectionLetter: "C" }
+ * - "Sec C" -> { sectionLetter: "C" }
+ * - "C" -> { sectionLetter: "C" }
  */
 export function parseSectionDetails(
   sectionStr: string | null | undefined
@@ -151,8 +157,8 @@ export function parseSectionDetails(
   if (!sectionStr) return {};
   const cleaned = sectionStr.trim().toUpperCase();
 
-  // Pattern: [PROGRAM]-[SEMESTER][LETTER] e.g. "BE-CSE-5A"
-  const fullMatch = cleaned.match(/^([A-Z0-9_-]+)-(\d+)([A-Z])$/);
+  // Pattern: [PROGRAM]-[SEMESTER][LETTER] or [PROGRAM]-[SEMESTER]-[LETTER] e.g. "BE-CSE-5A" or "BE-CSE-5-C"
+  const fullMatch = cleaned.match(/^([A-Z0-9_-]+)-(\d+)[\s_-]*([A-Z])$/);
   if (fullMatch) {
     return {
       program: fullMatch[1],
@@ -161,8 +167,8 @@ export function parseSectionDetails(
     };
   }
 
-  // Pattern: [SEMESTER][LETTER] e.g. "5A"
-  const semSecMatch = cleaned.match(/^(\d+)([A-Z])$/);
+  // Pattern: [SEMESTER][LETTER] or [SEMESTER]-[LETTER] or [SEMESTER] [LETTER] e.g. "5A", "5-C", "5 C"
+  const semSecMatch = cleaned.match(/^(\d+)[\s_-]*([A-Z])$/);
   if (semSecMatch) {
     return {
       semester: parseInt(semSecMatch[1], 10),
@@ -170,7 +176,16 @@ export function parseSectionDetails(
     };
   }
 
-  // Single letter e.g. "A"
+  // Pattern: "SECTION C", "SEC C", "SEC-C", "SECTION-C", etc.
+  const secWordMatch = cleaned.match(/^(?:SEC(?:TION)?)[\s_-]*(\d+)?[\s_-]*([A-Z])$/);
+  if (secWordMatch) {
+    return {
+      semester: secWordMatch[1] ? parseInt(secWordMatch[1], 10) : undefined,
+      sectionLetter: secWordMatch[2],
+    };
+  }
+
+  // Single letter e.g. "A" or "C"
   if (/^[A-Z]$/.test(cleaned)) {
     return {
       sectionLetter: cleaned,

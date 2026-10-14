@@ -352,13 +352,20 @@ export function getSharedTimetableCache(groupId: string): SharedTimetableDoc | n
     const semSecMatch = groupId.match(/sem(\d+)_([a-z0-9-]+)$/i);
     if (semSecMatch) {
       const semNum = parseInt(semSecMatch[1], 10);
-      const targetSuffix = `sem${semNum}_${semSecMatch[2]}`.toLowerCase();
+      const rawSecKey = semSecMatch[2].toLowerCase();
+      const parsedSec = parseSectionDetails(rawSecKey);
+      const sectionLetter = (parsedSec.sectionLetter || rawSecKey.match(/[a-z]$/i)?.[0] || '').toLowerCase();
+      const canonicalSecKey = sectionLetter ? `be-cse-${semNum}${sectionLetter}` : rawSecKey;
+      const targetSuffix = `sem${semNum}_${rawSecKey}`;
+      const canonicalSuffix = `sem${semNum}_${canonicalSecKey}`;
       const preferredBatch = ACTIVE_COHORT_BATCH_MAP[semNum];
+
+      const matchesSuffix = (k: string) => k.endsWith(targetSuffix) || k.endsWith(canonicalSuffix);
 
       // Prioritize entry matching preferred canonical batch for this semester
       if (preferredBatch) {
         for (const [key, doc] of Object.entries(SEEDED_5TH_SEM_TIMETABLES)) {
-          if (key.endsWith(targetSuffix) && key.includes(`_${preferredBatch}_`) && !isCorruptedTimetableDoc(doc)) {
+          if (matchesSuffix(key) && key.includes(`_${preferredBatch}_`) && !isCorruptedTimetableDoc(doc)) {
             return doc;
           }
         }
@@ -366,7 +373,7 @@ export function getSharedTimetableCache(groupId: string): SharedTimetableDoc | n
 
       // Fallback to any uncorrupted matching entry
       for (const [key, doc] of Object.entries(SEEDED_5TH_SEM_TIMETABLES)) {
-        if (key.endsWith(targetSuffix) && !isCorruptedTimetableDoc(doc)) {
+        if (matchesSuffix(key) && !isCorruptedTimetableDoc(doc)) {
           return doc;
         }
       }

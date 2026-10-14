@@ -143,15 +143,15 @@ export function AttendanceRing({
           <span
             className={cn('font-black tracking-tight leading-none', textColor)}
             style={{
-              fontSize: size >= 110 ? '1.75rem' : size >= 80 ? '1.15rem' : size >= 65 ? '0.95rem' : '0.8rem',
+              fontSize: size >= 110 ? '1.75rem' : size >= 90 ? '1.35rem' : size >= 75 ? '1.1rem' : size >= 50 ? '0.75rem' : '0.65rem',
             }}
           >
             {clampedPct > 0 ? `${clampedPct.toFixed(clampedPct >= 99.9 || clampedPct % 1 === 0 ? 0 : 1)}%` : '0%'}
           </span>
           {subText && (
             <span
-              className="text-[9px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mt-0.5"
-              style={{ fontSize: size >= 110 ? '10px' : '8px' }}
+              className="font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mt-0.5"
+              style={{ fontSize: size >= 90 ? '9px' : '7.5px' }}
             >
               {subText}
             </span>

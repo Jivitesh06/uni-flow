@@ -63,6 +63,7 @@ import {
   type AttendanceEligibility,
 } from '../lib/attendanceCalculations';
 import { SubjectAttendanceCard } from '../components/attendance/SubjectAttendanceCard';
+import { AttendanceRing } from '../components/attendance/AttendanceRing';
 import {
   AttendanceControls,
   type AttendanceFilterType,
@@ -549,12 +550,15 @@ export function AttendancePage() {
   }, [allSubjects, searchQuery, statusFilter, selectedSubjectId, sortMode, subjectAggregates]);
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Controls Bar: Target subtitle on left, controls on right */}
+    <div className="space-y-4 sm:space-y-5 max-w-7xl mx-auto">
+      {/* Top Header Row: Title & Action Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-1">
         <div>
-          <p className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400">
-            Target: <span className="text-blue-600 dark:text-blue-400 font-bold">{(target * 100).toFixed(0)}%</span> institutional requirement
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            Attendance
+          </h2>
+          <p className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 mt-0.5">
+            Target: <span className="text-blue-600 dark:text-blue-400 font-bold">{Math.round(target * 100)}%</span> institutional requirement
           </p>
         </div>
 
@@ -594,10 +598,57 @@ export function AttendancePage() {
               setShowHistoryModal(true);
             }}
           >
-            <History className="w-4 h-4 mr-1.5" /> Full History ({attendance.length})
+            <History className="w-4 h-4 mr-1.5" /> History ({attendance.length})
           </Button>
         </div>
       </div>
+
+      {/* Overall Attendance Card matching Panel 3 Reference Design */}
+      <Card className="overflow-hidden border border-slate-100 dark:border-slate-800/80 bg-white dark:bg-gray-900 rounded-3xl shadow-sm">
+        <CardContent className="p-5 sm:p-6">
+          <div className="flex items-center gap-5 sm:gap-6">
+            {/* Circular Ring on Left with centered percentage and subText="Overall" */}
+            <div className="shrink-0 flex items-center justify-center">
+              <AttendanceRing
+                percentage={overallStats.percentage}
+                size={96}
+                strokeWidth={8}
+                target={Math.round(target * 100)}
+                status={overallStats.status}
+                subText="Overall"
+                showTargetIndicator={false}
+                className="shrink-0 drop-shadow-xs"
+              />
+            </div>
+
+            {/* Overall Ratio, Target Badge and Guidance on Right */}
+            <div className="min-w-0 flex-1 space-y-1">
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
+                  {overallStats.attended} <span className="text-slate-400 dark:text-slate-500 font-bold text-lg sm:text-xl">/ {overallStats.conducted}</span>
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400">
+                Classes attended
+              </p>
+
+              <div className="pt-1 flex items-center gap-2 flex-wrap">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
+                  {Math.round(target * 100)}% Target
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium pt-0.5">
+                {overallStats.conducted === 0
+                  ? 'No recorded sessions yet'
+                  : overallStats.isOnTrack
+                  ? `You can safely miss up to ${overallStats.maxAbsences} ${overallStats.maxAbsences === 1 ? 'weighted session' : 'weighted sessions'}`
+                  : `Attend next ${overallStats.classesNeeded} ${overallStats.classesNeeded === 1 ? 'class' : 'classes'} to reach ${Math.round(target * 100)}%`}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Interactive Controls: Search, Status Filter & Sorting */}
       <AttendanceControls

@@ -98,12 +98,12 @@ export function SubjectAttendanceCard({
           onClick={() => setExpanded(!expanded)}
           className="flex items-center gap-4 sm:gap-5 cursor-pointer select-none"
         >
-          {/* Larger Progress Ring on Left (approx 90-100px) */}
+          {/* Progress Ring on Left */}
           <div className="shrink-0 flex items-center justify-center">
             <AttendanceRing
               percentage={percentage}
-              size={90}
-              strokeWidth={7.5}
+              size={56}
+              strokeWidth={5.5}
               target={targetPercent}
               status={status}
               showTargetIndicator={false}
@@ -169,8 +169,15 @@ export function SubjectAttendanceCard({
         {/* Expandable Action Drawer */}
         {expanded && (
           <div className="mt-4 pt-3.5 border-t border-slate-100 dark:border-slate-800 space-y-3 animate-in fade-in duration-200">
-            <div className="flex items-center justify-between text-xs text-slate-500">
-              <span>{subject.faculty ? `Faculty: ${subject.faculty}` : `${subject.credits || 3} Credits`}</span>
+            <div className="flex items-center justify-between text-xs text-slate-500 flex-wrap gap-2">
+              <span className="font-semibold text-slate-700 dark:text-slate-300">
+                {subject.faculty ? `👤 Faculty: ${subject.faculty}` : `${subject.credits || 3} Credits`}
+              </span>
+              {(eligibility?.eligibleSlot?.room || (subject as any).room) && (
+                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                  📍 Room: {eligibility?.eligibleSlot?.room || (subject as any).room}
+                </span>
+              )}
             </div>
 
             {/* Attendance Eligibility & Marking Section */}

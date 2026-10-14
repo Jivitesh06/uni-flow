@@ -1369,6 +1369,43 @@ export function canonicalizeSubjectsForAttendance<T extends {
     }
   }
 
+  // 3. Authoritatively resolve faculty and room from active timetable slots
+  for (const [canonicalKey, subject] of map.entries()) {
+    const matchingSlots = timetableSlots.filter((slot) => {
+      if ((slot as any).isNonAcademic || (slot as any).isFreePeriod) return false;
+      const rawCode = slot.subjectCode || slot.subjectName || '';
+      return context.getCanonicalKey(rawCode) === canonicalKey;
+    });
+
+    if (matchingSlots.length > 0) {
+      // Collect unique, valid faculty names from matching timetable slots
+      const uniqueFaculties: string[] = [];
+      for (const slot of matchingSlots) {
+        const fac = slot.faculty?.trim();
+        if (fac && !uniqueFaculties.includes(fac)) {
+          uniqueFaculties.push(fac);
+        }
+      }
+
+      if (uniqueFaculties.length > 0) {
+        subject.faculty = uniqueFaculties.join(' / ');
+      }
+
+      // Collect unique, valid rooms from matching timetable slots
+      const uniqueRooms: string[] = [];
+      for (const slot of matchingSlots) {
+        const rm = slot.room?.trim();
+        if (rm && !uniqueRooms.includes(rm)) {
+          uniqueRooms.push(rm);
+        }
+      }
+
+      if (uniqueRooms.length > 0) {
+        (subject as any).room = uniqueRooms.join(', ');
+      }
+    }
+  }
+
   return Array.from(map.values());
 }
 

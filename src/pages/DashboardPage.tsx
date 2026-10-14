@@ -410,6 +410,7 @@ export function DashboardPage() {
                         <p className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
                           {slot.startTime} – {slot.endTime}
                           {slot.room ? ` • ${slot.room}` : ''}
+                          {slot.faculty ? ` • ${slot.faculty}` : ''}
                         </p>
                       </div>
                     </div>
