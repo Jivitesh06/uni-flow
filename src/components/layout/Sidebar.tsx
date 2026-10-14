@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
   Calendar,
+  CalendarDays,
   BarChart2,
   Settings,
   GraduationCap,
@@ -28,6 +29,7 @@ interface SidebarProps {
 const primaryNav = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/timetable', icon: Calendar, label: 'Timetable' },
+  { to: '/academic-calendar', icon: CalendarDays, label: 'Academic Calendar' },
   { to: '/attendance', icon: BarChart2, label: 'Attendance' },
 ];
 

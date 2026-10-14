@@ -13,6 +13,7 @@ import { NotFoundPage } from './pages/NotFoundPage';
 import { PublicAuthRoute } from './components/auth/PublicAuthRoute';
 import { DashboardPage } from './pages/DashboardPage';
 import { TimetablePage } from './pages/TimetablePage';
+import { AcademicCalendarPage } from './pages/AcademicCalendarPage';
 import { SubjectsPage } from './pages/SubjectsPage';
 import { AttendancePage } from './pages/AttendancePage';
 import { NotificationsPage } from './pages/NotificationsPage';
@@ -85,6 +86,7 @@ export default function App() {
               <Route element={<AppLayout />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/timetable" element={<TimetablePage />} />
+                <Route path="/academic-calendar" element={<AcademicCalendarPage />} />
                 <Route path="/subjects" element={<Navigate to="/attendance" replace />} />
                 <Route path="/attendance" element={<AttendancePage />} />
                 <Route path="/notifications" element={<NotificationsPage />} />

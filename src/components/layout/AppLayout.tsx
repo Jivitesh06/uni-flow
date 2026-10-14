@@ -8,6 +8,7 @@ import { OfflineBanner } from './OfflineBanner';
 const titles: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/timetable': 'Timetable',
+  '/academic-calendar': 'Academic Calendar',
   '/attendance': 'Attendance',
   '/settings': 'Settings',
   '/notifications': 'Notifications',

@@ -20,8 +20,10 @@ import {
   matchesSubjectRecord,
 } from '../lib/attendanceCalculations';
 import { calculateLiveClassState, calculateDailySlotSessionNumber } from '../lib/timetableCalculations';
+import { calculateFreeClassrooms } from '../lib/roomAvailability';
 import { getGreeting } from '../lib/greeting';
 import { LiveClassCard } from '../components/timetable/LiveClassCard';
+import { FreeClassroomCard } from '../components/timetable/FreeClassroomCard';
 import { useSharedTimetable } from '../hooks/useSharedTimetable';
 import { useClassReminder } from '../hooks/useClassReminder';
 import { ClassReminderBanner } from '../components/notifications/ClassReminderBanner';
@@ -279,6 +281,21 @@ export function DashboardPage() {
     return calculateLiveClassState(studentApplicableSlots, now);
   }, [studentApplicableSlots, now]);
 
+  const [isRefreshingRooms, setIsRefreshingRooms] = useState(false);
+  const [roomRefreshTicker, setRoomRefreshTicker] = useState(0);
+
+  const roomInspection = useMemo(() => {
+    // Re-evaluates based on current time or manual refresh
+    return calculateFreeClassrooms(now);
+  }, [now, roomRefreshTicker]);
+
+  function handleRefreshRooms() {
+    setIsRefreshingRooms(true);
+    setNow(new Date());
+    setRoomRefreshTicker((c) => c + 1);
+    setTimeout(() => setIsRefreshingRooms(false), 400);
+  }
+
   const isStale = (!isFirestoreLoaded && effectiveSlots.length > 0) || isOffline;
   const dateFormatted = format(now, 'EEEE, MMMM d, yyyy');
   const timeFormatted = format(now, 'h:mm:ss a');
@@ -416,7 +433,14 @@ export function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* 5. Subject-Wise Attendance Card */}
+      {/* 5. Free Classrooms Right Now Card */}
+      <FreeClassroomCard
+        inspection={roomInspection}
+        onRefresh={handleRefreshRooms}
+        isRefreshing={isRefreshingRooms}
+      />
+
+      {/* 6. Subject-Wise Attendance Card */}
       <Card className="overflow-hidden border border-slate-100 dark:border-slate-800/80 bg-white dark:bg-gray-900 rounded-3xl shadow-sm">
         <CardHeader className="p-4 sm:p-5 pb-3 border-b border-slate-100 dark:border-slate-800/80">
           <div className="flex items-center justify-between">
