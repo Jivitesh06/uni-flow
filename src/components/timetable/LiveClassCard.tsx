@@ -38,6 +38,7 @@ export function LiveClassCard({
     startingSoonSlot,
     nextSlot,
     targetSlotSessionNumber,
+    targetSlotPeriodLabel,
     currentFreePeriod,
     nextScheduledDay,
     timeRemainingFormatted,
@@ -94,9 +95,9 @@ export function LiveClassCard({
                     {isOngoing ? 'Live Class' : 'Next Class'}
                   </span>
 
-                  {typeof targetSlotSessionNumber === 'number' && targetSlotSessionNumber > 0 && (
+                  {(targetSlotPeriodLabel || (typeof targetSlotSessionNumber === 'number' && targetSlotSessionNumber > 0)) && (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100/80 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200 border border-blue-200/80 dark:border-blue-800/80">
-                      Lecture {targetSlotSessionNumber}
+                      {targetSlotPeriodLabel || `Lecture ${targetSlotSessionNumber}`}
                     </span>
                   )}
                 </div>

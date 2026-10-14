@@ -23,6 +23,7 @@ interface TimetableSlotCardProps {
   viewMode?: 'grid' | 'agenda';
   isNextClass?: boolean;
   sessionNumber?: number;
+  periodLabel?: string;
   onEdit?: (slot: TimetableSlot) => void;
   onDelete?: (slot: TimetableSlot) => void;
 }
@@ -34,6 +35,7 @@ export function TimetableSlotCard({
   viewMode = 'grid',
   isNextClass = false,
   sessionNumber,
+  periodLabel,
   onEdit,
   onDelete,
 }: TimetableSlotCardProps) {
@@ -134,9 +136,9 @@ export function TimetableSlotCard({
                 <h4 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white truncate">
                   {slot.subjectCode || slot.subjectName}
                 </h4>
-                {typeof sessionNumber === 'number' && sessionNumber > 0 && (
+                {(periodLabel || (typeof sessionNumber === 'number' && sessionNumber > 0)) && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-900/40">
-                    Lecture {sessionNumber}
+                    {periodLabel || `Lecture ${sessionNumber}`}
                   </span>
                 )}
               </div>

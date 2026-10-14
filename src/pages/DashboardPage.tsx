@@ -402,8 +402,8 @@ export function DashboardPage() {
                             {slot.subjectCode || slot.subjectName}
                           </p>
                           {sessionInfo && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                              L{sessionInfo.sessionNumber}
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                              {sessionInfo.compactLabel || `L${sessionInfo.sessionNumber}`}
                             </span>
                           )}
                         </div>

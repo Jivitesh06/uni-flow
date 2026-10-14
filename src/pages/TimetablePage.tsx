@@ -43,7 +43,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
-import { timeToMinutes, calculateDailySlotSessionNumber } from '../lib/timetableCalculations';
+import { timeToMinutes, calculateDailySlotSessionNumber, formatDurationMinutes } from '../lib/timetableCalculations';
 import { useSharedTimetable } from '../hooks/useSharedTimetable';
 import {
   mergeSharedAndPersonalSlots,
@@ -958,29 +958,56 @@ export function TimetablePage() {
                     viewMode="agenda"
                     isNextClass={isNext}
                     sessionNumber={sessionInfo?.sessionNumber}
+                    periodLabel={sessionInfo?.periodLabel}
                     onEdit={openEdit}
                     onDelete={(s) => setSlotToDelete(s)}
                   />
 
                   {/* Free Period card during class intervals */}
-                  {hasFreePeriodAfter && nextSlotInList && (
-                    <div className="ml-16 sm:ml-20 -mt-1 mb-4 rounded-2xl border border-dashed border-amber-200/80 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/20 p-3.5 sm:p-4 flex items-center justify-between gap-3 shadow-sm">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center justify-center text-base shrink-0 shadow-xs">
-                          ☕
+                  {hasFreePeriodAfter && nextSlotInList && (() => {
+                    const freeDurationMinutes = nextSlotStartMinutes - slotEndMinutes;
+                    const formattedDuration = formatDurationMinutes(freeDurationMinutes);
+
+                    return (
+                      <div className="ml-16 sm:ml-20 -mt-1 mb-4 rounded-2xl border border-dashed border-amber-300/80 dark:border-amber-800/60 bg-gradient-to-r from-amber-50/70 via-amber-50/40 to-orange-50/30 dark:from-amber-950/30 dark:via-amber-950/20 dark:to-orange-950/10 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-xs">
+                        <div className="flex items-start gap-3.5 min-w-0">
+                          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-amber-100 to-amber-200/70 dark:from-amber-900/50 dark:to-amber-950/40 border border-amber-300/40 dark:border-amber-800/40 text-amber-800 dark:text-amber-200 flex items-center justify-center text-xl sm:text-2xl shrink-0 shadow-xs">
+                            ☕
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="text-sm sm:text-base font-extrabold text-slate-800 dark:text-slate-100">
+                                Free Period
+                              </h4>
+                              <span className="sm:hidden text-[10px] font-bold text-amber-800 dark:text-amber-300 bg-amber-100/90 dark:bg-amber-900/50 border border-amber-300/70 dark:border-amber-700/60 px-2 py-0.5 rounded-full shrink-0">
+                                Break
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              <span className="font-mono font-bold text-xs sm:text-sm text-amber-900 dark:text-amber-200 bg-amber-100/80 dark:bg-amber-900/40 px-2 py-0.5 rounded-md border border-amber-200/70 dark:border-amber-800/60">
+                                {slot.endTime} – {nextSlotInList.startTime}
+                              </span>
+                              <span className="text-xs text-amber-800/90 dark:text-amber-400 font-semibold">
+                                ({formattedDuration})
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1.5 flex items-center gap-1.5 flex-wrap">
+                              <span>Free time</span>
+                              <span>•</span>
+                              <span>Study</span>
+                              <span>•</span>
+                              <span>Library</span>
+                            </p>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 truncate">Free Period</p>
-                          <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5">
-                            <span className="font-semibold text-slate-700 dark:text-slate-300 font-mono">{slot.endTime} – {nextSlotInList.startTime}</span> • Free time • Library
-                          </p>
+                        <div className="hidden sm:flex shrink-0">
+                          <span className="text-xs font-bold text-amber-800 dark:text-amber-300 bg-amber-100/90 dark:bg-amber-900/50 border border-amber-300/70 dark:border-amber-700/60 px-3 py-1 rounded-full">
+                            Break
+                          </span>
                         </div>
                       </div>
-                      <span className="text-[10px] sm:text-xs font-semibold text-amber-700 dark:text-amber-400 bg-amber-100/80 dark:bg-amber-950/60 border border-amber-300/60 dark:border-amber-800/60 px-2.5 py-1 rounded-full shrink-0">
-                        Break
-                      </span>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </React.Fragment>
               );
             })}

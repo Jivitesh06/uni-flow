@@ -26,7 +26,9 @@ export interface LiveDashboardState {
   currentSlot: TimetableSlot | null;
   startingSoonSlot: TimetableSlot | null;
   nextSlot: TimetableSlot | null;
-  targetSlotSessionNumber?: number; // Chronological 1-based session of target subject on today's schedule
+  targetSlotSessionNumber?: number; // Institutional period index (1-based)
+  targetSlotPeriodLabel?: string;   // Formatted period label, e.g. "Lecture 1" or "Lecture 1–2"
+  targetSlotCompactLabel?: string;  // Compact period label, e.g. "L1" or "L1–2"
   totalSubjectSessionsToday?: number; // Total scheduled sessions for this subject on today's schedule
   currentFreePeriod: FreePeriod | null;
   todaySlots: TimetableSlot[];
@@ -81,40 +83,135 @@ export function getSubjectMatchKey(slot?: { subjectId?: string; subjectCode?: st
   return '';
 }
 
+export interface TimetablePeriod {
+  period: number;
+  startTime: string; // "09:30"
+  endTime: string;   // "10:20"
+  startMinutes: number; // 570
+  endMinutes: number;   // 620
+}
+
 /**
- * Calculates the chronological 1-based session/lecture number of a slot among all
- * scheduled sessions of that same subject on a given day's timetable.
- * Multi-period labs spanning consecutive hours count as one scheduled session unless
- * distinct slots exist.
+ * Institutional timetable periods for Chitkara University:
+ * 8 lecture periods of 50 minutes each from 09:30 to 16:10.
+ */
+export const INSTITUTIONAL_PERIODS: readonly TimetablePeriod[] = [
+  { period: 1, startTime: '09:30', endTime: '10:20', startMinutes: 570, endMinutes: 620 },
+  { period: 2, startTime: '10:20', endTime: '11:10', startMinutes: 620, endMinutes: 670 },
+  { period: 3, startTime: '11:10', endTime: '12:00', startMinutes: 670, endMinutes: 720 },
+  { period: 4, startTime: '12:00', endTime: '12:50', startMinutes: 720, endMinutes: 770 },
+  { period: 5, startTime: '12:50', endTime: '13:40', startMinutes: 770, endMinutes: 820 },
+  { period: 6, startTime: '13:40', endTime: '14:30', startMinutes: 820, endMinutes: 870 },
+  { period: 7, startTime: '14:30', endTime: '15:20', startMinutes: 870, endMinutes: 920 },
+  { period: 8, startTime: '15:20', endTime: '16:10', startMinutes: 920, endMinutes: 970 },
+];
+
+export interface SlotPeriodMapping {
+  sessionNumber: number; // Institutional period index (1-based, matches startPeriod)
+  totalSessions: number; // Total periods in institutional schedule (8)
+  startPeriod: number;
+  endPeriod: number;
+  periodLabel: string;   // e.g. "Lecture 1", "Lecture 1–2", "Lecture 7–8"
+  compactLabel: string;  // e.g. "L1", "L1–2", "L7–8"
+  isMultiPeriod: boolean;
+}
+
+/**
+ * Maps a timetable slot to university periods based on institutional timetable schedule.
+ * Correctly distinguishes single-period lectures (e.g. 50 min) from multi-period labs (e.g. 100 min).
+ * If a slot cannot be confidently mapped to institutional periods or is non-academic/free, returns null.
+ */
+export function mapSlotToTimetablePeriod(
+  slot: {
+    startTime?: string;
+    endTime?: string;
+    periods?: number;
+    durationMinutes?: number;
+    isNonAcademic?: boolean;
+    isFreePeriod?: boolean;
+    subjectCode?: string;
+    subjectName?: string;
+  } | null | undefined
+): SlotPeriodMapping | null {
+  if (!slot || !slot.startTime) return null;
+
+  // Omit lecture numbering for non-academic / free period entries
+  if (
+    slot.isNonAcademic ||
+    slot.isFreePeriod ||
+    /^(?:Lib|Library|Free Period|Break)$/i.test(slot.subjectCode || '') ||
+    /^(?:Lib|Library|Free Period|Break)$/i.test(slot.subjectName || '')
+  ) {
+    return null;
+  }
+
+  const startMins = timeToMinutes(slot.startTime);
+  if (startMins <= 0) return null;
+
+  // Match start period (tolerance +/- 6 minutes)
+  const TOLERANCE_MINS = 6;
+  const startPeriodObj = INSTITUTIONAL_PERIODS.find(
+    (p) => Math.abs(p.startMinutes - startMins) <= TOLERANCE_MINS
+  );
+  if (!startPeriodObj) return null;
+
+  let endPeriodObj: TimetablePeriod | undefined;
+
+  if (slot.endTime) {
+    const endMins = timeToMinutes(slot.endTime);
+    if (endMins > startMins) {
+      endPeriodObj = INSTITUTIONAL_PERIODS.find(
+        (p) => Math.abs(p.endMinutes - endMins) <= TOLERANCE_MINS
+      );
+    }
+  }
+
+  // Fallback if endTime didn't match directly: derive from periods count or duration
+  if (!endPeriodObj) {
+    const periodCount =
+      typeof slot.periods === 'number' && slot.periods >= 1
+        ? slot.periods
+        : typeof slot.durationMinutes === 'number' && slot.durationMinutes >= 80
+        ? 2
+        : 1;
+
+    const targetEndIndex = (startPeriodObj.period - 1) + (periodCount - 1);
+    if (targetEndIndex >= 0 && targetEndIndex < INSTITUTIONAL_PERIODS.length) {
+      endPeriodObj = INSTITUTIONAL_PERIODS[targetEndIndex];
+    }
+  }
+
+  if (!endPeriodObj || endPeriodObj.period < startPeriodObj.period) {
+    return null;
+  }
+
+  const startPeriod = startPeriodObj.period;
+  const endPeriod = endPeriodObj.period;
+  const isMultiPeriod = endPeriod > startPeriod;
+  const periodLabel = isMultiPeriod ? `Lecture ${startPeriod}–${endPeriod}` : `Lecture ${startPeriod}`;
+  const compactLabel = isMultiPeriod ? `L${startPeriod}–${endPeriod}` : `L${startPeriod}`;
+
+  return {
+    sessionNumber: startPeriod,
+    totalSessions: INSTITUTIONAL_PERIODS.length,
+    startPeriod,
+    endPeriod,
+    periodLabel,
+    compactLabel,
+    isMultiPeriod,
+  };
+}
+
+/**
+ * Calculates the timetable period mapping for a slot based on the official university schedule.
+ * Returns SlotPeriodMapping if matched, or null if the slot cannot be confidently mapped.
  */
 export function calculateDailySlotSessionNumber(
   targetSlot: TimetableSlot | null | undefined,
-  daySlots: TimetableSlot[]
-): { sessionNumber: number; totalSessions: number } | null {
+  _daySlots?: TimetableSlot[]
+): SlotPeriodMapping | null {
   if (!targetSlot) return null;
-  const targetKey = getSubjectMatchKey(targetSlot);
-  if (!targetKey) return null;
-
-  // Filter day slots for this same subject and sort chronologically by startTime, then endTime
-  const subjectSlots = daySlots
-    .filter((s) => s.isActive !== false && getSubjectMatchKey(s) === targetKey)
-    .sort((a, b) => {
-      const startDiff = timeToMinutes(a.startTime) - timeToMinutes(b.startTime);
-      if (startDiff !== 0) return startDiff;
-      return timeToMinutes(a.endTime) - timeToMinutes(b.endTime);
-    });
-
-  if (subjectSlots.length === 0) return null;
-
-  const foundIndex = subjectSlots.findIndex(
-    (s) => s.id === targetSlot.id || (s.startTime === targetSlot.startTime && s.endTime === targetSlot.endTime)
-  );
-
-  const sessionNumber = foundIndex >= 0 ? foundIndex + 1 : 1;
-  return {
-    sessionNumber,
-    totalSessions: subjectSlots.length,
-  };
+  return mapSlotToTimetablePeriod(targetSlot);
 }
 
 /**
@@ -209,6 +306,8 @@ export function calculateLiveClassState(
       startingSoonSlot: null,
       nextSlot,
       targetSlotSessionNumber: sessionInfo?.sessionNumber,
+      targetSlotPeriodLabel: sessionInfo?.periodLabel,
+      targetSlotCompactLabel: sessionInfo?.compactLabel,
       totalSubjectSessionsToday: sessionInfo?.totalSessions,
       currentFreePeriod: null,
       todaySlots,
@@ -233,6 +332,8 @@ export function calculateLiveClassState(
         startingSoonSlot: nextSlot,
         nextSlot,
         targetSlotSessionNumber: sessionInfo?.sessionNumber,
+        targetSlotPeriodLabel: sessionInfo?.periodLabel,
+        targetSlotCompactLabel: sessionInfo?.compactLabel,
         totalSubjectSessionsToday: sessionInfo?.totalSessions,
         currentFreePeriod: null,
         todaySlots,
@@ -262,6 +363,8 @@ export function calculateLiveClassState(
       startingSoonSlot: null,
       nextSlot,
       targetSlotSessionNumber: sessionInfo?.sessionNumber,
+      targetSlotPeriodLabel: sessionInfo?.periodLabel,
+      targetSlotCompactLabel: sessionInfo?.compactLabel,
       totalSubjectSessionsToday: sessionInfo?.totalSessions,
       currentFreePeriod: freePeriod,
       todaySlots,
