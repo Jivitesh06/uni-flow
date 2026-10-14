@@ -178,6 +178,8 @@ export function calculateLectureWeight(slot: {
  */
 export function calculateSubjectAttendance(
   subject: {
+    totalAttended?: number;
+    totalConducted?: number;
     initialAttended?: number;
     initialConducted?: number;
     baselineAttended?: number;
@@ -193,15 +195,7 @@ export function calculateSubjectAttendance(
       ? filterAttendanceRecordsByGroup(records, studentGroup)
       : records;
 
-  const rawBaselineAttended = subject.initialAttended ?? subject.baselineAttended ?? fallbackBaseline?.attended;
-  const rawBaselineConducted = subject.initialConducted ?? subject.baselineConducted ?? fallbackBaseline?.conducted;
-
-  const hasBaseline = typeof rawBaselineConducted === 'number' && rawBaselineConducted >= 0;
-
-  const baselineConducted = hasBaseline ? Math.max(0, Math.floor(rawBaselineConducted)) : 0;
-  const baselineAttended = hasBaseline ? Math.max(0, Math.min(baselineConducted, Math.floor(rawBaselineAttended ?? 0))) : 0;
-
-  // Accumulate weighted period counts: default to weight 1 if weight is omitted on historical records
+  // Accumulate weighted period counts from logs
   const loggedAttended = applicableRecords
     .filter((r) => r.status === 'present')
     .reduce((sum, r) => sum + (typeof r.weight === 'number' && r.weight > 0 ? r.weight : 1), 0);
@@ -210,8 +204,35 @@ export function calculateSubjectAttendance(
     .filter((r) => r.status !== 'not_marked' && r.status !== 'cancelled')
     .reduce((sum, r) => sum + (typeof r.weight === 'number' && r.weight > 0 ? r.weight : 1), 0);
 
-  const totalAttended = baselineAttended + loggedAttended;
-  const totalConducted = baselineConducted + loggedConducted;
+  // If the subject has direct canonical totals saved (totalConducted / totalAttended),
+  // they represent the actual totals directly without hidden baseline reconciliation or double-counting.
+  const hasDirectTotals =
+    typeof subject.totalConducted === 'number' || typeof subject.totalAttended === 'number';
+
+  let totalAttended: number;
+  let totalConducted: number;
+  let baselineAttended = 0;
+  let baselineConducted = 0;
+  let hasBaseline = false;
+
+  if (hasDirectTotals) {
+    totalConducted = Math.max(0, Math.floor(subject.totalConducted ?? 0));
+    totalAttended = Math.max(0, Math.min(totalConducted, Math.floor(subject.totalAttended ?? 0)));
+    baselineAttended = totalAttended;
+    baselineConducted = totalConducted;
+    hasBaseline = true;
+  } else {
+    // Backward compatibility for legacy baseline records or pure logged records
+    const rawBaselineAttended = subject.initialAttended ?? subject.baselineAttended ?? fallbackBaseline?.attended;
+    const rawBaselineConducted = subject.initialConducted ?? subject.baselineConducted ?? fallbackBaseline?.conducted;
+
+    hasBaseline = typeof rawBaselineConducted === 'number' && rawBaselineConducted >= 0;
+    baselineConducted = hasBaseline && typeof rawBaselineConducted === 'number' ? Math.max(0, Math.floor(rawBaselineConducted)) : 0;
+    baselineAttended = hasBaseline ? Math.max(0, Math.min(baselineConducted, Math.floor(rawBaselineAttended ?? 0))) : 0;
+
+    totalAttended = baselineAttended + loggedAttended;
+    totalConducted = baselineConducted + loggedConducted;
+  }
 
   const stats = calculateAttendanceStats(totalAttended, totalConducted, target);
 
@@ -315,21 +336,19 @@ export interface AttendanceTotalsValidationResult {
 }
 
 /**
- * Validates user-entered actual Total Delivered and Total Attended, and safely derives
- * the underlying historical baseline starting values without double-counting UniFlow logs.
+ * Validates user-entered actual Total Delivered and Total Attended as direct canonical totals.
  *
  * Constraints:
  * - Both values must be non-negative integers.
  * - Total Attended cannot exceed Total Delivered.
- * - Total Delivered cannot be less than classes already logged in UniFlow (loggedConducted).
- * - Total Attended cannot be less than present classes already logged in UniFlow (loggedAttended).
- * - Prior historical baseline attended cannot exceed prior delivered (derivedBaselineAttended <= derivedBaselineConducted).
+ * - Zero total classes handled safely (0% percentage).
+ * - No baseline offsets or reconciliation with logged counts.
  */
 export function validateAttendanceTotals(
   totalAttendedInput: string | number,
   totalDeliveredInput: string | number,
-  loggedAttended: number = 0,
-  loggedConducted: number = 0
+  _legacyLoggedAttended: number = 0,
+  _legacyLoggedConducted: number = 0
 ): AttendanceTotalsValidationResult {
   const attendedStr = String(totalAttendedInput).trim();
   const deliveredStr = String(totalDeliveredInput).trim();
@@ -402,53 +421,8 @@ export function validateAttendanceTotals(
       attended: attendedNum,
       delivered: deliveredNum,
       percentage: deliveredNum > 0 ? (attendedNum / deliveredNum) * 100 : 0,
-      derivedBaselineAttended: 0,
-      derivedBaselineConducted: 0,
-    };
-  }
-
-  if (deliveredNum < loggedConducted) {
-    return {
-      isValid: false,
-      error: `Total Delivered (${deliveredNum}) cannot be less than the ${loggedConducted} classes already recorded in UniFlow logs.`,
-      totalAttended: attendedNum,
-      totalDelivered: deliveredNum,
-      attended: attendedNum,
-      delivered: deliveredNum,
-      percentage: deliveredNum > 0 ? (attendedNum / deliveredNum) * 100 : 0,
-      derivedBaselineAttended: 0,
-      derivedBaselineConducted: 0,
-    };
-  }
-
-  if (attendedNum < loggedAttended) {
-    return {
-      isValid: false,
-      error: `Total Attended (${attendedNum}) cannot be less than the ${loggedAttended} present classes already recorded in UniFlow logs.`,
-      totalAttended: attendedNum,
-      totalDelivered: deliveredNum,
-      attended: attendedNum,
-      delivered: deliveredNum,
-      percentage: deliveredNum > 0 ? (attendedNum / deliveredNum) * 100 : 0,
-      derivedBaselineAttended: 0,
-      derivedBaselineConducted: 0,
-    };
-  }
-
-  const derivedBaselineConducted = deliveredNum - loggedConducted;
-  const derivedBaselineAttended = attendedNum - loggedAttended;
-
-  if (derivedBaselineAttended > derivedBaselineConducted) {
-    return {
-      isValid: false,
-      error: `Inconsistent totals: prior attended (${derivedBaselineAttended}) would exceed prior delivered (${derivedBaselineConducted}).`,
-      totalAttended: attendedNum,
-      totalDelivered: deliveredNum,
-      attended: attendedNum,
-      delivered: deliveredNum,
-      percentage: deliveredNum > 0 ? (attendedNum / deliveredNum) * 100 : 0,
-      derivedBaselineAttended: 0,
-      derivedBaselineConducted: 0,
+      derivedBaselineAttended: attendedNum,
+      derivedBaselineConducted: deliveredNum,
     };
   }
 
@@ -459,8 +433,8 @@ export function validateAttendanceTotals(
     attended: attendedNum,
     delivered: deliveredNum,
     percentage: deliveredNum > 0 ? (attendedNum / deliveredNum) * 100 : 0,
-    derivedBaselineAttended,
-    derivedBaselineConducted,
+    derivedBaselineAttended: attendedNum,
+    derivedBaselineConducted: deliveredNum,
   };
 }
 
@@ -1223,6 +1197,8 @@ export function canonicalizeSubjectsForAttendance<T extends {
   faculty?: string;
   credits?: number;
   color?: string;
+  totalAttended?: number;
+  totalConducted?: number;
   initialAttended?: number;
   initialConducted?: number;
   baselineAttended?: number;
@@ -1293,6 +1269,14 @@ export function canonicalizeSubjectsForAttendance<T extends {
         ...existing,
         name: preferredName,
         aliases: mergedAliases,
+        totalAttended:
+          existing.totalAttended !== undefined || sub.totalAttended !== undefined
+            ? (existing.totalAttended ?? 0) + (sub.totalAttended ?? 0)
+            : undefined,
+        totalConducted:
+          existing.totalConducted !== undefined || sub.totalConducted !== undefined
+            ? (existing.totalConducted ?? 0) + (sub.totalConducted ?? 0)
+            : undefined,
         initialAttended:
           existing.initialAttended !== undefined || sub.initialAttended !== undefined
             ? combinedInitialAttended

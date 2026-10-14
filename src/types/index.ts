@@ -12,6 +12,9 @@ export interface Subject {
   faculty?: string;
   credits: number;
   color: string;
+  totalAttended?: number;
+  totalConducted?: number;
+  totalsUpdatedAt?: Timestamp;
   initialAttended?: number;
   initialConducted?: number;
   baselineAttended?: number;

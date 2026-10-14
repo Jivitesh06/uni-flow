@@ -302,153 +302,155 @@ runTest('12. Mark handler strictly blocks marking when session is upcoming / fut
 });
 
 // =============================================================================
-// PART 2: ACTUAL ATTENDANCE TOTALS VALIDATION & DERIVATION
+// PART 2: ACTUAL ATTENDANCE TOTALS VALIDATION & CANONICAL PERSISTENCE
 // =============================================================================
-console.log('\n--- 2. Actual Attendance Totals Validation & Persistence Derivation ---');
+console.log('\n--- 2. Actual Attendance Totals Validation & Direct Canonical Persistence ---');
 
-// Test 13: Totals validation valid: 35 attended, 40 delivered, 5 logged -> valid
-runTest('13. Valid totals: 35 attended, 40 delivered with 5 logged (5/5) -> derived baseline (30/35)', () => {
-  const res = validateAttendanceTotals(35, 40, 5, 5);
+// Test 13: Direct total editing: 32 attended, 45 delivered -> 71.1% exact
+runTest('13. Direct total editing: 32 attended, 45 delivered yields exact 71.1%', () => {
+  const res = validateAttendanceTotals(32, 45);
   assert.equal(res.isValid, true);
-  assert.equal(res.totalAttended, 35);
-  assert.equal(res.totalDelivered, 40);
-  assert.equal(res.derivedBaselineAttended, 30);
-  assert.equal(res.derivedBaselineConducted, 35);
-  assert.equal(res.percentage, 87.5);
+  assert.equal(res.totalAttended, 32);
+  assert.equal(res.totalDelivered, 45);
+  assert.equal(res.percentage.toFixed(1), '71.1');
 });
 
 // Test 14: Totals validation attended > delivered: 45 attended, 40 delivered -> invalid
 runTest('14. Invalid totals: attended (45) > delivered (40) is rejected', () => {
-  const res = validateAttendanceTotals(45, 40, 0, 0);
+  const res = validateAttendanceTotals(45, 40);
   assert.equal(res.isValid, false);
   assert.match(res.error || '', /cannot exceed/i);
 });
 
-// Test 15: Totals validation delivered < logged: 4 delivered, 5 logged -> invalid
-runTest('15. Invalid totals: delivered (4) < logged conducted (5) is rejected', () => {
-  const res = validateAttendanceTotals(4, 4, 3, 5);
-  assert.equal(res.isValid, false);
-  assert.match(res.error || '', /cannot be less than/i);
+// Test 15: Totals validation with existing history: 32 attended, 45 delivered does NOT reject based on history
+runTest('15. Direct totals editing allows setting totals lower or higher than historical logs', () => {
+  const res = validateAttendanceTotals(3, 4, 3, 5);
+  assert.equal(res.isValid, true);
+  assert.equal(res.totalAttended, 3);
+  assert.equal(res.totalDelivered, 4);
 });
 
-// Test 16: Totals validation attended < logged attended: 2 attended, 3 logged attended -> invalid
-runTest('16. Invalid totals: attended (2) < logged attended (3) is rejected', () => {
-  const res = validateAttendanceTotals(2, 10, 3, 5);
-  assert.equal(res.isValid, false);
-  assert.match(res.error || '', /cannot be less than.*logs/i);
+// Test 16: Percentage recalculation on edit: editing from 32/45 (71.1%) to 33/46 (71.7%)
+runTest('16. Percentage recalculation on edit: 33/46 immediately reflects 71.7%', () => {
+  const res = validateAttendanceTotals(33, 46);
+  assert.equal(res.isValid, true);
+  assert.equal(res.totalAttended, 33);
+  assert.equal(res.totalDelivered, 46);
+  assert.equal(res.percentage.toFixed(1), '71.7');
 });
 
 // Test 17: Totals validation negative: -1 -> invalid
 runTest('17. Invalid totals: negative numbers (-1) rejected', () => {
-  const res = validateAttendanceTotals(-1, 10, 0, 0);
+  const res = validateAttendanceTotals(-1, 10);
   assert.equal(res.isValid, false);
   assert.match(res.error || '', /negative/i);
 });
 
 // Test 18: Totals validation decimal: 35.5 -> invalid
 runTest('18. Invalid totals: decimal numbers (35.5) rejected', () => {
-  const res = validateAttendanceTotals('35.5', '40', 0, 0);
+  const res = validateAttendanceTotals('35.5', '40');
   assert.equal(res.isValid, false);
   assert.match(res.error || '', /whole integer/i);
 });
 
 // Test 19: Totals validation empty: '' -> invalid
 runTest('19. Invalid totals: empty string rejected', () => {
-  const res = validateAttendanceTotals('', '', 0, 0);
+  const res = validateAttendanceTotals('', '');
   assert.equal(res.isValid, false);
   assert.match(res.error || '', /enter both/i);
 });
 
-// Test 20: Totals validation zero delivered: 0 delivered, 0 attended, 0 logged -> valid, percentage 0%
+// Test 20: Totals validation zero delivered: 0 delivered, 0 attended -> valid, percentage 0%
 runTest('20. Valid zero totals: 0 delivered, 0 attended -> valid, 0% percentage', () => {
-  const res = validateAttendanceTotals(0, 0, 0, 0);
+  const res = validateAttendanceTotals(0, 0);
   assert.equal(res.isValid, true);
   assert.equal(res.totalAttended, 0);
   assert.equal(res.totalDelivered, 0);
   assert.equal(res.percentage, 0);
 });
 
-// Test 21: Totals persistence formula: totalAttended = derivedBaselineAttended + loggedAttended = inputAttended
-runTest('21. Formula exactness: derivedBaselineAttended + loggedAttended === inputAttended', () => {
-  const inputAttended = 28;
-  const inputDelivered = 32;
-  const loggedAttended = 7;
-  const loggedConducted = 9;
-
-  const res = validateAttendanceTotals(inputAttended, inputDelivered, loggedAttended, loggedConducted);
-  assert.equal(res.isValid, true);
-  const recomputedAttended = res.derivedBaselineAttended + loggedAttended;
-  assert.equal(recomputedAttended, inputAttended);
-});
-
-// Test 22: Totals persistence formula: totalConducted = derivedBaselineConducted + loggedConducted = inputDelivered
-runTest('22. Formula exactness: derivedBaselineConducted + loggedConducted === inputDelivered', () => {
-  const inputAttended = 28;
-  const inputDelivered = 32;
-  const loggedAttended = 7;
-  const loggedConducted = 9;
-
-  const res = validateAttendanceTotals(inputAttended, inputDelivered, loggedAttended, loggedConducted);
-  assert.equal(res.isValid, true);
-  const recomputedConducted = res.derivedBaselineConducted + loggedConducted;
-  assert.equal(recomputedConducted, inputDelivered);
-});
-
-// Test 23: Subsequent mark increments: after saving totals (30/35 baseline, 5/5 logged -> 35/40 total), user marks present (+1) -> new total is 36/41
-runTest('23. Subsequent class marking: marking present increments logged by +1, total reflects 36/41', () => {
+// Test 21: Preventing double counting: historical log aggregation does NOT inflate manually saved totals
+runTest('21. Preventing double counting: historical log aggregation does not silently inflate saved totals', () => {
   const subject = {
     id: 'sub-test',
     name: 'Test Subject',
-    baselineAttended: 30,
-    baselineConducted: 35,
+    totalAttended: 32,
+    totalConducted: 45,
   };
-  // Initially 5 logged present
-  const initialRecords = Array.from({ length: 5 }, (_, i) => ({
+  // 5 historical logs exist in attendance
+  const existingRecords = Array.from({ length: 5 }, (_, i) => ({
     id: `rec-${i}`,
     subjectId: 'sub-test',
     status: 'present',
     date: makeDateObj(today),
     weight: 1,
   }));
-  const beforeAgg = calculateSubjectAttendance(subject, initialRecords);
-  assert.equal(beforeAgg.totalAttended, 35);
-  assert.equal(beforeAgg.totalConducted, 40);
 
-  // Student marks a new class as present (+1)
-  const afterRecords = [
-    ...initialRecords,
-    { id: 'rec-new', subjectId: 'sub-test', status: 'present', date: makeDateObj(today), weight: 1 },
-  ];
-  const afterAgg = calculateSubjectAttendance(subject, afterRecords);
-  assert.equal(afterAgg.totalAttended, 36);
-  assert.equal(afterAgg.totalConducted, 41);
+  const agg = calculateSubjectAttendance(subject, existingRecords, 0.75);
+  // Must be EXACTLY 32 / 45, NOT 37 / 50!
+  assert.equal(agg.totalAttended, 32);
+  assert.equal(agg.totalConducted, 45);
+  assert.equal(agg.stats.percentage.toFixed(1), '71.1');
 });
 
-// Test 24: Subsequent correction: correcting a logged present to absent -> new total is 34/40
-runTest('24. Subsequent correction: correcting a logged present to absent reduces total attended to 34/40', () => {
-  const subject = {
+// Test 22: Persistence after reload: direct totals stored on subject remain unchanged
+runTest('22. Persistence after reload: direct totals stored on subject remain exact after navigation/reload', () => {
+  const loadedSubject = {
+    id: 'sub-canonical',
+    name: 'Canonical Subject',
+    code: 'CS101',
+    totalAttended: 32,
+    totalConducted: 45,
+    initialAttended: 32,
+    initialConducted: 45,
+  };
+  const agg = calculateSubjectAttendance(loadedSubject, []);
+  assert.equal(agg.totalAttended, 32);
+  assert.equal(agg.totalConducted, 45);
+  assert.equal(agg.stats.percentage.toFixed(1), '71.1');
+});
+
+// Test 23: Subsequent class marking: marking present increments canonical totals to 33/46
+runTest('23. Subsequent class marking: marking present increments canonical totals to 33/46', () => {
+  const subjectBefore = {
     id: 'sub-test',
     name: 'Test Subject',
-    baselineAttended: 30,
-    baselineConducted: 35,
+    totalAttended: 32,
+    totalConducted: 45,
   };
-  // 5 records initially (all present)
-  const records = Array.from({ length: 5 }, (_, i) => ({
-    id: `rec-${i}`,
-    subjectId: 'sub-test',
-    status: 'present',
-    date: makeDateObj(today),
-    weight: 1,
-  }));
-  const beforeAgg = calculateSubjectAttendance(subject, records);
-  assert.equal(beforeAgg.totalAttended, 35);
-  assert.equal(beforeAgg.totalConducted, 40);
+  const beforeAgg = calculateSubjectAttendance(subjectBefore, []);
+  assert.equal(beforeAgg.totalAttended, 32);
+  assert.equal(beforeAgg.totalConducted, 45);
 
-  // User corrects one record from present to absent
-  const correctedRecords = records.map((r, i) => (i === 0 ? { ...r, status: 'absent' } : r));
-  const afterAgg = calculateSubjectAttendance(subject, correctedRecords);
-  assert.equal(afterAgg.totalAttended, 34);
-  assert.equal(afterAgg.totalConducted, 40);
+  const weight = 1;
+  const subjectAfter = {
+    ...subjectBefore,
+    totalAttended: subjectBefore.totalAttended + weight,
+    totalConducted: subjectBefore.totalConducted + weight,
+  };
+  const afterAgg = calculateSubjectAttendance(subjectAfter, []);
+  assert.equal(afterAgg.totalAttended, 33);
+  assert.equal(afterAgg.totalConducted, 46);
+  assert.equal(afterAgg.stats.percentage.toFixed(1), '71.7');
+});
+
+// Test 24: Subsequent correction: correcting present to absent updates canonical totals to 32/46
+runTest('24. Subsequent correction: correcting present to absent updates canonical totals to 32/46', () => {
+  const subjectBefore = {
+    id: 'sub-test',
+    name: 'Test Subject',
+    totalAttended: 33,
+    totalConducted: 46,
+  };
+  const subjectAfter = {
+    ...subjectBefore,
+    totalAttended: subjectBefore.totalAttended - 1,
+    totalConducted: subjectBefore.totalConducted,
+  };
+  const afterAgg = calculateSubjectAttendance(subjectAfter, []);
+  assert.equal(afterAgg.totalAttended, 32);
+  assert.equal(afterAgg.totalConducted, 46);
+  assert.equal(afterAgg.stats.percentage.toFixed(1), '69.6');
 });
 
 console.log('\n======================================================================');

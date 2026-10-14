@@ -239,15 +239,10 @@ export function AttendancePage() {
   // Save Attendance Totals to Firestore under /users/{uid}/subjects/{subjectId}
   async function handleSaveTotals() {
     if (!totalsModalSubject || !uid) return;
-    const agg = subjectAggregates.get(totalsModalSubject.id);
-    const loggedConducted = agg?.loggedConducted ?? 0;
-    const loggedAttended = agg?.loggedAttended ?? 0;
 
     const validation = validateAttendanceTotals(
       totalAttendedInput,
-      totalDeliveredInput,
-      loggedAttended,
-      loggedConducted
+      totalDeliveredInput
     );
     if (!validation.isValid) {
       toast.error(validation.error || 'Invalid attendance totals');
@@ -264,11 +259,13 @@ export function AttendancePage() {
           faculty: totalsModalSubject.faculty || null,
           credits: totalsModalSubject.credits || 3,
           color: totalsModalSubject.color || '#3b82f6',
-          initialAttended: validation.derivedBaselineAttended,
-          initialConducted: validation.derivedBaselineConducted,
-          baselineAttended: validation.derivedBaselineAttended,
-          baselineConducted: validation.derivedBaselineConducted,
-          baselineUpdatedAt: serverTimestamp(),
+          totalAttended: validation.totalAttended,
+          totalConducted: validation.totalDelivered,
+          initialAttended: validation.totalAttended,
+          initialConducted: validation.totalDelivered,
+          baselineAttended: validation.totalAttended,
+          baselineConducted: validation.totalDelivered,
+          totalsUpdatedAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         },
         { merge: true }
@@ -357,6 +354,35 @@ export function AttendancePage() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+
+      // Synchronize canonical subject totals
+      if (sub) {
+        const agg = subjectAggregates.get(sub.id);
+        const currentAttended = agg?.totalAttended ?? 0;
+        const currentConducted = agg?.totalConducted ?? 0;
+        const newAttended = status === 'present' ? currentAttended + effectiveWeight : currentAttended;
+        const newConducted = currentConducted + effectiveWeight;
+
+        await setDoc(
+          doc(db, `users/${uid}/subjects/${sub.id}`),
+          {
+            name: sub.name,
+            code: sub.code,
+            faculty: sub.faculty || null,
+            credits: sub.credits || 3,
+            color: sub.color || '#3b82f6',
+            totalAttended: newAttended,
+            totalConducted: newConducted,
+            initialAttended: newAttended,
+            initialConducted: newConducted,
+            baselineAttended: newAttended,
+            baselineConducted: newConducted,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }
+
       toast.success(
         effectiveWeight > 1
           ? `Marked ${status} (${effectiveWeight}-period lab, weight ${effectiveWeight}) for ${format(targetDate, 'MMM d')}`
@@ -407,6 +433,57 @@ export function AttendancePage() {
       }
 
       await updateDoc(doc(db, `users/${uid}/attendance/${recordId}`), payload);
+
+      // Synchronize canonical subject totals
+      const record = editingRecord || attendance.find((a) => a.id === recordId);
+      if (record && record.status !== newStatus) {
+        const weight = typeof record.weight === 'number' && record.weight > 0 ? record.weight : 1;
+        const sub = allSubjects.find((s) => matchesSubjectRecord(s, record.subjectId, resolutionContext));
+        if (sub) {
+          const agg = subjectAggregates.get(sub.id);
+          if (agg) {
+            let attendedDelta = 0;
+            let conductedDelta = 0;
+
+            if (record.status === 'present') {
+              attendedDelta -= weight;
+              conductedDelta -= weight;
+            } else if (record.status === 'absent') {
+              conductedDelta -= weight;
+            }
+
+            if (newStatus === 'present') {
+              attendedDelta += weight;
+              conductedDelta += weight;
+            } else if (newStatus === 'absent') {
+              conductedDelta += weight;
+            }
+
+            const newAttended = Math.max(0, agg.totalAttended + attendedDelta);
+            const newConducted = Math.max(0, agg.totalConducted + conductedDelta);
+
+            await setDoc(
+              doc(db, `users/${uid}/subjects/${sub.id}`),
+              {
+                name: sub.name,
+                code: sub.code,
+                faculty: sub.faculty || null,
+                credits: sub.credits || 3,
+                color: sub.color || '#3b82f6',
+                totalAttended: newAttended,
+                totalConducted: newConducted,
+                initialAttended: newAttended,
+                initialConducted: newConducted,
+                baselineAttended: newAttended,
+                baselineConducted: newConducted,
+                updatedAt: serverTimestamp(),
+              },
+              { merge: true }
+            );
+          }
+        }
+      }
+
       toast.success('Attendance record corrected', { id: 'attendance-correction' });
       setEditingRecord(null);
       setCorrectionNote('');
@@ -449,7 +526,50 @@ export function AttendancePage() {
 
     setIsDeletingRecord(true);
     try {
+      const record = attendance.find((a) => a.id === recordId);
       await deleteDoc(doc(db, `users/${uid}/attendance/${recordId}`));
+
+      // Synchronize canonical subject totals
+      if (record) {
+        const weight = typeof record.weight === 'number' && record.weight > 0 ? record.weight : 1;
+        const sub = allSubjects.find((s) => matchesSubjectRecord(s, record.subjectId, resolutionContext));
+        if (sub) {
+          const agg = subjectAggregates.get(sub.id);
+          if (agg) {
+            let attendedDelta = 0;
+            let conductedDelta = 0;
+
+            if (record.status === 'present') {
+              attendedDelta -= weight;
+              conductedDelta -= weight;
+            } else if (record.status === 'absent') {
+              conductedDelta -= weight;
+            }
+
+            const newAttended = Math.max(0, agg.totalAttended + attendedDelta);
+            const newConducted = Math.max(0, agg.totalConducted + conductedDelta);
+
+            await setDoc(
+              doc(db, `users/${uid}/subjects/${sub.id}`),
+              {
+                name: sub.name,
+                code: sub.code,
+                faculty: sub.faculty || null,
+                credits: sub.credits || 3,
+                color: sub.color || '#3b82f6',
+                totalAttended: newAttended,
+                totalConducted: newConducted,
+                initialAttended: newAttended,
+                initialConducted: newConducted,
+                baselineAttended: newAttended,
+                baselineConducted: newConducted,
+                updatedAt: serverTimestamp(),
+              },
+              { merge: true }
+            );
+          }
+        }
+      }
       toast.success('Record removed', { id: 'attendance-deletion' });
       if (editingRecord?.id === recordId) {
         setEditingRecord(null);
@@ -730,14 +850,9 @@ export function AttendancePage() {
             </div>
 
             {(() => {
-              const agg = totalsModalSubject ? subjectAggregates.get(totalsModalSubject.id) : null;
-              const loggedConducted = agg?.loggedConducted ?? 0;
-              const loggedAttended = agg?.loggedAttended ?? 0;
               const val = validateAttendanceTotals(
                 totalAttendedInput,
-                totalDeliveredInput,
-                loggedAttended,
-                loggedConducted
+                totalDeliveredInput
               );
 
               return (
@@ -782,32 +897,18 @@ export function AttendancePage() {
 
                   {/* Summary & Live Preview */}
                   {val.isValid ? (
-                    <div className="space-y-2">
-                      <div className="p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 flex items-center justify-between">
-                        <div className="text-xs">
-                          <span className="font-semibold text-slate-600 dark:text-slate-300 block">
-                            Current Attendance:
-                          </span>
-                          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                            {val.attended} / {val.delivered} classes
-                          </span>
-                        </div>
-                        <span className="text-xl font-black text-blue-600 dark:text-blue-400 tracking-tight">
-                          {val.percentage.toFixed(1)}%
+                    <div className="p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 flex items-center justify-between">
+                      <div className="text-xs">
+                        <span className="font-semibold text-slate-600 dark:text-slate-300 block">
+                          Current Attendance:
+                        </span>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                          {val.attended} / {val.delivered} classes
                         </span>
                       </div>
-
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/40 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 leading-relaxed">
-                        {loggedConducted > 0 ? (
-                          <>
-                            UniFlow tracks <strong className="text-slate-700 dark:text-slate-300">{loggedConducted}</strong> classes logged in your attendance history (<strong className="text-slate-700 dark:text-slate-300">{loggedAttended}</strong> attended). Adjusting totals sets your starting baseline to <strong className="text-slate-700 dark:text-slate-300">{val.derivedBaselineAttended} / {val.derivedBaselineConducted}</strong> without altering logged records.
-                          </>
-                        ) : (
-                          <>
-                            No classes logged yet in UniFlow. Totals will set your starting baseline directly.
-                          </>
-                        )}
-                      </div>
+                      <span className="text-xl font-black text-blue-600 dark:text-blue-400 tracking-tight">
+                        {val.percentage.toFixed(1)}%
+                      </span>
                     </div>
                   ) : (
                     <div className="p-3 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
