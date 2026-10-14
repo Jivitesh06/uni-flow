@@ -54,10 +54,13 @@ import {
   calculateSubjectAttendance,
   calculateLectureWeight,
   validateAttendanceBaseline,
+  validateAttendanceTotals,
+  evaluateSubjectAttendanceEligibility,
   canonicalizeSubjectsForAttendance,
   buildTimetableSubjectEquivalenceMap,
   matchesSubjectRecord,
   type SubjectAttendanceAggregate,
+  type AttendanceEligibility,
 } from '../lib/attendanceCalculations';
 import { SubjectAttendanceCard } from '../components/attendance/SubjectAttendanceCard';
 import {
@@ -132,11 +135,11 @@ export function AttendancePage() {
       .sort((a, b) => a.startTime.localeCompare(b.startTime));
   }, [effectiveSlots, selectedDayOfWeek, studentGroup]);
 
-  // Baseline editing modal state
-  const [baselineModalSubject, setBaselineModalSubject] = useState<Subject | null>(null);
-  const [baselineConductedInput, setBaselineConductedInput] = useState<string>('');
-  const [baselineAttendedInput, setBaselineAttendedInput] = useState<string>('');
-  const [baselineSaving, setBaselineSaving] = useState(false);
+  // Attendance totals editing modal state
+  const [totalsModalSubject, setTotalsModalSubject] = useState<Subject | null>(null);
+  const [totalDeliveredInput, setTotalDeliveredInput] = useState<string>('');
+  const [totalAttendedInput, setTotalAttendedInput] = useState<string>('');
+  const [totalsSaving, setTotalsSaving] = useState(false);
 
   // History & Correction modal state
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
@@ -175,6 +178,24 @@ export function AttendancePage() {
     return map;
   }, [allSubjects, attendance, legacyBaselines, target, studentGroup, resolutionContext]);
 
+  // Evaluate attendance eligibility for each subject on targetDateObj
+  const subjectEligibilityMap = useMemo(() => {
+    const map = new Map<string, AttendanceEligibility>();
+    const now = new Date();
+    for (const sub of allSubjects) {
+      const eligibility = evaluateSubjectAttendanceEligibility(
+        sub,
+        scheduledSlotsForDate,
+        attendance,
+        targetDateObj,
+        now,
+        resolutionContext
+      );
+      map.set(sub.id, eligibility);
+    }
+    return map;
+  }, [allSubjects, scheduledSlotsForDate, attendance, targetDateObj, resolutionContext]);
+
   // Overall attendance statistics across all subjects
   const overallStats = useMemo(() => {
     let totalAttended = 0;
@@ -201,53 +222,67 @@ export function AttendancePage() {
     }
   }, [subjectParam, allSubjects, selectedSubjectId, resolutionContext]);
 
-  // Open Baseline Modal
-  function handleOpenBaseline(sub: Subject) {
+  // Open Attendance Totals Modal
+  function handleOpenTotalsEditor(sub: Subject) {
     const agg = subjectAggregates.get(sub.id);
-    setBaselineModalSubject(sub);
-    setBaselineConductedInput(String(agg?.baselineConducted ?? 0));
-    setBaselineAttendedInput(String(agg?.baselineAttended ?? 0));
+    setTotalsModalSubject(sub);
+    setTotalDeliveredInput(String(agg?.totalConducted ?? 0));
+    setTotalAttendedInput(String(agg?.totalAttended ?? 0));
   }
 
-  // Save Baseline to Firestore under /users/{uid}/subjects/{subjectId}
-  async function handleSaveBaseline() {
-    if (!baselineModalSubject || !uid) return;
-    const validation = validateAttendanceBaseline(baselineAttendedInput, baselineConductedInput);
+  // Backwards compatibility alias for baseline
+  function handleOpenBaseline(sub: Subject) {
+    handleOpenTotalsEditor(sub);
+  }
+
+  // Save Attendance Totals to Firestore under /users/{uid}/subjects/{subjectId}
+  async function handleSaveTotals() {
+    if (!totalsModalSubject || !uid) return;
+    const agg = subjectAggregates.get(totalsModalSubject.id);
+    const loggedConducted = agg?.loggedConducted ?? 0;
+    const loggedAttended = agg?.loggedAttended ?? 0;
+
+    const validation = validateAttendanceTotals(
+      totalAttendedInput,
+      totalDeliveredInput,
+      loggedAttended,
+      loggedConducted
+    );
     if (!validation.isValid) {
-      toast.error(validation.error || 'Invalid baseline values');
+      toast.error(validation.error || 'Invalid attendance totals');
       return;
     }
 
-    setBaselineSaving(true);
+    setTotalsSaving(true);
     try {
       await setDoc(
-        doc(db, `users/${uid}/subjects/${baselineModalSubject.id}`),
+        doc(db, `users/${uid}/subjects/${totalsModalSubject.id}`),
         {
-          name: baselineModalSubject.name,
-          code: baselineModalSubject.code,
-          faculty: baselineModalSubject.faculty || null,
-          credits: baselineModalSubject.credits || 3,
-          color: baselineModalSubject.color || '#3b82f6',
-          initialAttended: validation.attended,
-          initialConducted: validation.conducted,
-          baselineAttended: validation.attended,
-          baselineConducted: validation.conducted,
+          name: totalsModalSubject.name,
+          code: totalsModalSubject.code,
+          faculty: totalsModalSubject.faculty || null,
+          credits: totalsModalSubject.credits || 3,
+          color: totalsModalSubject.color || '#3b82f6',
+          initialAttended: validation.derivedBaselineAttended,
+          initialConducted: validation.derivedBaselineConducted,
+          baselineAttended: validation.derivedBaselineAttended,
+          baselineConducted: validation.derivedBaselineConducted,
           baselineUpdatedAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         },
         { merge: true }
       );
-      toast.success(`Updated attendance baseline for ${baselineModalSubject.name}`);
-      setBaselineModalSubject(null);
+      toast.success(`Updated attendance totals for ${totalsModalSubject.name}`);
+      setTotalsModalSubject(null);
     } catch (err) {
-      console.error('Failed to save baseline:', err);
-      toast.error('Failed to save attendance baseline. Check network connection.');
+      console.error('Failed to save totals:', err);
+      toast.error('Failed to save attendance totals. Check network connection.');
     } finally {
-      setBaselineSaving(false);
+      setTotalsSaving(false);
     }
   }
 
-  // Mark attendance for a subject session (either today or selected custom date)
+  // Mark attendance for an eligible subject session on targetDateObj
   async function markAttendance(
     subjectId: string,
     status: 'present' | 'absent',
@@ -260,14 +295,44 @@ export function AttendancePage() {
 
     const sub = allSubjects.find((s) => s.id === subjectId) || allSubjects.find((s) => matchesSubjectRecord(s, subjectId));
 
+    // Resolve eligibility strictly using authoritative timetable evaluator
+    const now = new Date();
+    const eligibility = evaluateSubjectAttendanceEligibility(
+      sub || subjectId,
+      scheduledSlotsForDate,
+      attendance,
+      targetDate,
+      now,
+      resolutionContext
+    );
+
+    if (!eligibility.isEligible) {
+      if (eligibility.status === 'NO_SCHEDULED_CLASS') {
+        toast.error(`Cannot mark attendance: no class scheduled for ${sub?.name || 'this subject'} on this date`);
+      } else if (eligibility.status === 'FUTURE_SESSION') {
+        toast.error('Cannot mark attendance for upcoming classes');
+      } else if (eligibility.status === 'ALL_MARKED') {
+        toast.error('All scheduled sessions for this date are already marked. Use Correct to edit.');
+      } else {
+        toast.error(eligibility.reason || 'Cannot mark attendance');
+      }
+      return;
+    }
+
+    const slotToMark = eligibility.slot;
+    if (!slotToMark) {
+      toast.error('No valid scheduled class found for marking');
+      return;
+    }
+
+    const targetSlotId = lectureSlotId || slotToMark.id;
+    const effectiveWeight: number = weight && weight >= 1 ? weight : ((eligibility.weight && eligibility.weight > 0) ? eligibility.weight : 1);
+
     // Prevent duplicate attendance records for the same session/date
     const existing = attendance.find((a) => {
       if (a.date.toDate().toDateString() !== targetDate.toDateString()) return false;
       if (a.status === 'cancelled') return false;
-      if (lectureSlotId) {
-        return a.lectureSlotId === lectureSlotId;
-      }
-      return !a.lectureSlotId && matchesSubjectRecord(sub || subjectId, a.subjectId);
+      return a.lectureSlotId === targetSlotId;
     });
 
     if (existing) {
@@ -275,15 +340,14 @@ export function AttendancePage() {
       return;
     }
 
-    const effectiveWeight = weight && weight >= 1 ? weight : 1;
-    const markKey = lectureSlotId ? `${subjectId}-${lectureSlotId}` : subjectId;
+    const markKey = `${subjectId}-${targetSlotId}`;
     setMarkingKey(markKey);
     try {
       await addDoc(collection(db, `users/${uid}/attendance`), {
         uid,
         subjectId: sub?.id || subjectId,
         date: dateTs,
-        lectureSlotId: lectureSlotId || null,
+        lectureSlotId: targetSlotId,
         weight: effectiveWeight,
         status,
         notes: notes || null,
@@ -304,42 +368,8 @@ export function AttendancePage() {
     }
   }
 
-  /**
-   * For a given subject (on the selected date), finds the earliest scheduled
-   * session that has NOT yet been marked (no non-cancelled attendance record
-   * with that session's slot ID for the target date).
-   *
-   * If all scheduled sessions are already marked, returns null.
-   * If no scheduled sessions exist for that subject, returns null (legacy path).
-   */
-  function resolveNextUnmarkedSlotForSubject(
-    subjectId: string
-  ): { slot: TimetableSlot; weight: number } | null {
-    const slotsForSubject = scheduledSlotsForDate.filter(
-      (s) =>
-        s.subjectId === subjectId ||
-        matchesSubjectRecord(
-          allSubjects.find((sub) => sub.id === subjectId) || subjectId,
-          s.subjectId,
-          resolutionContext
-        )
-    );
-    if (slotsForSubject.length === 0) return null;
-
-    for (const slot of slotsForSubject) {
-      const alreadyMarked = attendance.some(
-        (a) =>
-          a.lectureSlotId === slot.id &&
-          a.date.toDate().toDateString() === targetDateObj.toDateString() &&
-          a.status !== 'cancelled'
-      );
-      if (!alreadyMarked) {
-        const derived = calculateLectureWeight(slot);
-        return { slot, weight: derived.weight > 0 ? derived.weight : 1 };
-      }
-    }
-    // All sessions for this subject on this date are already marked
-    return null;
+  function handleMarkSubject(subjectId: string, status: 'present' | 'absent') {
+    markAttendance(subjectId, status);
   }
 
   // Attendance correction workflow
@@ -640,6 +670,8 @@ export function AttendancePage() {
               markingKey === sub.id ||
               (markingKey?.startsWith(`${sub.id}-`) ?? false);
 
+            const eligibility = subjectEligibilityMap.get(sub.id);
+
             return (
               <SubjectAttendanceCard
                 key={sub.id}
@@ -648,37 +680,11 @@ export function AttendancePage() {
                 targetPercent={Math.round(target * 100)}
                 isMarking={isMarking}
                 recentRecords={subAtt}
-                onMarkPresent={() => {
-                  const next = resolveNextUnmarkedSlotForSubject(sub.id);
-                  if (next) {
-                    markAttendance(next.slot.subjectId || sub.id, 'present', next.slot.id, next.weight);
-                  } else {
-                    const hasScheduled = scheduledSlotsForDate.some((s) =>
-                      matchesSubjectRecord(sub, s.subjectId, resolutionContext)
-                    );
-                    if (hasScheduled) {
-                      toast.error('All scheduled sessions for this date are already marked. Use Correct to edit.');
-                    } else {
-                      markAttendance(sub.id, 'present');
-                    }
-                  }
-                }}
-                onMarkAbsent={() => {
-                  const next = resolveNextUnmarkedSlotForSubject(sub.id);
-                  if (next) {
-                    markAttendance(next.slot.subjectId || sub.id, 'absent', next.slot.id, next.weight);
-                  } else {
-                    const hasScheduled = scheduledSlotsForDate.some((s) =>
-                      matchesSubjectRecord(sub, s.subjectId, resolutionContext)
-                    );
-                    if (hasScheduled) {
-                      toast.error('All scheduled sessions for this date are already marked. Use Correct to edit.');
-                    } else {
-                      markAttendance(sub.id, 'absent');
-                    }
-                  }
-                }}
-                onOpenBaseline={() => handleOpenBaseline(sub)}
+                eligibility={eligibility}
+                onMarkPresent={() => handleMarkSubject(sub.id, 'present')}
+                onMarkAbsent={() => handleMarkSubject(sub.id, 'absent')}
+                onOpenTotalsEditor={() => handleOpenTotalsEditor(sub)}
+                onOpenBaseline={() => handleOpenTotalsEditor(sub)}
                 onOpenHistory={() => {
                   setHistorySubjectFilter(sub.id);
                   setShowHistoryModal(true);
@@ -694,24 +700,24 @@ export function AttendancePage() {
       )}
 
       {/* ============================================================== */}
-      {/* Edit Attendance Baseline Modal                                  */}
+      {/* Edit Attendance Totals Modal                                   */}
       {/* ============================================================== */}
-      {baselineModalSubject && (
+      {totalsModalSubject && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                   <Pencil className="w-5 h-5 text-blue-600" />
-                  Edit Attendance Baseline
+                  Edit Attendance Totals
                 </h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Subject: <strong className="text-gray-800 dark:text-gray-200">{baselineModalSubject.name}</strong> ({baselineModalSubject.code})
+                  Subject: <strong className="text-gray-800 dark:text-gray-200">{totalsModalSubject.name}</strong> ({totalsModalSubject.code})
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setBaselineModalSubject(null)}
+                onClick={() => setTotalsModalSubject(null)}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded-lg"
                 aria-label="Close"
               >
@@ -720,71 +726,84 @@ export function AttendancePage() {
             </div>
 
             {(() => {
-              const agg = baselineModalSubject ? subjectAggregates.get(baselineModalSubject.id) : null;
-              const val = validateAttendanceBaseline(baselineAttendedInput, baselineConductedInput);
+              const agg = totalsModalSubject ? subjectAggregates.get(totalsModalSubject.id) : null;
               const loggedConducted = agg?.loggedConducted ?? 0;
               const loggedAttended = agg?.loggedAttended ?? 0;
-              const combinedConducted = (val.isValid ? val.conducted : 0) + loggedConducted;
-              const combinedAttended = (val.isValid ? val.attended : 0) + loggedAttended;
-              const combinedPct = combinedConducted > 0 ? ((combinedAttended / combinedConducted) * 100).toFixed(1) : '0.0';
+              const val = validateAttendanceTotals(
+                totalAttendedInput,
+                totalDeliveredInput,
+                loggedAttended,
+                loggedConducted
+              );
 
               return (
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300">
-                        Baseline Conducted
+                        Total Delivered
                       </label>
                       <Input
                         type="number"
                         min="0"
                         step="1"
                         placeholder="e.g. 40"
-                        value={baselineConductedInput}
-                        onChange={(e) => setBaselineConductedInput(e.target.value)}
+                        value={totalDeliveredInput}
+                        onChange={(e) => setTotalDeliveredInput(e.target.value)}
                         className="mt-1 font-bold text-base"
                       />
+                      <span className="text-[10px] text-gray-400 block mt-1">
+                        Total classes held/delivered so far
+                      </span>
                     </div>
 
                     <div>
                       <label className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300">
-                        Baseline Attended
+                        Total Attended
                       </label>
                       <Input
                         type="number"
                         min="0"
                         step="1"
                         placeholder="e.g. 32"
-                        value={baselineAttendedInput}
-                        onChange={(e) => setBaselineAttendedInput(e.target.value)}
+                        value={totalAttendedInput}
+                        onChange={(e) => setTotalAttendedInput(e.target.value)}
                         className="mt-1 font-bold text-base"
                       />
+                      <span className="text-[10px] text-gray-400 block mt-1">
+                        Total classes attended so far
+                      </span>
                     </div>
                   </div>
 
-                  {loggedConducted > 0 && (
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/40 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                      <span>Recorded UniFlow logs:</span>
-                      <span className="font-bold text-slate-700 dark:text-slate-300">
-                        +{loggedAttended} / +{loggedConducted} classes
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Focused Live Attendance Preview */}
+                  {/* Summary & Live Preview */}
                   {val.isValid ? (
-                    <div className="p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 flex items-center justify-between">
-                      <div className="text-xs">
-                        <span className="font-semibold text-slate-600 dark:text-slate-300 block">
-                          Total Combined Attendance:
-                        </span>
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                          {combinedAttended} / {combinedConducted} classes
+                    <div className="space-y-2">
+                      <div className="p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 flex items-center justify-between">
+                        <div className="text-xs">
+                          <span className="font-semibold text-slate-600 dark:text-slate-300 block">
+                            Current Attendance:
+                          </span>
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                            {val.attended} / {val.delivered} classes
+                          </span>
+                        </div>
+                        <span className="text-xl font-black text-blue-600 dark:text-blue-400 tracking-tight">
+                          {val.percentage.toFixed(1)}%
                         </span>
                       </div>
-                      <span className="text-xl font-black text-blue-600 dark:text-blue-400 tracking-tight">
-                        {combinedPct}%
-                      </span>
+
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/40 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 leading-relaxed">
+                        {loggedConducted > 0 ? (
+                          <>
+                            UniFlow tracks <strong className="text-slate-700 dark:text-slate-300">{loggedConducted}</strong> classes logged in your attendance history (<strong className="text-slate-700 dark:text-slate-300">{loggedAttended}</strong> attended). Adjusting totals sets your starting baseline to <strong className="text-slate-700 dark:text-slate-300">{val.derivedBaselineAttended} / {val.derivedBaselineConducted}</strong> without altering logged records.
+                          </>
+                        ) : (
+                          <>
+                            No classes logged yet in UniFlow. Totals will set your starting baseline directly.
+                          </>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <div className="p-3 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
@@ -799,18 +818,18 @@ export function AttendancePage() {
                       type="button"
                       variant="outline"
                       className="flex-1"
-                      onClick={() => setBaselineModalSubject(null)}
+                      onClick={() => setTotalsModalSubject(null)}
                     >
                       Cancel
                     </Button>
                     <Button
                       type="button"
                       className="flex-1 font-bold bg-blue-600 hover:bg-blue-700 text-white"
-                      disabled={!val.isValid || baselineSaving}
-                      loading={baselineSaving}
-                      onClick={handleSaveBaseline}
+                      disabled={!val.isValid || totalsSaving}
+                      loading={totalsSaving}
+                      onClick={handleSaveTotals}
                     >
-                      Save Baseline
+                      Save Changes
                     </Button>
                   </div>
                 </div>

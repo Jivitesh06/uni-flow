@@ -1,3 +1,5 @@
+import { timeToMinutes } from './timetableCalculations.ts';
+
 export type AttendanceHealthStatus = 'safe' | 'borderline' | 'shortage' | 'no_data';
 
 export interface AttendanceStats {
@@ -297,6 +299,168 @@ export function validateAttendanceBaseline(
     isValid: true,
     attended: attendedNum,
     conducted: conductedNum,
+  };
+}
+
+export interface AttendanceTotalsValidationResult {
+  isValid: boolean;
+  error?: string;
+  totalAttended: number;
+  totalDelivered: number;
+  attended: number;
+  delivered: number;
+  percentage: number;
+  derivedBaselineAttended: number;
+  derivedBaselineConducted: number;
+}
+
+/**
+ * Validates user-entered actual Total Delivered and Total Attended, and safely derives
+ * the underlying historical baseline starting values without double-counting UniFlow logs.
+ *
+ * Constraints:
+ * - Both values must be non-negative integers.
+ * - Total Attended cannot exceed Total Delivered.
+ * - Total Delivered cannot be less than classes already logged in UniFlow (loggedConducted).
+ * - Total Attended cannot be less than present classes already logged in UniFlow (loggedAttended).
+ * - Prior historical baseline attended cannot exceed prior delivered (derivedBaselineAttended <= derivedBaselineConducted).
+ */
+export function validateAttendanceTotals(
+  totalAttendedInput: string | number,
+  totalDeliveredInput: string | number,
+  loggedAttended: number = 0,
+  loggedConducted: number = 0
+): AttendanceTotalsValidationResult {
+  const attendedStr = String(totalAttendedInput).trim();
+  const deliveredStr = String(totalDeliveredInput).trim();
+
+  if (attendedStr === '' || deliveredStr === '') {
+    return {
+      isValid: false,
+      error: 'Please enter both total delivered and total attended classes.',
+      totalAttended: 0,
+      totalDelivered: 0,
+      attended: 0,
+      delivered: 0,
+      percentage: 0,
+      derivedBaselineAttended: 0,
+      derivedBaselineConducted: 0,
+    };
+  }
+
+  const attendedNum = Number(attendedStr);
+  const deliveredNum = Number(deliveredStr);
+
+  if (isNaN(attendedNum) || isNaN(deliveredNum)) {
+    return {
+      isValid: false,
+      error: 'Please enter valid numbers for classes.',
+      totalAttended: 0,
+      totalDelivered: 0,
+      attended: 0,
+      delivered: 0,
+      percentage: 0,
+      derivedBaselineAttended: 0,
+      derivedBaselineConducted: 0,
+    };
+  }
+
+  if (!Number.isInteger(attendedNum) || !Number.isInteger(deliveredNum)) {
+    return {
+      isValid: false,
+      error: 'Class counts must be whole integers without decimals.',
+      totalAttended: 0,
+      totalDelivered: 0,
+      attended: 0,
+      delivered: 0,
+      percentage: 0,
+      derivedBaselineAttended: 0,
+      derivedBaselineConducted: 0,
+    };
+  }
+
+  if (attendedNum < 0 || deliveredNum < 0) {
+    return {
+      isValid: false,
+      error: 'Class counts cannot be negative numbers.',
+      totalAttended: 0,
+      totalDelivered: 0,
+      attended: 0,
+      delivered: 0,
+      percentage: 0,
+      derivedBaselineAttended: 0,
+      derivedBaselineConducted: 0,
+    };
+  }
+
+  if (attendedNum > deliveredNum) {
+    return {
+      isValid: false,
+      error: `Total Attended (${attendedNum}) cannot exceed Total Delivered (${deliveredNum}).`,
+      totalAttended: attendedNum,
+      totalDelivered: deliveredNum,
+      attended: attendedNum,
+      delivered: deliveredNum,
+      percentage: deliveredNum > 0 ? (attendedNum / deliveredNum) * 100 : 0,
+      derivedBaselineAttended: 0,
+      derivedBaselineConducted: 0,
+    };
+  }
+
+  if (deliveredNum < loggedConducted) {
+    return {
+      isValid: false,
+      error: `Total Delivered (${deliveredNum}) cannot be less than the ${loggedConducted} classes already recorded in UniFlow logs.`,
+      totalAttended: attendedNum,
+      totalDelivered: deliveredNum,
+      attended: attendedNum,
+      delivered: deliveredNum,
+      percentage: deliveredNum > 0 ? (attendedNum / deliveredNum) * 100 : 0,
+      derivedBaselineAttended: 0,
+      derivedBaselineConducted: 0,
+    };
+  }
+
+  if (attendedNum < loggedAttended) {
+    return {
+      isValid: false,
+      error: `Total Attended (${attendedNum}) cannot be less than the ${loggedAttended} present classes already recorded in UniFlow logs.`,
+      totalAttended: attendedNum,
+      totalDelivered: deliveredNum,
+      attended: attendedNum,
+      delivered: deliveredNum,
+      percentage: deliveredNum > 0 ? (attendedNum / deliveredNum) * 100 : 0,
+      derivedBaselineAttended: 0,
+      derivedBaselineConducted: 0,
+    };
+  }
+
+  const derivedBaselineConducted = deliveredNum - loggedConducted;
+  const derivedBaselineAttended = attendedNum - loggedAttended;
+
+  if (derivedBaselineAttended > derivedBaselineConducted) {
+    return {
+      isValid: false,
+      error: `Inconsistent totals: prior attended (${derivedBaselineAttended}) would exceed prior delivered (${derivedBaselineConducted}).`,
+      totalAttended: attendedNum,
+      totalDelivered: deliveredNum,
+      attended: attendedNum,
+      delivered: deliveredNum,
+      percentage: deliveredNum > 0 ? (attendedNum / deliveredNum) * 100 : 0,
+      derivedBaselineAttended: 0,
+      derivedBaselineConducted: 0,
+    };
+  }
+
+  return {
+    isValid: true,
+    totalAttended: attendedNum,
+    totalDelivered: deliveredNum,
+    attended: attendedNum,
+    delivered: deliveredNum,
+    percentage: deliveredNum > 0 ? (attendedNum / deliveredNum) * 100 : 0,
+    derivedBaselineAttended,
+    derivedBaselineConducted,
   };
 }
 
@@ -1206,5 +1370,164 @@ export function canonicalizeSubjectsForAttendance<T extends {
   }
 
   return Array.from(map.values());
+}
+
+export type AttendanceEligibilityStatus =
+  | 'ELIGIBLE'            // Valid unmarked session, ready to mark now
+  | 'NO_SCHEDULED_CLASS'  // No scheduled session for this subject on this date
+  | 'FUTURE_SESSION'      // Scheduled later today or in future; cannot mark yet
+  | 'ALL_MARKED';         // All scheduled sessions for this date are already marked
+
+export interface AttendanceEligibility {
+  status: AttendanceEligibilityStatus;
+  isEligible: boolean;
+  eligibleSlot?: any;
+  slot?: any;
+  weight?: number;
+  message?: string;
+  reason?: string;
+  upcomingTime?: string;
+}
+
+function formatDateDisplay(d: Date): string {
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${months[d.getMonth()]} ${d.getDate()}`;
+}
+
+/**
+ * Authoritatively determines attendance eligibility for a subject on a selected target date.
+ * Enforces:
+ * - Timetable-backed scheduled session requirement (no unlinked / phantom attendance).
+ * - Future session lock (cannot mark before scheduled startTime).
+ * - Exact unmarked session resolution for multi-session days.
+ * - Multi-period lab weight preservation.
+ * - Graceful message when all sessions are marked or when no session is scheduled.
+ */
+export function evaluateSubjectAttendanceEligibility(
+  subject: { id?: string; code?: string; name?: string; aliases?: string[] } | string,
+  scheduledSlotsForDate: Array<{
+    id: string;
+    subjectId: string;
+    startTime: string;
+    endTime: string;
+    periods?: number;
+    weight?: number;
+    subjectName?: string;
+    isNonAcademic?: boolean;
+    isFreePeriod?: boolean;
+  }>,
+  attendanceRecords: Array<{
+    lectureSlotId?: string | null;
+    subjectId: string;
+    date: { toDate: () => Date };
+    status: string;
+  }>,
+  targetDate: Date,
+  now: Date = new Date(),
+  resolutionContext?: SubjectResolutionContext | null,
+  preferredSlotId?: string | null
+): AttendanceEligibility {
+  // 1. Filter scheduled academic slots for this subject on targetDate
+  const matchingSlots = (scheduledSlotsForDate || [])
+    .filter((slot) => !slot.isNonAcademic && !slot.isFreePeriod)
+    .filter((slot) => {
+      const subId = typeof subject === 'string' ? subject : subject.id;
+      if (subId && slot.subjectId === subId) return true;
+      return matchesSubjectRecord(subject, slot.subjectId, resolutionContext);
+    })
+    .sort((a, b) => {
+      const startDiff = timeToMinutes(a.startTime) - timeToMinutes(b.startTime);
+      if (startDiff !== 0) return startDiff;
+      return timeToMinutes(a.endTime) - timeToMinutes(b.endTime);
+    });
+
+  if (matchingSlots.length === 0) {
+    const isToday = targetDate.toDateString() === now.toDateString();
+    const message = isToday
+      ? 'No scheduled class for this subject today'
+      : `No scheduled class for this subject on ${formatDateDisplay(targetDate)}`;
+    return {
+      status: 'NO_SCHEDULED_CLASS',
+      isEligible: false,
+      message,
+      reason: message,
+    };
+  }
+
+  // 2. Identify unmarked sessions
+  const unmarkedSlots = matchingSlots.filter((slot) => {
+    return !(attendanceRecords || []).some((a) => {
+      if (a.date.toDate().toDateString() !== targetDate.toDateString()) return false;
+      if (a.status === 'cancelled') return false;
+      if (a.lectureSlotId) return a.lectureSlotId === slot.id;
+      return matchesSubjectRecord(subject, a.subjectId, resolutionContext);
+    });
+  });
+
+  if (unmarkedSlots.length === 0) {
+    const message = 'All scheduled sessions for this date are already marked.';
+    return {
+      status: 'ALL_MARKED',
+      isEligible: false,
+      message,
+      reason: message,
+    };
+  }
+
+  // 3. Resolve the unmarked slot (prefer preferredSlotId if valid and unmarked)
+  const preferred = preferredSlotId
+    ? unmarkedSlots.find((s) => s.id === preferredSlotId)
+    : null;
+  const nextSlot = preferred || unmarkedSlots[0];
+  const derivedWeight = calculateLectureWeight(nextSlot);
+  const weight = derivedWeight.weight > 0 ? derivedWeight.weight : 1;
+
+  // 4. Time constraints
+  const isToday = targetDate.toDateString() === now.toDateString();
+  const isFutureDate = targetDate.getTime() > now.getTime() && !isToday;
+
+  if (isFutureDate) {
+    const message = `Scheduled on ${formatDateDisplay(targetDate)} at ${nextSlot.startTime}`;
+    return {
+      status: 'FUTURE_SESSION',
+      isEligible: false,
+      eligibleSlot: nextSlot,
+      slot: nextSlot,
+      weight,
+      upcomingTime: nextSlot.startTime,
+      message,
+      reason: message,
+    };
+  }
+
+  if (isToday) {
+    const startMins = timeToMinutes(nextSlot.startTime);
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+
+    if (nowMins < startMins) {
+      const message = `Scheduled today at ${nextSlot.startTime}`;
+      return {
+        status: 'FUTURE_SESSION',
+        isEligible: false,
+        eligibleSlot: nextSlot,
+        slot: nextSlot,
+        weight,
+        upcomingTime: nextSlot.startTime,
+        message,
+        reason: message,
+      };
+    }
+  }
+
+  // 5. Eligible!
+  return {
+    status: 'ELIGIBLE',
+    isEligible: true,
+    eligibleSlot: nextSlot,
+    slot: nextSlot,
+    weight,
+    message: 'Class session is ready for marking.',
+    reason: 'Class session is ready for marking.',
+  };
 }
 
