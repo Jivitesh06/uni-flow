@@ -7,6 +7,8 @@ import {
   ChevronRight,
   ChevronDown,
   Edit3,
+  Calendar,
+  Target,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Card, CardContent } from '../ui/card';
@@ -60,103 +62,116 @@ export function SubjectAttendanceCard({
   const isShortage = !isOnTrack;
   const hasNoData = totalConducted === 0;
 
-  let guidanceText = `Can miss up to ${maxAbsences} ${maxAbsences === 1 ? 'class' : 'classes'}`;
-  let guidanceColor = 'text-emerald-600 dark:text-emerald-400';
+  // Status badge styling matching approved UI reference
+  let statusLabel = 'On Track';
+  let statusBadgeClass = 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50';
+  let statusDotClass = 'bg-emerald-500';
 
   if (hasNoData) {
-    guidanceText = 'No recorded sessions';
-    guidanceColor = 'text-slate-400 dark:text-slate-500';
+    statusLabel = 'No data';
+    statusBadgeClass = 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700';
+    statusDotClass = 'bg-slate-400';
   } else if (isShortage) {
-    guidanceText = `Attend next ${classesNeeded} ${classesNeeded === 1 ? 'class' : 'classes'} to reach ${targetPercent}%`;
-    guidanceColor = 'text-rose-600 dark:text-rose-400';
+    statusLabel = 'Shortage';
+    statusBadgeClass = 'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-900/50';
+    statusDotClass = 'bg-rose-500';
   } else if (isBorderline) {
-    guidanceText = `On ${targetPercent}% target — avoid absences`;
-    guidanceColor = 'text-amber-600 dark:text-amber-400';
+    statusLabel = 'Borderline';
+    statusBadgeClass = 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/50';
+    statusDotClass = 'bg-amber-500';
   }
 
-  const statusLabel = hasNoData
-    ? 'No data'
-    : isHealthy
-    ? 'On Track'
-    : isBorderline
-    ? 'Borderline'
-    : 'Shortage';
+  // Attendance Guidance Component box matching approved UI reference
+  let guidancePrimary = `Can miss ${maxAbsences} ${maxAbsences === 1 ? 'class' : 'classes'}`;
+  let guidanceSecondary: string | null = null;
+  let guidanceIcon = <Calendar className="w-5 h-5 text-emerald-500 shrink-0" />;
+  let guidanceBoxClass = 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-100/80 dark:border-emerald-900/40';
+  let guidanceTextClass = 'text-emerald-700 dark:text-emerald-300';
+  let guidanceSubtextClass = 'text-emerald-600 dark:text-emerald-400';
 
-  const statusPillClass = hasNoData
-    ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700'
-    : isHealthy
-    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/60'
-    : isBorderline
-    ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border-amber-200 dark:border-amber-800/60'
-    : 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border-rose-200 dark:border-rose-800/60';
-
-  const guidancePillClass = hasNoData
-    ? 'bg-slate-50 text-slate-500 dark:bg-slate-800/40 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
-    : isHealthy
-    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60'
-    : isBorderline
-    ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60'
-    : 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60';
+  if (hasNoData) {
+    guidancePrimary = 'No recorded sessions';
+    guidanceSecondary = null;
+    guidanceIcon = <Calendar className="w-5 h-5 text-slate-400 shrink-0" />;
+    guidanceBoxClass = 'bg-slate-50 dark:bg-slate-800/40 border-slate-200/80 dark:border-slate-800';
+    guidanceTextClass = 'text-slate-600 dark:text-slate-300';
+    guidanceSubtextClass = 'text-slate-500 dark:text-slate-400';
+  } else if (isShortage) {
+    guidancePrimary = `Attend ${classesNeeded} ${classesNeeded === 1 ? 'class' : 'classes'}`;
+    guidanceSecondary = `to reach ${targetPercent}%`;
+    guidanceIcon = <Target className="w-5 h-5 text-rose-500 shrink-0" />;
+    guidanceBoxClass = 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-100/80 dark:border-rose-900/40';
+    guidanceTextClass = 'text-rose-700 dark:text-rose-300';
+    guidanceSubtextClass = 'text-rose-500 dark:text-rose-400';
+  } else if (isBorderline) {
+    guidancePrimary = `On ${targetPercent}% target`;
+    guidanceSecondary = 'Avoid absences';
+    guidanceIcon = <Target className="w-5 h-5 text-amber-500 shrink-0" />;
+    guidanceBoxClass = 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-100/80 dark:border-amber-900/40';
+    guidanceTextClass = 'text-amber-700 dark:text-amber-300';
+    guidanceSubtextClass = 'text-amber-600 dark:text-amber-400';
+  }
 
   return (
     <Card className="overflow-hidden border border-slate-100 dark:border-slate-800/80 bg-white dark:bg-gray-900 rounded-3xl shadow-sm hover:shadow-md transition-all">
       <CardContent className="p-5 sm:p-6">
-        {/* Main Subject Row */}
+        {/* Main Subject Section */}
         <div
           onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-5 sm:gap-6 cursor-pointer select-none"
+          className="cursor-pointer select-none"
         >
-          {/* Prominent, Thicker Circular Progress Ring */}
-          <div className="shrink-0 flex items-center justify-center">
-            <AttendanceRing
-              percentage={percentage}
-              size={92}
-              strokeWidth={8.5}
-              target={targetPercent}
-              status={status}
-              showTargetIndicator={false}
-              className="shrink-0 drop-shadow-xs"
-            />
-          </div>
-
-          {/* Subject Titles, Prominent Ratio, Guidance & Faculty/Room on Right */}
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <h4 className="font-black text-lg sm:text-xl text-slate-900 dark:text-white truncate tracking-tight">
-                {subject.code || subject.name}
-              </h4>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${statusPillClass}`}>
-                  {statusLabel}
-                </span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setExpanded((p) => !p);
-                  }}
-                  className="w-7 h-7 rounded-full bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-                  aria-label={expanded ? 'Collapse subject actions' : 'Expand subject actions'}
-                >
-                  {expanded ? <ChevronDown className="w-4 h-4 text-blue-600" /> : <ChevronRight className="w-4 h-4" />}
-                </button>
-              </div>
+          <div className="flex items-center gap-4 sm:gap-5">
+            {/* Prominent Circular Progress Ring on Left */}
+            <div className="shrink-0 flex items-center justify-center">
+              <AttendanceRing
+                percentage={percentage}
+                size={102}
+                strokeWidth={9.5}
+                target={targetPercent}
+                status={status}
+                attended={totalAttended}
+                conducted={totalConducted}
+                showTargetIndicator={false}
+                className="shrink-0"
+              />
             </div>
 
-            {subject.name && subject.name !== subject.code && (
-              <p className="text-xs text-slate-400 dark:text-slate-500 font-medium truncate -mt-1">
-                {subject.name}
-              </p>
-            )}
+            {/* Subject Code, Status Pill, Full Name & Guidance Container on Right */}
+            <div className="min-w-0 flex-1 space-y-2">
+              {/* Row 1: Subject Code + Status Badge + Circular Chevron Button */}
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="font-black text-lg sm:text-xl text-slate-900 dark:text-white truncate tracking-tight">
+                  {subject.code || subject.name}
+                </h4>
 
-            {/* Prominent Ratio with inline subtle edit icon */}
-            <div className="flex items-baseline gap-2 pt-0.5">
-              <p className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
-                {totalAttended} <span className="text-slate-400 dark:text-slate-500 font-bold text-sm sm:text-base">/ {totalConducted} classes</span>
-              </p>
-              <button
-                type="button"
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${statusBadgeClass}`}>
+                    <span className={`w-2 h-2 rounded-full ${statusDotClass}`} />
+                    {statusLabel}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpanded((p) => !p);
+                    }}
+                    className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+                    aria-label={expanded ? 'Collapse subject actions' : 'Expand subject actions'}
+                  >
+                    {expanded ? <ChevronDown className="w-4 h-4 text-blue-600" /> : <ChevronRight className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Row 2: Full Subject Name in Muted Text */}
+              {subject.name && (
+                <p className="text-xs text-slate-400 dark:text-slate-500 font-medium truncate -mt-1">
+                  {subject.name}
+                </p>
+              )}
+
+              {/* Row 3: Attendance Guidance Component Box with Edit Icon */}
+              <div
                 onClick={(e) => {
                   e.stopPropagation();
                   if (onOpenTotalsEditor) {
@@ -165,29 +180,48 @@ export function SubjectAttendanceCard({
                     onOpenBaseline();
                   }
                 }}
-                className="p-1 rounded-md text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors inline-flex items-center justify-center shrink-0"
-                title="Edit attendance totals"
-                aria-label="Edit attendance totals"
+                className={`rounded-2xl px-3.5 py-2.5 flex items-center justify-between gap-2.5 border transition-all hover:opacity-95 ${guidanceBoxClass}`}
               >
-                <Pencil className="w-3.5 h-3.5" />
-              </button>
-            </div>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {guidanceIcon}
+                  <div className="min-w-0">
+                    <p className={`text-xs sm:text-sm font-bold truncate leading-tight ${guidanceTextClass}`}>
+                      {guidancePrimary}
+                    </p>
+                    {guidanceSecondary && (
+                      <p className={`text-[11px] font-medium leading-tight mt-0.5 ${guidanceSubtextClass}`}>
+                        {guidanceSecondary}
+                      </p>
+                    )}
+                  </div>
+                </div>
 
-            {/* Guidance Badge */}
-            <div className="pt-0.5 flex items-center gap-1.5 flex-wrap">
-              <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 ${guidancePillClass}`}>
-                {guidanceText}
-              </span>
-            </div>
-
-            {/* Authoritative Faculty & Room quick metadata row */}
-            {(subject.faculty || (subject as any).room) && (
-              <div className="flex items-center gap-3 pt-0.5 text-xs text-slate-500 dark:text-slate-400 font-medium truncate">
-                {subject.faculty && <span className="truncate">👤 {subject.faculty}</span>}
-                {(subject as any).room && <span className="truncate">📍 {(subject as any).room}</span>}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onOpenTotalsEditor) {
+                      onOpenTotalsEditor();
+                    } else if (onOpenBaseline) {
+                      onOpenBaseline();
+                    }
+                  }}
+                  className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors shrink-0"
+                  title="Edit attendance totals"
+                  aria-label="Edit attendance totals"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
               </div>
-            )}
+            </div>
           </div>
+
+          {/* Row 4: Faculty Name at the bottom of the card face (strictly NO room/venue and NO lecture number) */}
+          {subject.faculty && (
+            <div className="flex items-center gap-1.5 pt-2.5 text-xs text-slate-400 dark:text-slate-500 font-medium truncate">
+              <span className="truncate">👤 {subject.faculty}</span>
+            </div>
+          )}
         </div>
 
         {/* Expandable Action Drawer */}

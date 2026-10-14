@@ -12,6 +12,8 @@ interface AttendanceRingProps {
   showTargetIndicator?: boolean;
   label?: string;
   subText?: string;
+  attended?: number;
+  conducted?: number;
   className?: string;
 }
 
@@ -25,6 +27,8 @@ export function AttendanceRing({
   showTargetIndicator = true,
   label,
   subText,
+  attended,
+  conducted,
   className,
 }: AttendanceRingProps) {
   const radius = (size - strokeWidth) / 2;
@@ -65,21 +69,29 @@ export function AttendanceRing({
     status ||
     (clampedPct === 0 ? 'no_data' : clampedPct >= target ? (clampedPct === target ? 'borderline' : 'safe') : 'shortage');
 
-  let strokeColor = 'stroke-emerald-500 dark:stroke-emerald-400';
-  let trackColor = 'stroke-slate-100 dark:stroke-slate-800/80';
-  let textColor = 'text-slate-900 dark:text-white';
+  const isFull100 = clampedPct >= 99.9;
 
-  if (resolvedStatus === 'borderline') {
-    strokeColor = 'stroke-amber-500 dark:stroke-amber-400';
-    trackColor = 'stroke-slate-100 dark:stroke-slate-800/80';
-    textColor = 'text-slate-900 dark:text-white';
+  let strokeColor = 'stroke-emerald-500 dark:stroke-emerald-400';
+  let trackColor = 'stroke-emerald-100/60 dark:stroke-emerald-950/40';
+  let textColor = 'text-slate-900 dark:text-white';
+  let glowFilter = 'drop-shadow(0px 3px 8px rgba(16, 185, 129, 0.22))';
+
+  if (isFull100) {
+    strokeColor = 'stroke-purple-500 dark:stroke-purple-400';
+    trackColor = 'stroke-purple-100/60 dark:stroke-purple-950/40';
+    glowFilter = 'drop-shadow(0px 3px 8px rgba(168, 85, 247, 0.25))';
   } else if (resolvedStatus === 'shortage') {
     strokeColor = 'stroke-rose-500 dark:stroke-rose-400';
-    trackColor = 'stroke-slate-100 dark:stroke-slate-800/80';
-    textColor = 'text-slate-900 dark:text-white';
+    trackColor = 'stroke-rose-100/60 dark:stroke-rose-950/40';
+    glowFilter = 'drop-shadow(0px 3px 8px rgba(244, 63, 94, 0.22))';
+  } else if (resolvedStatus === 'borderline') {
+    strokeColor = 'stroke-amber-500 dark:stroke-amber-400';
+    trackColor = 'stroke-amber-100/60 dark:stroke-amber-950/40';
+    glowFilter = 'drop-shadow(0px 3px 8px rgba(245, 158, 11, 0.22))';
   } else if (resolvedStatus === 'no_data') {
     strokeColor = 'stroke-slate-300 dark:stroke-slate-700';
     trackColor = 'stroke-slate-100 dark:stroke-slate-800/60';
+    glowFilter = 'none';
     textColor = 'text-slate-400 dark:text-slate-500';
   }
 
@@ -91,7 +103,7 @@ export function AttendanceRing({
 
   return (
     <div
-      className={cn('relative inline-flex flex-col items-center justify-center select-none', className)}
+      className={cn('relative inline-flex flex-col items-center justify-center select-none shrink-0', className)}
       style={{ width: size, height: size }}
       role="progressbar"
       aria-valuenow={Math.round(clampedPct)}
@@ -102,7 +114,7 @@ export function AttendanceRing({
       <svg
         width={size}
         height={size}
-        className="rotate-[-90deg] transform"
+        className="rotate-[-90deg] transform overflow-visible"
         aria-hidden="true"
       >
         {/* Background Track with rounded clean finish */}
@@ -114,7 +126,7 @@ export function AttendanceRing({
           strokeWidth={strokeWidth}
         />
 
-        {/* Foreground Progress Arc with smooth ease-out animation (1000ms) */}
+        {/* Foreground Progress Arc with smooth ease-out animation (1000ms) and rounded ends */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -124,6 +136,7 @@ export function AttendanceRing({
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
           strokeLinecap="round"
+          style={{ filter: glowFilter }}
         />
 
         {/* Target Notch Indicator */}
@@ -137,25 +150,41 @@ export function AttendanceRing({
         )}
       </svg>
 
-      {/* Center Percentage Display: Settles accurately on exact real attendance percentage */}
+      {/* Center Percentage Display: Percentage, attended / delivered count, and classes label */}
       {showPercentage && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none select-none px-1">
           <span
             className={cn('font-black tracking-tight leading-none', textColor)}
             style={{
-              fontSize: size >= 110 ? '1.75rem' : size >= 90 ? '1.35rem' : size >= 75 ? '1.1rem' : size >= 50 ? '0.75rem' : '0.65rem',
+              fontSize: size >= 110 ? '1.5rem' : size >= 95 ? '1.25rem' : size >= 80 ? '1.1rem' : '0.85rem',
             }}
           >
             {clampedPct > 0 ? `${clampedPct.toFixed(clampedPct >= 99.9 || clampedPct % 1 === 0 ? 0 : 1)}%` : '0%'}
           </span>
-          {subText && (
+
+          {attended !== undefined && conducted !== undefined ? (
+            <div className="flex flex-col items-center mt-1">
+              <span
+                className="font-bold text-slate-700 dark:text-slate-300 leading-tight"
+                style={{ fontSize: size >= 95 ? '11px' : '9.5px' }}
+              >
+                {attended} / {conducted}
+              </span>
+              <span
+                className="text-slate-400 dark:text-slate-500 font-medium leading-none mt-0.5"
+                style={{ fontSize: size >= 95 ? '9.5px' : '8px' }}
+              >
+                classes
+              </span>
+            </div>
+          ) : subText ? (
             <span
               className="font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mt-0.5"
               style={{ fontSize: size >= 90 ? '9px' : '7.5px' }}
             >
               {subText}
             </span>
-          )}
+          ) : null}
         </div>
       )}
     </div>
