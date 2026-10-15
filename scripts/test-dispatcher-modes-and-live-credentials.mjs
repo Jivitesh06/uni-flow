@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { execSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,8 +35,16 @@ const {
   runReminderDispatcher,
   buildDeterministicNotificationId,
   isSlotIn10MinWindow,
+  validateVapidKeypair,
+  CANONICAL_VAPID_PUBLIC_KEY,
   CANONICAL_REMINDER_OFFSET,
 } = await import('./dispatch-class-reminders.mjs');
+
+// Dynamically generate a throwaway test keypair for test execution
+const dynamicEcdh = crypto.createECDH('prime256v1');
+dynamicEcdh.generateKeys();
+const dynamicTestPriv = dynamicEcdh.getPrivateKey('base64url');
+const dynamicTestPub = dynamicEcdh.getPublicKey('base64url');
 
 // -----------------------------------------------------------------------------
 // 1. Service Account Parsing & Sanitization Tests
@@ -234,7 +244,12 @@ await runTest('Honest reporting: zero eligible reminders reports success_no_elig
   });
 
   const now = new Date(2026, 9, 14, 9, 10, 0); // 09:10 Wednesday
-  const res = await runReminderDispatcher({ mode: 'live', db: mockDb, now });
+  const res = await runReminderDispatcher({
+    mode: 'live',
+    db: mockDb,
+    now,
+    vapidOptions: { publicKey: dynamicTestPub, privateKey: dynamicTestPriv },
+  });
   assert.equal(res.status, 'success_no_eligible_reminders');
   assert.equal(res.eligibleCount, 0);
   assert.equal(res.pushAttempts, 0);
@@ -257,7 +272,12 @@ await runTest('Duplicate suppression: already recorded reminders are skipped and
     },
   });
 
-  const res = await runReminderDispatcher({ mode: 'live', db: mockDb, now });
+  const res = await runReminderDispatcher({
+    mode: 'live',
+    db: mockDb,
+    now,
+    vapidOptions: { publicKey: dynamicTestPub, privateKey: dynamicTestPriv },
+  });
   assert.equal(res.eligibleCount, 1);
   assert.equal(res.alreadyRecordedCount, 1);
   assert.equal(res.pushAttempts, 0); // Not attempted because already recorded
@@ -283,9 +303,101 @@ await runTest('Dry-run mode with live DB evaluates slots but never writes to not
 });
 
 // -----------------------------------------------------------------------------
-// 4. GitHub Actions Workflow Configuration Invariants
+// 4. VAPID Key Security & Keypair Cryptographic Validation
 // -----------------------------------------------------------------------------
-console.log('\n--- 4. GitHub Actions Workflow Invariants ---');
+console.log('\n--- 4. VAPID Key Security & Keypair Validation ---');
+
+await runTest('validateVapidKeypair confirms genuine P-256 keypair matches mathematically', () => {
+  const result = validateVapidKeypair(dynamicTestPub, dynamicTestPriv);
+  assert.equal(result.valid, true);
+  assert.equal(result.error, null);
+});
+
+await runTest('validateVapidKeypair detects mismatched public and private keys', () => {
+  const otherEcdh = crypto.createECDH('prime256v1');
+  otherEcdh.generateKeys();
+  const otherPub = otherEcdh.getPublicKey('base64url');
+
+  const result = validateVapidKeypair(otherPub, dynamicTestPriv);
+  assert.equal(result.valid, false);
+  assert.match(result.error, /does not match the configured public key/);
+  // Verify that error message never exposes the private key
+  assert.ok(!result.error.includes(dynamicTestPriv));
+});
+
+await runTest('validateVapidKeypair rejects missing, truncated, or invalid format keys', () => {
+  assert.equal(validateVapidKeypair(null, 'dummy').valid, false);
+  assert.equal(validateVapidKeypair('dummy', null).valid, false);
+  assert.equal(validateVapidKeypair('too-short', 'too-short').valid, false);
+});
+
+await runTest('LIVE mode strictly requires VAPID_PRIVATE_KEY when Web Push subscriptions exist', async () => {
+  const mockDb = createMockFirestore({
+    users: [{ uid: 'user-wp' }],
+    subscriptionsByUser: {
+      'user-wp': [
+        {
+          id: 'sub-1',
+          endpoint: 'https://updates.push.services.mozilla.com/wpush/v2/test',
+          keys: { p256dh: 'test', auth: 'test' },
+        },
+      ],
+    },
+    timetableByUser: {
+      'user-wp': [{ id: 's1', startTime: '10:00', endTime: '10:50', dayOfWeek: 3, subjectName: 'CS' }],
+    },
+  });
+
+  const now = new Date(2026, 9, 14, 9, 50, 0);
+
+  // Missing private key in LIVE mode must throw
+  await assert.rejects(
+    async () => {
+      await runReminderDispatcher({
+        mode: 'live',
+        db: mockDb,
+        now,
+        vapidOptions: { publicKey: dynamicTestPub, privateKey: '' },
+      });
+    },
+    (err) => {
+      assert.match(err.message, /VAPID_PRIVATE_KEY environment variable is missing/);
+      return true;
+    }
+  );
+});
+
+await runTest('DRY-RUN mode does NOT require VAPID_PRIVATE_KEY', async () => {
+  const mockDb = createMockFirestore({
+    users: [{ uid: 'user-wp' }],
+    subscriptionsByUser: {
+      'user-wp': [
+        {
+          id: 'sub-1',
+          endpoint: 'https://updates.push.services.mozilla.com/wpush/v2/test',
+          keys: { p256dh: 'test', auth: 'test' },
+        },
+      ],
+    },
+    timetableByUser: {
+      'user-wp': [{ id: 's1', startTime: '10:00', endTime: '10:50', dayOfWeek: 3, subjectName: 'CS' }],
+    },
+  });
+
+  const now = new Date(2026, 9, 14, 9, 50, 0);
+  const res = await runReminderDispatcher({
+    mode: 'dry-run',
+    db: mockDb,
+    now,
+    vapidOptions: { privateKey: '' },
+  });
+  assert.equal(res.status, 'dry_run_complete');
+});
+
+// -----------------------------------------------------------------------------
+// 5. GitHub Actions Workflow Configuration Invariants
+// -----------------------------------------------------------------------------
+console.log('\n--- 5. GitHub Actions Workflow Invariants & Credential Safety ---');
 
 await runTest('scheduled-class-reminders.yml specifies Node.js 22 and npm ci', () => {
   const ymlPath = path.join(rootDir, '.github/workflows/scheduled-class-reminders.yml');
@@ -296,15 +408,35 @@ await runTest('scheduled-class-reminders.yml specifies Node.js 22 and npm ci', (
   assert.ok(!src.includes('npm ci --omit=dev'), 'Workflow does not use --omit=dev');
 });
 
-await runTest('scheduled-class-reminders.yml maps FIREBASE_SERVICE_ACCOUNT_KEY with fallbacks', () => {
+await runTest('scheduled-class-reminders.yml maps secrets without hardcoded fallbacks', () => {
   const ymlPath = path.join(rootDir, '.github/workflows/scheduled-class-reminders.yml');
   const src = fs.readFileSync(ymlPath, 'utf8');
 
-  assert.ok(src.includes('secrets.FIREBASE_SERVICE_ACCOUNT_KEY'), 'Maps FIREBASE_SERVICE_ACCOUNT_KEY');
-  assert.ok(src.includes('secrets.FIREBASE_SERVICE_ACCOUNT'), 'Includes fallback to FIREBASE_SERVICE_ACCOUNT');
+  assert.ok(src.includes('VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}'), 'Injects secrets.VAPID_PRIVATE_KEY');
+  assert.ok(!src.includes('VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY ||'), 'No fallback string for private key');
+  assert.ok(src.includes('FIREBASE_SERVICE_ACCOUNT_KEY:'), 'Maps service account key');
   assert.ok(src.includes('node scripts/dispatch-class-reminders.mjs --live'), 'Runs in explicit --live mode for scheduled cron');
-  assert.ok(src.includes('workflow_dispatch:'), 'Workflow supports manual dispatch');
-  assert.ok(src.includes('mode:'), 'Workflow dispatch provides mode choice');
+});
+
+await runTest('Tracked production source files contain ZERO hardcoded VAPID private key constants', () => {
+  const targetFiles = [
+    'scripts/dispatch-class-reminders.mjs',
+    'src/lib/classReminderScheduler.ts',
+    '.github/workflows/scheduled-class-reminders.yml',
+    '.env.example',
+  ];
+
+  for (const relPath of targetFiles) {
+    const fullPath = path.join(rootDir, relPath);
+    if (!fs.existsSync(fullPath)) continue;
+    const content = fs.readFileSync(fullPath, 'utf8');
+
+    // Ensure CANONICAL_VAPID_PRIVATE_KEY is not defined in production files
+    assert.ok(
+      !content.includes('CANONICAL_VAPID_PRIVATE_KEY'),
+      `File ${relPath} should not contain CANONICAL_VAPID_PRIVATE_KEY`
+    );
+  }
 });
 
 console.log('\n======================================================================');

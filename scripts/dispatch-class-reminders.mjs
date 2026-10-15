@@ -10,6 +10,7 @@
  * FCM multicast notifications without requiring paid Firebase Cloud Functions.
  */
 
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,8 +23,6 @@ export const CANONICAL_REMINDER_OFFSET = 10;
 
 export const CANONICAL_VAPID_PUBLIC_KEY =
   'BCRFPJBd3uyEhTLTp3xvC_XC7xWKY5AGVtb_K-egveVehf03iaHpo1XkhOmFoimtl9uP-fhRaju5xkG1cTZePl0';
-export const CANONICAL_VAPID_PRIVATE_KEY =
-  'NSQpdpXPsFOHRBFq2Od5HxBlf2-YHtK6TEoRPV6U_CQ';
 export const CANONICAL_VAPID_SUBJECT =
   'mailto:notifications@uniflow-cu.web.app';
 
@@ -134,6 +133,43 @@ export function buildWebPushPayload(slot, minutesLeft = CANONICAL_REMINDER_OFFSE
 }
 
 /**
+ * Cryptographically validates that a P-256 VAPID private key matches the public key
+ * using Node's native crypto without exposing secret values.
+ */
+export function validateVapidKeypair(publicKey, privateKey) {
+  if (!publicKey) {
+    return { valid: false, error: 'VAPID public key is missing' };
+  }
+  if (!privateKey) {
+    return { valid: false, error: 'VAPID private key is missing' };
+  }
+
+  try {
+    const privBuf = Buffer.from(privateKey, 'base64url');
+    if (privBuf.length !== 32) {
+      return { valid: false, error: `Invalid VAPID private key length (${privBuf.length} bytes, expected 32 bytes)` };
+    }
+
+    const pubBuf = Buffer.from(publicKey, 'base64url');
+    if (pubBuf.length !== 65 || pubBuf[0] !== 0x04) {
+      return { valid: false, error: `Invalid VAPID public key format (${pubBuf.length} bytes, expected 65-byte uncompressed point starting with 0x04)` };
+    }
+
+    const ecdh = crypto.createECDH('prime256v1');
+    ecdh.setPrivateKey(privBuf);
+    const derivedPub = ecdh.getPublicKey('base64url');
+
+    if (derivedPub !== publicKey) {
+      return { valid: false, error: 'VAPID private key does not match the configured public key' };
+    }
+
+    return { valid: true, error: null };
+  } catch (err) {
+    return { valid: false, error: `VAPID cryptographic validation failed: ${err.message}` };
+  }
+}
+
+/**
  * Sends a standard Web Push notification using web-push library and VAPID keys
  */
 export async function sendWebPushNotification(subscription, payload, vapidOptions = {}) {
@@ -141,8 +177,15 @@ export async function sendWebPushNotification(subscription, payload, vapidOption
   const webpush = webpushModule.default || webpushModule;
 
   const pub = vapidOptions.publicKey || process.env.VAPID_PUBLIC_KEY || CANONICAL_VAPID_PUBLIC_KEY;
-  const priv = vapidOptions.privateKey || process.env.VAPID_PRIVATE_KEY || CANONICAL_VAPID_PRIVATE_KEY;
+  const priv = vapidOptions.privateKey || process.env.VAPID_PRIVATE_KEY;
   const subject = vapidOptions.subject || process.env.VAPID_SUBJECT || CANONICAL_VAPID_SUBJECT;
+
+  if (!priv) {
+    throw new Error(
+      '[UniFlow Dispatcher] Cannot dispatch Web Push notification: VAPID_PRIVATE_KEY is missing. ' +
+      'Please configure the VAPID_PRIVATE_KEY secret/environment variable.'
+    );
+  }
 
   webpush.setVapidDetails(subject, pub, priv);
 
@@ -335,6 +378,24 @@ export async function runReminderDispatcher(options = {}) {
     };
   }
 
+  // Validate VAPID keypair in LIVE and TEST-PUSH modes
+  const vapidPub = vapidOptions.publicKey || process.env.VAPID_PUBLIC_KEY || CANONICAL_VAPID_PUBLIC_KEY;
+  const vapidPriv = vapidOptions.privateKey || process.env.VAPID_PRIVATE_KEY;
+
+  if (effectiveMode === 'live' || effectiveMode === 'test-push') {
+    if (!vapidPriv) {
+      throw new Error(
+        `[UniFlow Dispatcher] FATAL: VAPID_PRIVATE_KEY environment variable is missing in ${effectiveMode.toUpperCase()} mode. ` +
+        `Please configure the VAPID_PRIVATE_KEY GitHub Actions secret.`
+      );
+    }
+
+    const validation = validateVapidKeypair(vapidPub, vapidPriv);
+    if (!validation.valid) {
+      throw new Error(`[UniFlow Dispatcher] FATAL: VAPID keypair validation failed: ${validation.error}`);
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // A. CONTROLLED TEST PUSH MODE
   // ---------------------------------------------------------------------------
@@ -422,7 +483,7 @@ export async function runReminderDispatcher(options = {}) {
         await sendWebPushNotification(
           { endpoint: sub.endpoint, keys: sub.keys },
           testPayload,
-          vapidOptions
+          { ...vapidOptions, publicKey: vapidPub, privateKey: vapidPriv }
         );
         testSuccessfulSends++;
         const endpointDisplay = sub.endpoint.split('?')[0].slice(0, 45);
@@ -574,7 +635,7 @@ export async function runReminderDispatcher(options = {}) {
                     keys: sub.keys,
                   },
                   webPushPayload,
-                  vapidOptions
+                  { ...vapidOptions, publicKey: vapidPub, privateKey: vapidPriv }
                 );
                 successfulSends++;
                 slotHadSuccessfulSend = true;
@@ -747,6 +808,18 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       `Reason: ${adminResult?.error || 'Missing or invalid FIREBASE_SERVICE_ACCOUNT_KEY'}\n\n` +
       'Please ensure the GitHub repository secret "FIREBASE_SERVICE_ACCOUNT_KEY"\n' +
       'is configured with the Firebase Service Account JSON credentials for project uniflow-b7a88.\n' +
+      '============================================================\n'
+    );
+    process.exit(1);
+  }
+
+  // In live or test-push mode, VAPID_PRIVATE_KEY is strictly required
+  if ((mode === 'live' || mode === 'test-push') && !process.env.VAPID_PRIVATE_KEY) {
+    console.error(
+      '\n============================================================\n' +
+      '[UniFlow Dispatcher] FATAL CONFIGURATION ERROR\n' +
+      'Cannot execute in LIVE mode without VAPID_PRIVATE_KEY.\n' +
+      'Please configure the GitHub repository secret "VAPID_PRIVATE_KEY".\n' +
       '============================================================\n'
     );
     process.exit(1);

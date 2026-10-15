@@ -47,7 +47,7 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY || secrets.FIREBASE_SERVICE_ACCOUNT || secrets.GOOGLE_APPLICATION_CREDENTIALS }}
           FIREBASE_PROJECT_ID: 'uniflow-b7a88'
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY || 'BCRFPJBd3uyEhTLTp3xvC_XC7xWKY5AGVtb_K-egveVehf03iaHpo1XkhOmFoimtl9uP-fhRaju5xkG1cTZePl0' }}
-          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY || 'NSQpdpXPsFOHRBFq2Od5HxBlf2-YHtK6TEoRPV6U_CQ' }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_SUBJECT: 'mailto:notifications@uniflow-cu.web.app'
         run: |
           if [ "${{ inputs.mode }}" = "test-push" ]; then
