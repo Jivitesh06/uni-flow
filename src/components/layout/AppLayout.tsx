@@ -4,6 +4,7 @@ import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { BottomNav } from './BottomNav';
 import { OfflineBanner } from './OfflineBanner';
+import { AppReminderWatcher } from '../notifications/AppReminderWatcher';
 
 const titles: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -34,6 +35,7 @@ export function AppLayout() {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex flex-col flex-1 min-w-0 lg:ml-64 min-h-screen min-h-[100dvh] lg:min-h-0 no-scrollbar">
         <OfflineBanner />
+        <AppReminderWatcher />
         <TopBar onMenuClick={() => setSidebarOpen(true)} title={title} />
         {/* pb-28 ensures mobile content is not covered by the fixed bottom navigation bar and allows fluid upward swipe */}
         <main

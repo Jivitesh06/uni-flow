@@ -5,6 +5,7 @@ import {
   hasReminderBeenSent,
   playReminderChime,
   requestClassNotificationPermission,
+  registerPushDeviceToken,
   scheduleTimestampTriggerIfSupported,
   type NextClassReminderResult,
 } from '../lib/classReminderScheduler.ts';
@@ -56,6 +57,15 @@ export function useClassReminder(
   });
 
   const scheduledSlotsRef = useRef<Set<string>>(new Set());
+
+  // Automatically register / update Push Device Token when notification permission is granted
+  useEffect(() => {
+    if (permission === 'granted' && userProfile?.uid) {
+      registerPushDeviceToken(userProfile.uid).catch((err) => {
+        console.warn('[useClassReminder] push registration check:', err);
+      });
+    }
+  }, [permission, userProfile?.uid]);
 
   // Update current reminder state
   const checkAndTick = useCallback(() => {

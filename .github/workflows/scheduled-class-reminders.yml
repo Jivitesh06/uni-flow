@@ -1,0 +1,31 @@
+name: Scheduled Class Reminders (Push Dispatcher)
+
+on:
+  schedule:
+    # Runs every 10 minutes between 03:00 UTC and 12:00 UTC (08:30 AM to 05:30 PM IST), Monday through Friday
+    - cron: '*/10 3-12 * * 1-5'
+  workflow_dispatch: # Allows manual trigger from GitHub Actions tab for testing
+
+jobs:
+  dispatch-reminders:
+    name: Dispatch Upcoming Class Reminders
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci --omit=dev
+
+      - name: Run Reminder Dispatcher
+        env:
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+        run: node scripts/dispatch-class-reminders.mjs

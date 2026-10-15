@@ -1,4 +1,4 @@
-import { collection, addDoc, serverTimestamp, setDoc, doc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, setDoc, doc, getDoc, arrayUnion } from 'firebase/firestore';
 import { db } from './firebase.ts';
 import { isSlotApplicableToStudent } from './collegeEmail.ts';
 import type { TimetableSlot, UserProfile } from '../types';
@@ -12,6 +12,7 @@ export interface NextClassReminderResult {
   todaySlotsCount: number;
 }
 
+export const CANONICAL_REMINDER_OFFSET = 10;
 const DISMISSED_KEY_PREFIX = 'uniflow_dismissed_notifications_';
 const inFlightDispatches = new Set<string>();
 
@@ -36,15 +37,15 @@ export function getLocalDateKey(date: Date | string = new Date()): string {
 
 /**
  * Constructs a canonical deterministic notification document ID.
- * Prevents duplicate document creation across StrictMode, multiple listeners,
- * re-renders, or multi-tab instances.
+ * Standardized to CANONICAL_REMINDER_OFFSET (10m) so that checks across
+ * scheduling, dismissal, and Firestore writes always match identically.
  */
 export function buildDeterministicNotificationId(
   uid: string,
   slot: TimetableSlot,
   date: Date | string = new Date(),
   type = 'class_reminder',
-  offsetMinutes = 10
+  offsetMinutes = CANONICAL_REMINDER_OFFSET
 ): string {
   const dateKey = getLocalDateKey(date);
   const rawId = slot.id || slot.subjectCode || 'class';
@@ -79,6 +80,7 @@ export function getDismissedNotificationIds(uid?: string): Set<string> {
 /**
  * Records that a notification was deleted or dismissed so that the background scheduler
  * or subsequent page visits will never recreate or redeliver it.
+ * Tracks both the exact ID and the root slot prefix to neutralize any offset variance.
  */
 export function markNotificationDismissed(notificationId: string, uid?: string): void {
   const storage = getSafeLocalStorage();
@@ -86,7 +88,10 @@ export function markNotificationDismissed(notificationId: string, uid?: string):
   try {
     const ids = getDismissedNotificationIds(uid);
     ids.add(notificationId);
-    const arr = Array.from(ids).slice(-200);
+    // Also strip trailing offset (e.g. "_10m", "_9m") to add the root slot prefix
+    const rootPrefix = notificationId.replace(/_\d+m$/, '');
+    ids.add(rootPrefix);
+    const arr = Array.from(ids).slice(-300);
     storage.setItem(`${DISMISSED_KEY_PREFIX}${uid}`, JSON.stringify(arr));
   } catch {
     // ignore quota
@@ -94,20 +99,25 @@ export function markNotificationDismissed(notificationId: string, uid?: string):
 }
 
 /**
- * Checks whether a notification with this ID has been dismissed or deleted.
+ * Checks whether a notification with this ID or its root slot prefix has been dismissed or deleted.
  */
 export function isNotificationDismissedOrDeleted(notificationId: string, uid?: string): boolean {
   if (!uid || !notificationId) return false;
-  return getDismissedNotificationIds(uid).has(notificationId);
+  const dismissedSet = getDismissedNotificationIds(uid);
+  if (dismissedSet.has(notificationId)) return true;
+  const rootPrefix = notificationId.replace(/_\d+m$/, '');
+  return dismissedSet.has(rootPrefix);
 }
 
 /**
- * Builds a deterministic storage key for class reminders
+ * Builds a deterministic storage key for class reminders.
+ * Scoped by UID for safe multi-user isolation on shared devices.
  */
-export function buildReminderStorageKey(slot: TimetableSlot, date = new Date()): string {
+export function buildReminderStorageKey(slot: TimetableSlot, date = new Date(), uid?: string): string {
   const dateKey = getLocalDateKey(date);
   const identifier = slot.id || slot.subjectCode || 'class';
-  return `uniflow_reminder_sent_${dateKey}_${identifier}_${slot.startTime}`;
+  const userPart = uid ? uid.replace(/[^a-zA-Z0-9_-]/g, '_') : 'anon';
+  return `uniflow_reminder_sent_${userPart}_${dateKey}_${identifier}_${slot.startTime}`;
 }
 
 /**
@@ -115,21 +125,35 @@ export function buildReminderStorageKey(slot: TimetableSlot, date = new Date()):
  */
 export function hasReminderBeenSent(slot: TimetableSlot, date = new Date(), uid?: string): boolean {
   if (uid) {
-    const detId = buildDeterministicNotificationId(uid, slot, date, 'class_reminder', 10);
+    const detId = buildDeterministicNotificationId(uid, slot, date, 'class_reminder', CANONICAL_REMINDER_OFFSET);
     if (isNotificationDismissedOrDeleted(detId, uid)) return true;
   }
-  if (typeof window === 'undefined' || !window.localStorage) return false;
-  const key = buildReminderStorageKey(slot, date);
-  return localStorage.getItem(key) !== null;
+  const storage = getSafeLocalStorage();
+  if (!storage) return false;
+
+  // Check UID-scoped key
+  if (uid) {
+    const keyWithUid = buildReminderStorageKey(slot, date, uid);
+    if (storage.getItem(keyWithUid) !== null) return true;
+  }
+
+  // Fallback to legacy un-scoped key
+  const legacyKey = `uniflow_reminder_sent_${getLocalDateKey(date)}_${slot.id || slot.subjectCode || 'class'}_${slot.startTime}`;
+  return storage.getItem(legacyKey) !== null;
 }
 
 /**
  * Marks that a reminder has been sent today for this class slot
  */
-export function markReminderSent(slot: TimetableSlot, date = new Date()): void {
-  if (typeof window === 'undefined' || !window.localStorage) return;
-  const key = buildReminderStorageKey(slot, date);
-  localStorage.setItem(key, new Date().toISOString());
+export function markReminderSent(slot: TimetableSlot, date = new Date(), uid?: string): void {
+  const storage = getSafeLocalStorage();
+  if (!storage) return;
+  if (uid) {
+    const keyWithUid = buildReminderStorageKey(slot, date, uid);
+    storage.setItem(keyWithUid, new Date().toISOString());
+  }
+  const legacyKey = `uniflow_reminder_sent_${getLocalDateKey(date)}_${slot.id || slot.subjectCode || 'class'}_${slot.startTime}`;
+  storage.setItem(legacyKey, new Date().toISOString());
 }
 
 /**
@@ -244,11 +268,12 @@ export function calculateNextClassReminder(
       const diffMinutes = diffMs / 60000;
       const roundedMinutes = Math.ceil(diffMinutes);
 
-      // Trigger window: exactly 10 minutes before class (diffMinutes <= 10.0 and diffMinutes > 0)
-      const isWithin10MinWindow = diffMinutes <= 10.0 && diffMinutes > 0;
+      // Trigger window: between 0.5 and 10.0 minutes before class start
+      // diffMinutes >= 0.5 prevents stale reminders from firing on app open when class has already started or is in session
+      const isWithin10MinWindow = diffMinutes <= 10.0 && diffMinutes >= 0.5;
 
       // The ideal reminder timestamp is T - 10 minutes
-      const reminderTriggerTime = new Date(slotStartDate.getTime() - 10 * 60 * 1000);
+      const reminderTriggerTime = new Date(slotStartDate.getTime() - CANONICAL_REMINDER_OFFSET * 60 * 1000);
 
       // Format countdown text
       const totalSec = Math.floor(diffMs / 1000);
@@ -289,12 +314,13 @@ export function calculateNextClassReminder(
  */
 export async function dispatchClassReminderNotification(
   slot: TimetableSlot,
-  minutesLeft: number,
+  minutesLeft: number = CANONICAL_REMINDER_OFFSET,
   uid?: string
 ): Promise<boolean> {
+  // Always use CANONICAL_REMINDER_OFFSET for stable daily deduplication and dismissal matching
   const deterministicId = uid
-    ? buildDeterministicNotificationId(uid, slot, new Date(), 'class_reminder', minutesLeft)
-    : `local_${slot.id || slot.subjectCode}_${getLocalDateKey()}_${slot.startTime}_${minutesLeft}m`;
+    ? buildDeterministicNotificationId(uid, slot, new Date(), 'class_reminder', CANONICAL_REMINDER_OFFSET)
+    : `local_${slot.id || slot.subjectCode}_${getLocalDateKey()}_${slot.startTime}_${CANONICAL_REMINDER_OFFSET}m`;
 
   // 1. Check if user has previously dismissed or deleted this notification
   if (uid && isNotificationDismissedOrDeleted(deterministicId, uid)) {
@@ -364,7 +390,7 @@ export async function dispatchClassReminderNotification(
     }
 
     // 3. Mark reminder as sent locally to avoid duplicates today
-    markReminderSent(slot);
+    markReminderSent(slot, new Date(), uid);
 
     // 4. Log reminder in Firestore user notifications subcollection with deterministic ID (idempotent write)
     if (uid) {
@@ -381,7 +407,7 @@ export async function dispatchClassReminderNotification(
             slotId: slot.id || null,
             subjectCode: slot.subjectCode || null,
             classDate: getLocalDateKey(),
-            reminderOffset: minutesLeft,
+            reminderOffset: CANONICAL_REMINDER_OFFSET,
             createdAt: serverTimestamp(),
           });
         }
@@ -401,7 +427,7 @@ export async function dispatchClassReminderNotification(
 
 /**
  * Registers Chromium Notification Trigger (TimestampTrigger) when supported by the browser.
- * This native API allows the browser engine to fire scheduled reminders even when the tab is closed!
+ * Note: Chromium experimental API; standard browsers require server-side Web Push / FCM.
  */
 export async function scheduleTimestampTriggerIfSupported(
   slot: TimetableSlot,
@@ -409,7 +435,6 @@ export async function scheduleTimestampTriggerIfSupported(
 ): Promise<boolean> {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
 
-  // Check if TimestampTrigger is supported
   const hasTrigger =
     'showTrigger' in Notification.prototype &&
     'TimestampTrigger' in window;
@@ -449,6 +474,40 @@ export async function scheduleTimestampTriggerIfSupported(
 }
 
 /**
+ * Detects client runtime platform for push capability logging and telemetry.
+ */
+export function detectPlatform(): 'ios_pwa' | 'ios_safari' | 'android' | 'desktop' | 'unknown' {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return 'unknown';
+  const ua = navigator.userAgent || '';
+  const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isStandalone =
+    (window.navigator as unknown as { standalone?: boolean }).standalone === true ||
+    (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches);
+
+  if (isIOS) {
+    return isStandalone ? 'ios_pwa' : 'ios_safari';
+  }
+  if (/Android/i.test(ua)) {
+    return 'android';
+  }
+  return 'desktop';
+}
+
+/**
+ * Converts a base64 VAPID string to a Uint8Array for PushManager subscription
+ */
+export function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+/**
  * Stores Web Push subscription endpoint and keys in Cloud Firestore
  */
 export async function savePushSubscriptionToFirestore(
@@ -466,13 +525,106 @@ export async function savePushSubscriptionToFirestore(
         uid,
         endpoint: subscription.endpoint,
         keys: subJson.keys || null,
-        userAgent: navigator.userAgent,
+        platform: detectPlatform(),
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
         updatedAt: serverTimestamp(),
       },
       { merge: true }
     );
   } catch (err) {
     console.warn('Failed to store push subscription in Firestore:', err);
+  }
+}
+
+/**
+ * Stores registered FCM Device Token on the user's document in Firestore
+ */
+export async function saveFCMTokenToFirestore(uid: string, token: string): Promise<void> {
+  if (!uid || !token) return;
+  try {
+    const userRef = doc(db, 'users', uid);
+    await setDoc(
+      userRef,
+      {
+        fcmTokens: arrayUnion(token),
+        platform: detectPlatform(),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  } catch (err) {
+    console.warn('Failed to store FCM token in Firestore:', err);
+  }
+}
+
+/**
+ * Registers Web Push subscription and FCM token with Firestore
+ */
+export async function registerPushDeviceToken(uid: string): Promise<string | null> {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator) || !uid) {
+    return null;
+  }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let registeredIdentifier: string | null = null;
+
+    // 1. Standard Web Push Subscription via PushManager
+    if ('pushManager' in reg) {
+      try {
+        let sub = await reg.pushManager.getSubscription();
+        const envVapid =
+          (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_VAPID_KEY) ||
+          (typeof import.meta !== 'undefined' && import.meta.env?.VITE_VAPID_PUBLIC_KEY);
+
+        if (!sub && envVapid) {
+          try {
+            sub = await reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(envVapid),
+            });
+          } catch (subErr) {
+            console.warn('Web pushManager.subscribe notice:', subErr);
+          }
+        }
+
+        if (sub) {
+          await savePushSubscriptionToFirestore(uid, sub);
+          registeredIdentifier = sub.endpoint;
+        }
+      } catch (pmErr) {
+        console.warn('PushManager registration notice:', pmErr);
+      }
+    }
+
+    // 2. Firebase Cloud Messaging (FCM) Web SDK Token if available
+    try {
+      const { messaging } = await import('./firebase.ts');
+      const msg = await messaging();
+      if (msg) {
+        const { getToken } = await import('firebase/messaging');
+        const envVapid =
+          (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_VAPID_KEY) ||
+          (typeof import.meta !== 'undefined' && import.meta.env?.VITE_VAPID_PUBLIC_KEY);
+
+        const fcmToken = await getToken(msg, {
+          vapidKey: envVapid || undefined,
+          serviceWorkerRegistration: reg,
+        });
+
+        if (fcmToken) {
+          await saveFCMTokenToFirestore(uid, fcmToken);
+          registeredIdentifier = fcmToken;
+        }
+      }
+    } catch (fcmErr) {
+      // FCM is optional when running without Google Play Services or if VAPID is unconfigured
+      console.info('Firebase Messaging getToken note:', fcmErr);
+    }
+
+    return registeredIdentifier;
+  } catch (err) {
+    console.warn('registerPushDeviceToken failed:', err);
+    return null;
   }
 }
 
@@ -489,19 +641,8 @@ export async function requestClassNotificationPermission(uid?: string): Promise<
   if (permission === 'granted') {
     localStorage.setItem('uniflow_reminders_enabled', 'true');
 
-    // Subscribe to push manager if service worker is available
-    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator && uid) {
-      try {
-        const reg = await navigator.serviceWorker.ready;
-        if ('pushManager' in reg) {
-          const sub = await reg.pushManager.getSubscription();
-          if (sub) {
-            await savePushSubscriptionToFirestore(uid, sub);
-          }
-        }
-      } catch (err) {
-        console.warn('Push manager subscription check error:', err);
-      }
+    if (uid) {
+      await registerPushDeviceToken(uid);
     }
   }
 

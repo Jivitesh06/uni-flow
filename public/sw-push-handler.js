@@ -2,28 +2,44 @@
 // Imported via Workbox in service worker build
 
 self.addEventListener('push', (event) => {
-  let data = {};
+  let raw = {};
   if (event.data) {
     try {
-      data = event.data.json();
+      raw = event.data.json();
     } catch {
-      data = { body: event.data.text() };
+      raw = { body: event.data.text() };
     }
   }
 
-  const title = data.title || 'UniFlow — Class Reminder';
+  // Support both FCM payload structure (notification + data) and flat Web Push payloads
+  const notif = raw.notification || {};
+  const customData = raw.data || {};
+
+  const title = notif.title || customData.title || raw.title || 'UniFlow — Class Reminder';
+  const body = notif.body || customData.body || raw.body || 'You have an upcoming class scheduled in 10 minutes.';
+  const icon = notif.icon || customData.icon || raw.icon || '/icons/icon-192x192.png';
+  const badge = notif.badge || customData.badge || raw.badge || '/favicon.svg';
+
+  const slotIdentifier = customData.slotId || customData.subjectCode || 'class';
+  const startIdentifier = customData.startTime ? customData.startTime.replace(/[^a-zA-Z0-9]/g, '') : 'time';
+  const tag = customData.tag || raw.tag || `uniflow-reminder-${slotIdentifier}-${startIdentifier}`;
+
+  const targetPath = customData.url || raw.url || notif.click_action || '/dashboard';
+
   const options = {
-    body: data.body || 'You have an upcoming class scheduled in 10 minutes.',
-    icon: data.icon || '/icons/icon-192x192.png',
-    badge: data.badge || '/favicon.svg',
-    tag: data.tag || `uniflow-reminder-${Date.now()}`,
+    body,
+    icon,
+    badge,
+    tag,
     renotify: true,
     vibrate: [200, 100, 200, 100, 200],
     requireInteraction: true,
     data: {
-      url: data.url || '/dashboard',
-      classId: data.classId || null,
-      startTime: data.startTime || null,
+      url: targetPath,
+      slotId: customData.slotId || null,
+      classId: customData.classId || customData.slotId || null,
+      startTime: customData.startTime || null,
+      subjectCode: customData.subjectCode || null,
       timestamp: Date.now(),
     },
     actions: [
