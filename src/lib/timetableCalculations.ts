@@ -399,3 +399,118 @@ function formatTimeFromMinutes(minutes: number): string {
   const m = (minutes % 60).toString().padStart(2, '0');
   return `${h}:${m}`;
 }
+
+export interface FreeGap {
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+  formattedDuration: string;
+  afterSlotId: string;
+  beforeSlotId: string;
+}
+
+export interface WeekDaySchedule {
+  dayIndex: number; // 1 to 5 (Mon to Fri)
+  shortName: string; // 'Mon', 'Tue'...
+  dayName: string; // 'Monday', 'Tuesday'...
+  dayNumber: number; // e.g. 13
+  fullDate: Date;
+  dateKey: string; // 'YYYY-MM-DD'
+  isToday: boolean;
+  slots: TimetableSlot[];
+  classCount: number;
+  completedCount: number;
+  remainingCount: number;
+  freeGaps: FreeGap[];
+}
+
+/**
+ * Builds the complete Monday–Friday schedule for an academic week.
+ * Preserves slot order, calculates lecture numbers, and detects genuine free periods.
+ */
+export function buildWeeklySchedule(
+  activeSlots: TimetableSlot[],
+  referenceDate: Date = new Date(),
+  weekOffset: number = 0,
+  currentMinutes: number = 0
+): WeekDaySchedule[] {
+  const base = new Date(referenceDate);
+  base.setDate(base.getDate() + weekOffset * 7);
+  const currentDay = base.getDay();
+  const diffToMon = currentDay === 0 ? -6 : 1 - currentDay;
+  const mon = new Date(base);
+  mon.setDate(base.getDate() + diffToMon);
+  mon.setHours(0, 0, 0, 0);
+
+  const realToday = new Date(referenceDate);
+  const realTodayDay = realToday.getDay();
+
+  const shortNames = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const fullNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  return [1, 2, 3, 4, 5].map((d) => {
+    const targetDate = new Date(mon);
+    targetDate.setDate(mon.getDate() + (d - 1));
+    const isToday = weekOffset === 0 && realTodayDay === d;
+
+    const daySlots = activeSlots
+      .filter((s) => s.dayOfWeek === d)
+      .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+
+    const completedCount = isToday
+      ? daySlots.filter((s) => timeToMinutes(s.endTime) <= currentMinutes).length
+      : weekOffset < 0 || (weekOffset === 0 && d < realTodayDay)
+      ? daySlots.length
+      : 0;
+
+    const remainingCount = Math.max(0, daySlots.length - completedCount);
+
+    const freeGaps: FreeGap[] = [];
+
+    for (let i = 0; i < daySlots.length - 1; i++) {
+      const curr = daySlots[i];
+      const next = daySlots[i + 1];
+      const endMins = timeToMinutes(curr.endTime);
+      const startMins = timeToMinutes(next.startTime);
+      const gap = startMins - endMins;
+
+      if (gap >= 30) {
+        const overlaps = daySlots.some((other) => {
+          const oStart = timeToMinutes(other.startTime);
+          const oEnd = timeToMinutes(other.endTime);
+          return Math.max(endMins, oStart) < Math.min(startMins, oEnd);
+        });
+
+        if (!overlaps) {
+          freeGaps.push({
+            startTime: curr.endTime,
+            endTime: next.startTime,
+            durationMinutes: gap,
+            formattedDuration: formatDurationMinutes(gap),
+            afterSlotId: curr.id,
+            beforeSlotId: next.id,
+          });
+        }
+      }
+    }
+
+    const y = targetDate.getFullYear();
+    const m = String(targetDate.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(targetDate.getDate()).padStart(2, '0');
+
+    return {
+      dayIndex: d,
+      shortName: shortNames[d] || 'Day',
+      dayName: fullNames[d] || 'Day',
+      dayNumber: targetDate.getDate(),
+      fullDate: targetDate,
+      dateKey: `${y}-${m}-${dayStr}`,
+      isToday,
+      slots: daySlots,
+      classCount: daySlots.length,
+      completedCount,
+      remainingCount,
+      freeGaps,
+    };
+  });
+}

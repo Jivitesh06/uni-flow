@@ -50,11 +50,14 @@ const {
   getDismissedNotificationIds,
   detectPlatform,
   urlBase64ToUint8Array,
+  CANONICAL_VAPID_PUBLIC_KEY,
 } = await import('../src/lib/classReminderScheduler.ts');
 
 const {
   isSlotIn10MinWindow,
   buildFcmPayload,
+  buildWebPushPayload,
+  sendWebPushNotification,
   runReminderDispatcher,
 } = await import('./dispatch-class-reminders.mjs');
 
@@ -186,9 +189,32 @@ runTest('buildFcmPayload constructs standard FCM multicast payload with deep lin
   assert.equal(payload.notification.title, 'Class in 10 mins: Operating Systems');
   assert.ok(payload.notification.body.includes('10:00 – 10:50'));
   assert.ok(payload.notification.body.includes('RJ-204'));
-  assert.equal(payload.data.url, '/dashboard');
+  assert.equal(payload.data.url, '/timetable');
   assert.equal(payload.data.slotId, 'slot-operating-systems');
   assert.deepEqual(payload.tokens, tokens);
+});
+
+runTest('buildWebPushPayload creates RFC 8291 payload with timetable deep-link data', () => {
+  const payload = buildWebPushPayload(mockSlot, 10);
+
+  assert.equal(payload.title, 'Class in 10 mins: Operating Systems');
+  assert.ok(payload.body.includes('10:00 – 10:50'));
+  assert.ok(payload.body.includes('RJ-204'));
+  assert.equal(payload.url, '/timetable');
+  assert.equal(payload.data.slotId, 'slot-operating-systems');
+  assert.equal(payload.data.type, 'class_reminder');
+  assert.equal(payload.icon, '/icons/icon-192x192.png');
+});
+
+runTest('CANONICAL_VAPID_PUBLIC_KEY is valid 65-byte uncompressed P-256 key', () => {
+  assert.ok(typeof CANONICAL_VAPID_PUBLIC_KEY === 'string');
+  const rawBytes = urlBase64ToUint8Array(CANONICAL_VAPID_PUBLIC_KEY);
+  assert.equal(rawBytes.length, 65, 'Uncompressed P-256 public key must be 65 bytes');
+  assert.equal(rawBytes[0], 0x04, 'First byte must be 0x04 for uncompressed EC point');
+});
+
+runTest('sendWebPushNotification is a callable async function', () => {
+  assert.equal(typeof sendWebPushNotification, 'function');
 });
 
 runTest('sw-push-handler.js extracts both FCM v1 and standard Web Push formats', () => {

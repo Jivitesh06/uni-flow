@@ -22,6 +22,8 @@ import {
   X,
   FileText,
   GraduationCap,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import {
@@ -43,7 +45,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
-import { timeToMinutes, calculateDailySlotSessionNumber, formatDurationMinutes } from '../lib/timetableCalculations';
+import {
+  timeToMinutes,
+  calculateDailySlotSessionNumber,
+  formatDurationMinutes,
+  buildWeeklySchedule,
+  WeekDaySchedule,
+} from '../lib/timetableCalculations';
 import { useSharedTimetable } from '../hooks/useSharedTimetable';
 import {
   mergeSharedAndPersonalSlots,
@@ -485,37 +493,41 @@ export function TimetablePage() {
     return activeSlots.filter((s) => s.dayOfWeek === todayDay).length;
   }, [activeSlots, todayDay]);
 
-  const [mobileWeeklyDay, setMobileWeeklyDay] = useState(() => (todayDay >= 1 && todayDay <= 5 ? todayDay : 1));
+  const [weekOffset, setWeekOffset] = useState(0);
+
+  // Complete 5-day academic week schedule (Monday to Friday)
+  const weeklySchedule = useMemo(() => {
+    return buildWeeklySchedule(activeSlots, currentTime, weekOffset, currentMinutes);
+  }, [activeSlots, currentTime, weekOffset, currentMinutes]);
 
   const weekDates = useMemo(() => {
-    const now = currentTime;
-    const currentDay = now.getDay();
-    const diffToMon = currentDay === 0 ? -6 : 1 - currentDay;
-    const mon = new Date(now);
-    mon.setDate(now.getDate() + diffToMon);
+    return weeklySchedule.map((ws) => ({
+      dayIndex: ws.dayIndex,
+      shortName: ws.shortName,
+      dayName: ws.dayName,
+      dayNumber: ws.dayNumber,
+      fullDate: ws.fullDate,
+      isToday: ws.isToday,
+      classCount: ws.classCount,
+    }));
+  }, [weeklySchedule]);
 
-    return [1, 2, 3, 4, 5].map((d) => {
-      const targetDate = new Date(mon);
-      targetDate.setDate(mon.getDate() + (d - 1));
-      return {
-        dayIndex: d,
-        shortName: SHORT_DAYS[d],
-        dayNumber: targetDate.getDate(),
-        fullDate: targetDate,
-      };
-    });
-  }, [currentTime]);
+  const weekRangeLabel = useMemo(() => {
+    if (weeklySchedule.length === 0) return '';
+    const firstDay = weeklySchedule[0].fullDate;
+    const lastDay = weeklySchedule[weeklySchedule.length - 1].fullDate;
+    return `${format(firstDay, 'd MMM')} – ${format(lastDay, 'd MMM yyyy')}`;
+  }, [weeklySchedule]);
 
   const currentDayDate = useMemo(() => {
-    const item = weekDates.find((w) => w.dayIndex === selectedDay);
+    const item = weeklySchedule.find((w) => w.dayIndex === selectedDay);
     return item ? item.fullDate : currentTime;
-  }, [weekDates, selectedDay, currentTime]);
+  }, [weeklySchedule, selectedDay, currentTime]);
 
   const dayAgendaSlots = useMemo(() => {
-    return activeSlots
-      .filter((s) => s.dayOfWeek === selectedDay)
-      .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
-  }, [activeSlots, selectedDay]);
+    const dayItem = weeklySchedule.find((w) => w.dayIndex === selectedDay);
+    return dayItem ? dayItem.slots : [];
+  }, [weeklySchedule, selectedDay]);
 
   const completedSlotsCount = useMemo(() => {
     if (selectedDay !== todayDay) {
@@ -681,171 +693,272 @@ export function TimetablePage() {
       )}
 
       {/* ============================================================== */}
-      {/* 1. WEEKLY VIEW                                                 */}
+      {/* 1. WEEKLY VIEW (Complete Monday–Friday Full-Week Schedule)     */}
       {/* ============================================================== */}
       {view === 'weekly' && activeSlots.length > 0 && (
         <div className="space-y-4">
-          {/* Mobile Day Selector Bar (Visible only on mobile screens < md) */}
-          <div className="block md:hidden">
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-              {[1, 2, 3, 4, 5].map((day) => {
-                const count = activeSlots.filter((s) => s.dayOfWeek === day).length;
-                const isToday = todayDay === day;
-                const isSelected = mobileWeeklyDay === day;
-
-                return (
-                  <button
-                    key={day}
-                    onClick={() => setMobileWeeklyDay(day)}
-                    className={`flex-1 min-w-[62px] py-2 px-1 rounded-2xl text-center text-xs font-bold transition-all flex flex-col items-center gap-0.5 border ${
-                      isSelected
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-md'
-                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-300'
-                    }`}
-                  >
-                    <span className="text-[11px] font-semibold">{SHORT_DAYS[day]}</span>
-                    <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                        isSelected
-                          ? 'bg-white/20 text-white'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-500'
-                      }`}
-                    >
-                      {count}
-                    </span>
-                    {isToday && (
-                      <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-amber-300' : 'bg-blue-500'}`} />
-                    )}
-                  </button>
-                );
-              })}
+          {/* Week Navigation Header Bar */}
+          <div className="flex items-center justify-between bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-2.5 sm:p-3 shadow-xs">
+            <div className="flex items-center gap-1 sm:gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setWeekOffset((w) => w - 1)}
+                className="h-8 w-8 p-0 rounded-xl"
+                title="Previous Week"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setWeekOffset((w) => w + 1)}
+                className="h-8 w-8 p-0 rounded-xl"
+                title="Next Week"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
             </div>
 
-            {/* Mobile Active Day Agenda */}
-            {(() => {
-              const day = mobileWeeklyDay;
-              const daySlots = activeSlots
-                .filter((s) => s.dayOfWeek === day)
-                .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
-              const isToday = todayDay === day;
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
+                {weekRangeLabel}
+              </span>
+              {weekOffset === 0 ? (
+                <span className="text-[10px] font-bold bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
+                  Current Week
+                </span>
+              ) : (
+                <button
+                  onClick={() => setWeekOffset(0)}
+                  className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  This Week
+                </button>
+              )}
+            </div>
 
-              return (
-                <div className="space-y-2.5 mt-3">
-                  <div className="flex items-center justify-between px-1">
-                    <span className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                      {DAYS[day]}
-                      {isToday && (
-                        <span className="text-[10px] font-bold bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
-                          Today
-                        </span>
-                      )}
+            <div className="text-right">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {totalClasses} Classes / Week
+              </span>
+            </div>
+          </div>
+
+          {/* Weekday Quick Jump Selector Bar (Mon-Fri) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 no-scrollbar">
+            {weeklySchedule.map((ws) => (
+              <button
+                key={ws.dayIndex}
+                type="button"
+                onClick={() => {
+                  const el =
+                    document.getElementById(`week-day-${ws.dayIndex}`) ||
+                    document.getElementById(`week-day-desk-${ws.dayIndex}`);
+                  if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }
+                }}
+                className={`flex-1 min-w-[62px] sm:min-w-[72px] py-2 px-1.5 rounded-2xl text-center text-xs font-bold transition-all flex flex-col items-center gap-0.5 border ${
+                  ws.isToday
+                    ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-400 dark:border-blue-700 shadow-xs ring-1 ring-blue-400/30'
+                    : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-blue-300'
+                }`}
+              >
+                <span className="text-[11px] font-semibold">{ws.shortName}</span>
+                <span className="text-sm font-black">{ws.dayNumber}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                    ws.isToday
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  {ws.classCount}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Mobile Full-Week Agenda (Displays all 5 weekdays vertically) */}
+          <div className="block md:hidden space-y-5">
+            {weeklySchedule.map((daySchedule) => (
+              <div
+                key={daySchedule.dayIndex}
+                id={`week-day-${daySchedule.dayIndex}`}
+                className="scroll-mt-20 space-y-2.5"
+              >
+                {/* Weekday Section Header */}
+                <div className="flex items-center justify-between px-1 pt-1 border-t border-slate-100 dark:border-slate-800/80 first:border-t-0 first:pt-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-gray-900 dark:text-white">
+                      {daySchedule.dayName}, {format(daySchedule.fullDate, 'd MMM')}
+                    </span>
+                    {daySchedule.isToday && (
+                      <span className="text-[10px] font-black uppercase tracking-wider bg-blue-600 text-white px-2 py-0.5 rounded-full shadow-xs">
+                        Today
+                      </span>
+                    )}
+                    <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                      {daySchedule.classCount} {daySchedule.classCount === 1 ? 'class' : 'classes'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => openAdd(daySchedule.dayIndex)}
+                    className="text-xs text-blue-600 dark:text-blue-400 font-semibold hover:underline flex items-center gap-0.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add
+                  </button>
+                </div>
+
+                {/* Day's Scheduled Classes */}
+                {daySchedule.slots.length === 0 ? (
+                  <div className="text-center py-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 text-slate-400 text-xs flex flex-col items-center justify-center p-4 shadow-xs">
+                    <span className="text-xl mb-1">☕</span>
+                    <span className="font-medium text-slate-600 dark:text-slate-300">
+                      No classes scheduled on {daySchedule.dayName}
                     </span>
                     <button
-                      onClick={() => openAdd(day)}
-                      className="text-xs text-blue-600 dark:text-blue-400 font-semibold hover:underline flex items-center gap-0.5"
+                      onClick={() => openAdd(daySchedule.dayIndex)}
+                      className="mt-1.5 text-xs text-blue-600 dark:text-blue-400 font-semibold hover:underline"
                     >
-                      <Plus className="w-3.5 h-3.5" /> Add Class
+                      + Add class
                     </button>
                   </div>
+                ) : (
+                  <div className="space-y-1">
+                    {daySchedule.slots.map((slot) => {
+                      const sessionInfo = calculateDailySlotSessionNumber(slot, daySchedule.slots);
+                      const freeGap = daySchedule.freeGaps.find((g) => g.afterSlotId === slot.id);
 
-                  {daySlots.length === 0 ? (
-                    <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 text-gray-400 text-xs flex flex-col items-center justify-center p-6 shadow-sm">
-                      <span className="text-2xl mb-1">☕</span>
-                      <span className="font-medium text-gray-600 dark:text-gray-300">No classes on {DAYS[day]}</span>
+                      return (
+                        <React.Fragment key={slot.id}>
+                          <TimetableSlotCard
+                            slot={slot}
+                            isToday={daySchedule.isToday}
+                            currentMinutes={currentMinutes}
+                            viewMode="agenda"
+                            sessionNumber={sessionInfo?.sessionNumber}
+                            periodLabel={sessionInfo?.periodLabel}
+                            onEdit={openEdit}
+                            onDelete={(s) => setSlotToDelete(s)}
+                          />
+
+                          {freeGap && (
+                            <div className="ml-16 sm:ml-20 -mt-1 mb-3 rounded-2xl border border-dashed border-amber-300/80 dark:border-amber-800/60 bg-gradient-to-r from-amber-50/70 via-amber-50/40 to-orange-50/30 dark:from-amber-950/30 dark:via-amber-950/20 dark:to-orange-950/10 p-3 flex items-center justify-between gap-3 shadow-xs">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 flex items-center justify-center text-base shrink-0">
+                                  ☕
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <h5 className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                                      Free Period
+                                    </h5>
+                                    <span className="text-[10px] font-bold text-amber-800 dark:text-amber-300 bg-amber-100/90 dark:bg-amber-900/50 px-1.5 py-0.2 rounded-md">
+                                      {freeGap.formattedDuration}
+                                    </span>
+                                  </div>
+                                  <p className="font-mono text-xs text-amber-900/90 dark:text-amber-300">
+                                    {freeGap.startTime} – {freeGap.endTime}
+                                  </p>
+                                </div>
+                              </div>
+                              <span className="text-[10px] text-amber-800/80 dark:text-amber-400 font-semibold">Break</span>
+                            </div>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop 5-Day Grid (Visible on md and larger screens) */}
+          <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            {weeklySchedule.map((daySchedule) => (
+              <Card
+                key={daySchedule.dayIndex}
+                id={`week-day-desk-${daySchedule.dayIndex}`}
+                className={`flex flex-col transition-all rounded-3xl overflow-hidden ${
+                  daySchedule.isToday
+                    ? 'ring-2 ring-blue-500 shadow-md bg-gradient-to-b from-blue-50/20 to-transparent dark:from-blue-950/20'
+                    : 'hover:shadow-sm'
+                }`}
+              >
+                <CardHeader className="p-4 pb-3 border-b border-gray-100 dark:border-gray-800">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
+                        {daySchedule.dayName}
+                      </CardTitle>
+                      <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">
+                        {format(daySchedule.fullDate, 'd MMM')}
+                      </span>
+                    </div>
+                    {daySchedule.isToday && (
+                      <span className="text-[10px] font-black uppercase tracking-wider bg-blue-600 text-white px-2 py-0.5 rounded-full shadow-sm">
+                        Today
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-[11px] text-gray-400 font-medium">{daySchedule.classCount} Classes</p>
+                    <button
+                      onClick={() => openAdd(daySchedule.dayIndex)}
+                      className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold hover:underline flex items-center gap-0.5"
+                      title={`Add lecture on ${daySchedule.dayName}`}
+                    >
+                      <Plus className="w-3 h-3" /> Add
+                    </button>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="p-3 flex-1 space-y-2.5">
+                  {daySchedule.slots.length === 0 ? (
+                    <div className="text-center py-12 text-gray-400 text-xs flex flex-col items-center justify-center">
+                      <span className="text-lg mb-1">☕</span>
+                      <span className="font-medium text-gray-500">No classes scheduled</span>
                       <button
-                        onClick={() => openAdd(day)}
-                        className="mt-2 text-xs text-blue-600 dark:text-blue-400 font-semibold hover:underline"
+                        onClick={() => openAdd(daySchedule.dayIndex)}
+                        className="mt-2 text-[11px] text-blue-600 dark:text-blue-400 font-semibold hover:underline"
                       >
                         + Add class
                       </button>
                     </div>
                   ) : (
-                    daySlots.map((slot) => (
-                      <TimetableSlotCard
-                        key={slot.id}
-                        slot={slot}
-                        isToday={isToday}
-                        currentMinutes={currentMinutes}
-                        viewMode="agenda"
-                        onEdit={openEdit}
-                        onDelete={(s) => setSlotToDelete(s)}
-                      />
-                    ))
+                    daySchedule.slots.map((slot) => {
+                      const sessionInfo = calculateDailySlotSessionNumber(slot, daySchedule.slots);
+                      const freeGap = daySchedule.freeGaps.find((g) => g.afterSlotId === slot.id);
+
+                      return (
+                        <React.Fragment key={slot.id}>
+                          <TimetableSlotCard
+                            slot={slot}
+                            isToday={daySchedule.isToday}
+                            currentMinutes={currentMinutes}
+                            viewMode="grid"
+                            sessionNumber={sessionInfo?.sessionNumber}
+                            periodLabel={sessionInfo?.periodLabel}
+                            onEdit={openEdit}
+                            onDelete={(s) => setSlotToDelete(s)}
+                          />
+
+                          {freeGap && (
+                            <div className="p-2 rounded-xl border border-dashed border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 text-center text-[10px] text-amber-800 dark:text-amber-300 font-medium">
+                              ☕ Break {freeGap.startTime}–{freeGap.endTime} ({freeGap.formattedDuration})
+                            </div>
+                          )}
+                        </React.Fragment>
+                      );
+                    })
                   )}
-                </div>
-              );
-            })()}
-          </div>
-
-          {/* Desktop 5-Day Grid (Visible on md and larger screens) */}
-          <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-            {[1, 2, 3, 4, 5].map((day) => {
-              const daySlots = activeSlots
-                .filter((s) => s.dayOfWeek === day)
-                .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
-              const isToday = todayDay === day;
-
-              return (
-                <Card
-                  key={day}
-                  className={`flex flex-col transition-all rounded-3xl overflow-hidden ${
-                    isToday
-                      ? 'ring-2 ring-blue-500 shadow-md bg-gradient-to-b from-blue-50/20 to-transparent dark:from-blue-950/20'
-                      : 'hover:shadow-sm'
-                  }`}
-                >
-                  <CardHeader className="p-4 pb-3 border-b border-gray-100 dark:border-gray-800">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                        {DAYS[day]}
-                      </CardTitle>
-                      {isToday && (
-                        <span className="text-[10px] font-black uppercase tracking-wider bg-blue-600 text-white px-2 py-0.5 rounded-full shadow-sm">
-                          Today
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center justify-between mt-1">
-                      <p className="text-[11px] text-gray-400 font-medium">{daySlots.length} Classes</p>
-                      <button
-                        onClick={() => openAdd(day)}
-                        className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold hover:underline flex items-center gap-0.5"
-                        title={`Add lecture on ${DAYS[day]}`}
-                      >
-                        <Plus className="w-3 h-3" /> Add
-                      </button>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="p-3 flex-1 space-y-2.5">
-                    {daySlots.length === 0 ? (
-                      <div className="text-center py-12 text-gray-400 text-xs flex flex-col items-center justify-center">
-                        <span className="text-lg mb-1">☕</span>
-                        <span className="font-medium text-gray-500">No classes</span>
-                        <button
-                          onClick={() => openAdd(day)}
-                          className="mt-2 text-[11px] text-blue-600 dark:text-blue-400 font-semibold hover:underline"
-                        >
-                          + Add class
-                        </button>
-                      </div>
-                    ) : (
-                      daySlots.map((slot) => (
-                        <TimetableSlotCard
-                          key={slot.id}
-                          slot={slot}
-                          isToday={isToday}
-                          currentMinutes={currentMinutes}
-                          viewMode="grid"
-                          onEdit={openEdit}
-                          onDelete={(s) => setSlotToDelete(s)}
-                        />
-                      ))
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </div>
       )}
@@ -855,12 +968,64 @@ export function TimetablePage() {
       {/* ============================================================== */}
       {view === 'daily' && (
         <div className="space-y-4">
+          {/* Week Navigation Header Bar */}
+          <div className="flex items-center justify-between bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-2 sm:p-2.5 shadow-xs">
+            <div className="flex items-center gap-1 sm:gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setWeekOffset((w) => w - 1)}
+                className="h-8 w-8 p-0 rounded-xl"
+                title="Previous Week"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setWeekOffset((w) => w + 1)}
+                className="h-8 w-8 p-0 rounded-xl"
+                title="Next Week"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
+                {weekRangeLabel}
+              </span>
+              {weekOffset === 0 ? (
+                <span className="text-[10px] font-bold bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
+                  Current Week
+                </span>
+              ) : (
+                <button
+                  onClick={() => {
+                    setWeekOffset(0);
+                    setSelectedDay(todayDay >= 1 && todayDay <= 5 ? todayDay : 1);
+                  }}
+                  className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  This Week
+                </button>
+              )}
+            </div>
+
+            <div className="text-right">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {activeSlots.filter((s) => s.dayOfWeek === selectedDay).length} Classes
+              </span>
+            </div>
+          </div>
+
           {/* Horizontal Day Selector (Mon-Fri) matching Reference */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 no-scrollbar">
             {weekDates.map((w) => {
               const count = activeSlots.filter((s) => s.dayOfWeek === w.dayIndex).length;
               const isSelected = selectedDay === w.dayIndex;
-              const isToday = todayDay === w.dayIndex;
+              const isToday = w.isToday;
 
               return (
                 <button
@@ -909,7 +1074,7 @@ export function TimetablePage() {
               </div>
               <div>
                 <h3 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base leading-tight">
-                  {selectedDay === todayDay ? 'Today, ' : ''}{format(currentDayDate, 'd MMM yyyy')}
+                  {weekOffset === 0 && selectedDay === todayDay ? 'Today, ' : ''}{format(currentDayDate, 'd MMM yyyy')}
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   {dayAgendaSlots.length} classes • {completedSlotsCount} completed • {remainingSlotsCount} remaining
@@ -917,11 +1082,14 @@ export function TimetablePage() {
               </div>
             </div>
 
-            {selectedDay !== todayDay && (
+            {(selectedDay !== todayDay || weekOffset !== 0) && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setSelectedDay(todayDay)}
+                onClick={() => {
+                  setWeekOffset(0);
+                  setSelectedDay(todayDay >= 1 && todayDay <= 5 ? todayDay : 1);
+                }}
                 className="text-xs h-8 px-2.5 bg-white/90 dark:bg-slate-900/90 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 font-semibold"
               >
                 Jump to Today

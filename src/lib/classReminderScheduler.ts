@@ -507,6 +507,9 @@ export function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
+export const CANONICAL_VAPID_PUBLIC_KEY =
+  'BCRFPJBd3uyEhTLTp3xvC_XC7xWKY5AGVtb_K-egveVehf03iaHpo1XkhOmFoimtl9uP-fhRaju5xkG1cTZePl0';
+
 /**
  * Stores Web Push subscription endpoint and keys in Cloud Firestore
  */
@@ -516,7 +519,17 @@ export async function savePushSubscriptionToFirestore(
 ): Promise<void> {
   try {
     const subJson = subscription.toJSON();
-    const endpointHash = btoa(subscription.endpoint).replace(/[^a-zA-Z0-9]/g, '').slice(-32);
+    const endpointStr = subscription.endpoint || '';
+    let endpointHash = 'default_sub';
+    try {
+      endpointHash = (typeof btoa === 'function' ? btoa(endpointStr) : '')
+        .replace(/[^a-zA-Z0-9]/g, '')
+        .slice(-32);
+    } catch {
+      endpointHash = endpointStr.slice(-24).replace(/[^a-zA-Z0-9]/g, '_');
+    }
+    if (!endpointHash) endpointHash = 'default_sub';
+
     const subRef = doc(db, 'users', uid, 'pushSubscriptions', endpointHash);
 
     await setDoc(
@@ -528,6 +541,17 @@ export async function savePushSubscriptionToFirestore(
         platform: detectPlatform(),
         userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
         updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    // Also update parent user document for query visibility
+    const userRef = doc(db, 'users', uid);
+    await setDoc(
+      userRef,
+      {
+        hasActivePushSubscription: true,
+        lastPushRegistrationAt: serverTimestamp(),
       },
       { merge: true }
     );
@@ -568,13 +592,15 @@ export async function registerPushDeviceToken(uid: string): Promise<string | nul
     const reg = await navigator.serviceWorker.ready;
     let registeredIdentifier: string | null = null;
 
+    const envVapid =
+      (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_VAPID_KEY) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.VITE_VAPID_PUBLIC_KEY) ||
+      CANONICAL_VAPID_PUBLIC_KEY;
+
     // 1. Standard Web Push Subscription via PushManager
     if ('pushManager' in reg) {
       try {
         let sub = await reg.pushManager.getSubscription();
-        const envVapid =
-          (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_VAPID_KEY) ||
-          (typeof import.meta !== 'undefined' && import.meta.env?.VITE_VAPID_PUBLIC_KEY);
 
         if (!sub && envVapid) {
           try {
@@ -602,9 +628,6 @@ export async function registerPushDeviceToken(uid: string): Promise<string | nul
       const msg = await messaging();
       if (msg) {
         const { getToken } = await import('firebase/messaging');
-        const envVapid =
-          (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_VAPID_KEY) ||
-          (typeof import.meta !== 'undefined' && import.meta.env?.VITE_VAPID_PUBLIC_KEY);
 
         const fcmToken = await getToken(msg, {
           vapidKey: envVapid || undefined,
