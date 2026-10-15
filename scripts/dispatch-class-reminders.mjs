@@ -233,7 +233,7 @@ export function parseServiceAccountCredentials(rawInput) {
 }
 
 /**
- * Initializes Firebase Admin SDK with robust credential discovery and validation.
+ * Initializes Firebase Admin SDK with robust credential discovery, field validation, and error reporting.
  */
 export async function initializeFirebaseAdmin(options = {}) {
   const rawCreds =
@@ -250,66 +250,115 @@ export async function initializeFirebaseAdmin(options = {}) {
       messaging: null,
       projectId: null,
       clientEmail: null,
-      error: 'No service account credentials provided in FIREBASE_SERVICE_ACCOUNT_KEY, FIREBASE_SERVICE_ACCOUNT, or GOOGLE_APPLICATION_CREDENTIALS.',
+      error: 'Missing Firebase service account credentials. Neither FIREBASE_SERVICE_ACCOUNT_KEY nor GOOGLE_APPLICATION_CREDENTIALS is set in the environment.',
     };
   }
 
   const creds = parseServiceAccountCredentials(rawCreds);
-  if (!creds) {
+  if (!creds || typeof creds !== 'object') {
     return {
       adminApp: null,
       db: null,
       messaging: null,
       projectId: null,
       clientEmail: null,
-      error: 'Invalid service account format. Must be a valid JSON string, Base64-encoded JSON, or existing file path.',
+      error: 'Failed to parse Firebase service account credentials. The input is neither valid JSON, a Base64-encoded JSON string, nor an accessible file path.',
     };
   }
 
-  if (!creds.client_email || !creds.private_key) {
+  // Normalize snake_case and camelCase property names
+  const clientEmail = creds.client_email || creds.clientEmail;
+  let privateKey = creds.private_key || creds.privateKey;
+  const projectId = creds.project_id || creds.projectId || process.env.FIREBASE_PROJECT_ID || 'uniflow-b7a88';
+
+  // 1. Validate client_email
+  if (!clientEmail || typeof clientEmail !== 'string') {
+    const presentKeys = Object.keys(creds).filter((k) => !k.toLowerCase().includes('key'));
     return {
       adminApp: null,
       db: null,
       messaging: null,
-      projectId: null,
+      projectId,
       clientEmail: null,
-      error: `Service account object is missing required fields (client_email or private_key). Found keys: ${Object.keys(creds).join(', ')}`,
+      error: `Service account JSON is missing the required 'client_email' property. Present properties: [${presentKeys.join(', ')}]`,
     };
   }
 
-  // Sanitize escaped newlines in private key if present
-  if (typeof creds.private_key === 'string') {
-    creds.private_key = creds.private_key.replace(/\\n/g, '\n');
+  if (!clientEmail.includes('@')) {
+    return {
+      adminApp: null,
+      db: null,
+      messaging: null,
+      projectId,
+      clientEmail: null,
+      error: "Service account 'client_email' property is not a valid email address.",
+    };
   }
 
-  const adminModule = await import('firebase-admin');
-  const admin = adminModule.default || adminModule;
+  // 2. Validate private_key
+  if (!privateKey || typeof privateKey !== 'string') {
+    const presentKeys = Object.keys(creds).filter((k) => !k.toLowerCase().includes('key'));
+    return {
+      adminApp: null,
+      db: null,
+      messaging: null,
+      projectId,
+      clientEmail,
+      error: `Service account JSON is missing the required 'private_key' property. Present properties: [${presentKeys.join(', ')}]`,
+    };
+  }
 
-  const projectId = creds.project_id || process.env.FIREBASE_PROJECT_ID || 'uniflow-b7a88';
+  // Sanitize escaped newlines in PEM private key
+  privateKey = privateKey.replace(/\\n/g, '\n');
+
+  if (!privateKey.includes('-----BEGIN PRIVATE KEY-----') || !privateKey.includes('-----END PRIVATE KEY-----')) {
+    return {
+      adminApp: null,
+      db: null,
+      messaging: null,
+      projectId,
+      clientEmail,
+      error: "Service account 'private_key' is malformed: missing '-----BEGIN PRIVATE KEY-----' or '-----END PRIVATE KEY-----' PEM boundary markers.",
+    };
+  }
+
+  // 3. Project ID verification
+  if (creds.project_id && creds.project_id !== 'uniflow-b7a88') {
+    console.warn(`[UniFlow Dispatcher] Notice: Service account project_id ('${creds.project_id}') differs from expected production project ('uniflow-b7a88').`);
+  }
 
   // Mask client email for safe logging (e.g. fir***dk@uniflow-b7a88.iam.gserviceaccount.com)
-  const emailParts = creds.client_email.split('@');
+  const emailParts = clientEmail.split('@');
   const maskedEmail = emailParts.length === 2
     ? `${emailParts[0].slice(0, 3)}***@${emailParts[1]}`
     : '***@***';
 
   try {
-    const app = admin.apps.length > 0
-      ? admin.apps[0]
-      : admin.initializeApp({
-          credential: admin.credential.cert(creds),
+    const { initializeApp, getApps, cert } = await import('firebase-admin/app');
+    const { getFirestore } = await import('firebase-admin/firestore');
+    const { getMessaging } = await import('firebase-admin/messaging');
+
+    const existingApps = getApps();
+    const app = existingApps.length > 0
+      ? existingApps[0]
+      : initializeApp({
+          credential: cert({
+            projectId,
+            clientEmail,
+            privateKey,
+          }),
           projectId,
         });
 
-    const db = app.firestore();
-    const messaging = app.messaging();
+    const db = getFirestore(app);
+    const messaging = getMessaging(app);
 
     return {
       adminApp: app,
       db,
       messaging,
       projectId,
-      clientEmail: creds.client_email,
+      clientEmail,
       maskedEmail,
       error: null,
     };
@@ -319,7 +368,7 @@ export async function initializeFirebaseAdmin(options = {}) {
       db: null,
       messaging: null,
       projectId,
-      clientEmail: creds.client_email,
+      clientEmail,
       maskedEmail,
       error: `Firebase Admin initialization failed: ${initErr.message}`,
     };
@@ -680,13 +729,12 @@ export async function runReminderDispatcher(options = {}) {
 
                 if (deadTokens.length > 0) {
                   fcmTokensPruned += deadTokens.length;
-                  const adminModule = await import('firebase-admin');
-                  const admin = adminModule.default || adminModule;
+                  const { FieldValue } = await import('firebase-admin/firestore');
                   await db
                     .collection('users')
                     .doc(uid)
                     .update({
-                      fcmTokens: admin.firestore.FieldValue.arrayRemove(...deadTokens),
+                      fcmTokens: FieldValue.arrayRemove(...deadTokens),
                     })
                     .catch(() => {});
                 }

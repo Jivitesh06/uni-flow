@@ -92,6 +92,94 @@ await runTest('parseServiceAccountCredentials returns null for invalid formats',
 });
 
 // -----------------------------------------------------------------------------
+// 1b. Firebase Admin SDK Initialization & Diagnostics
+// -----------------------------------------------------------------------------
+console.log('\n--- 1b. Firebase Admin SDK Initialization & Diagnostics ---');
+
+await runTest('initializeFirebaseAdmin returns error when credentials are not supplied', async () => {
+  const result = await initializeFirebaseAdmin({ serviceAccount: '' });
+  assert.equal(result.adminApp, null);
+  assert.equal(result.db, null);
+  assert.match(result.error, /Missing Firebase service account credentials/);
+});
+
+await runTest('initializeFirebaseAdmin detects unparseable credentials string', async () => {
+  const result = await initializeFirebaseAdmin({ serviceAccount: 'not-valid-json-format' });
+  assert.equal(result.adminApp, null);
+  assert.match(result.error, /Failed to parse Firebase service account credentials/);
+});
+
+await runTest('initializeFirebaseAdmin validates missing client_email', async () => {
+  const sa = JSON.stringify({
+    project_id: 'uniflow-b7a88',
+    private_key: '-----BEGIN PRIVATE KEY-----\nMIIE...\n-----END PRIVATE KEY-----',
+  });
+  const result = await initializeFirebaseAdmin({ serviceAccount: sa });
+  assert.equal(result.adminApp, null);
+  assert.match(result.error, /missing the required 'client_email' property/);
+});
+
+await runTest('initializeFirebaseAdmin validates invalid client_email format', async () => {
+  const sa = JSON.stringify({
+    project_id: 'uniflow-b7a88',
+    client_email: 'not-an-email',
+    private_key: '-----BEGIN PRIVATE KEY-----\nMIIE...\n-----END PRIVATE KEY-----',
+  });
+  const result = await initializeFirebaseAdmin({ serviceAccount: sa });
+  assert.equal(result.adminApp, null);
+  assert.match(result.error, /is not a valid email address/);
+});
+
+await runTest('initializeFirebaseAdmin validates missing private_key', async () => {
+  const sa = JSON.stringify({
+    project_id: 'uniflow-b7a88',
+    client_email: 'test@uniflow-b7a88.iam.gserviceaccount.com',
+  });
+  const result = await initializeFirebaseAdmin({ serviceAccount: sa });
+  assert.equal(result.adminApp, null);
+  assert.match(result.error, /missing the required 'private_key' property/);
+});
+
+await runTest('initializeFirebaseAdmin validates malformed PEM private_key', async () => {
+  const sa = JSON.stringify({
+    project_id: 'uniflow-b7a88',
+    client_email: 'test@uniflow-b7a88.iam.gserviceaccount.com',
+    private_key: 'not-a-pem-key',
+  });
+  const result = await initializeFirebaseAdmin({ serviceAccount: sa });
+  assert.equal(result.adminApp, null);
+  assert.match(result.error, /missing '-----BEGIN PRIVATE KEY-----'/);
+});
+
+await runTest('initializeFirebaseAdmin initializes successfully with a valid RSA PKCS#8 private key', async () => {
+  const { deleteApp } = await import('firebase-admin/app');
+  // Generate a genuine PKCS#8 private key in PEM format dynamically in memory
+  const { privateKey } = crypto.generateKeyPairSync('rsa', {
+    modulusLength: 2048,
+    publicKeyEncoding: { type: 'spki', format: 'pem' },
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+  });
+
+  const sa = JSON.stringify({
+    project_id: 'uniflow-b7a88',
+    client_email: 'dispatcher-test@uniflow-b7a88.iam.gserviceaccount.com',
+    private_key: privateKey,
+  });
+
+  const result = await initializeFirebaseAdmin({ serviceAccount: sa });
+  assert.equal(result.error, null);
+  assert.ok(result.adminApp);
+  assert.ok(result.db);
+  assert.ok(result.messaging);
+  assert.equal(result.projectId, 'uniflow-b7a88');
+  assert.equal(result.clientEmail, 'dispatcher-test@uniflow-b7a88.iam.gserviceaccount.com');
+  assert.equal(result.maskedEmail, 'dis***@uniflow-b7a88.iam.gserviceaccount.com');
+
+  // Clean up test app so it does not persist across subsequent test runs
+  await deleteApp(result.adminApp);
+});
+
+// -----------------------------------------------------------------------------
 // 2. Strict Live Mode Enforcement & Zero Silent Fallback
 // -----------------------------------------------------------------------------
 console.log('\n--- 2. Strict Live Mode Enforcement (Never Silent Dry-Run) ---');
