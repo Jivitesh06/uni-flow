@@ -4,7 +4,22 @@ on:
   schedule:
     # Runs every 10 minutes between 03:00 UTC and 12:00 UTC (08:30 AM to 05:30 PM IST), Monday through Friday
     - cron: '*/10 3-12 * * 1-5'
-  workflow_dispatch: # Allows manual trigger from GitHub Actions tab for testing
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Execution mode (live, dry-run, test-push)'
+        required: true
+        default: 'live'
+        type: choice
+        options:
+          - live
+          - dry-run
+          - test-push
+      test_recipient:
+        description: 'Target UID for controlled test push (optional)'
+        required: false
+        type: string
+        default: ''
 
 jobs:
   dispatch-reminders:
@@ -16,18 +31,29 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci --omit=dev
+        run: npm ci
 
       - name: Run Reminder Dispatcher
         env:
-          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+          DISPATCH_MODE: ${{ inputs.mode || 'live' }}
+          TEST_RECIPIENT_UID: ${{ inputs.test_recipient || '' }}
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY || secrets.FIREBASE_SERVICE_ACCOUNT || secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+          FIREBASE_PROJECT_ID: 'uniflow-b7a88'
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY || 'BCRFPJBd3uyEhTLTp3xvC_XC7xWKY5AGVtb_K-egveVehf03iaHpo1XkhOmFoimtl9uP-fhRaju5xkG1cTZePl0' }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY || 'NSQpdpXPsFOHRBFq2Od5HxBlf2-YHtK6TEoRPV6U_CQ' }}
-        run: node scripts/dispatch-class-reminders.mjs
+          VAPID_SUBJECT: 'mailto:notifications@uniflow-cu.web.app'
+        run: |
+          if [ "${{ inputs.mode }}" = "test-push" ]; then
+            node scripts/dispatch-class-reminders.mjs --test-push ${TEST_RECIPIENT_UID:+--test-recipient "$TEST_RECIPIENT_UID"}
+          elif [ "${{ inputs.mode }}" = "dry-run" ]; then
+            node scripts/dispatch-class-reminders.mjs --dry-run
+          else
+            node scripts/dispatch-class-reminders.mjs --live
+          fi
