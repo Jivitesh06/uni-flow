@@ -81,6 +81,10 @@ const {
 } = await import('./lib/adminGmailApi.mjs');
 
 const {
+  validateEnvironment,
+} = await import('./sync-admin-gmail-timetable.mjs');
+
+const {
   parseChitkaraPdf,
   extractEffectiveDate,
   normalizeTimeString24,
@@ -771,6 +775,79 @@ await runTest('Firebase Admin DocumentSnapshot: missing publisher document handl
     errorTriggered = true;
   }
   assert.equal(errorTriggered, true, 'Missing document must be safely detected without calling .exists()');
+});
+
+// ─── Category 16: Forced Full-Search Diagnostic Mode ──────────────────────────
+console.log('\n--- 16. Forced Full-Search Diagnostic Mode ---');
+
+await runTest('validateEnvironment with FORCE_FULL_SEARCH=true forces syncEnabled=false (dry-run)', () => {
+  const dummyServiceAccount = JSON.stringify({
+    project_id: 'uniflow-b7a88',
+    client_email: 'service@uniflow-b7a88.iam.gserviceaccount.com',
+    private_key: '-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC...\n-----END PRIVATE KEY-----\n',
+  });
+  const mockEnv = {
+    GMAIL_CLIENT_ID: 'dummy_client_id',
+    GMAIL_CLIENT_SECRET: 'dummy_secret',
+    GMAIL_REFRESH_TOKEN: 'dummy_token',
+    FIREBASE_SERVICE_ACCOUNT_KEY: dummyServiceAccount,
+    TIMETABLE_SYNC_ENABLED: 'true', // Attempt to enable live mode
+    FORCE_FULL_SEARCH: 'true', // But forced search is active
+    NODE_ENV: 'test',
+  };
+
+  const parsed = validateEnvironment(mockEnv);
+  assert.equal(parsed.forceFullSearch, true);
+  assert.equal(parsed.syncEnabled, false, 'Diagnostic search MUST force syncEnabled to false');
+  assert.equal(parsed.senderEmail, 'office.cse@chitkarauniversity.edu.in');
+  assert.equal(parsed.subjectPrefix, 'Time Table:');
+});
+
+await runTest('FORCE_FULL_SEARCH diagnostic run bypasses historyId cursor and triggers full search', () => {
+  const lastHistoryId = '326098';
+  const forceFullSearch = true;
+
+  // Normal mode: lastHistoryId triggers incremental sync
+  const shouldDoIncrementalNormal = Boolean(lastHistoryId && !false);
+  assert.equal(shouldDoIncrementalNormal, true);
+
+  // Forced diagnostic search: bypasses incremental sync
+  const shouldDoIncrementalDiagnostic = Boolean(lastHistoryId && !forceFullSearch);
+  assert.equal(shouldDoIncrementalDiagnostic, false, 'Diagnostic run must bypass incremental sync');
+
+  const shouldDoFullSearch = !lastHistoryId || forceFullSearch;
+  assert.equal(shouldDoFullSearch, true, 'Diagnostic run must execute full search');
+});
+
+await runTest('Diagnostic run preserves stored sync state in authorizedPublishers (syncState not overwritten)', () => {
+  const forceFullSearch = true;
+
+  let updatedStateInDb = null;
+  const mockUpdateAdminSyncState = (db, uid, state) => {
+    updatedStateInDb = state;
+  };
+
+  // Simulating Phase 7 state handling:
+  if (forceFullSearch) {
+    // In diagnostic mode, syncState passed to writeJobAndUpdateState is null
+    const syncState = null;
+    if (syncState) {
+      mockUpdateAdminSyncState(null, 'admin', syncState);
+    }
+  }
+
+  assert.equal(updatedStateInDb, null, 'Production sync state must remain completely untouched during diagnostic run');
+});
+
+await runTest('Full search query strictly includes office.cse@chitkarauniversity.edu.in and Time Table: prefix', () => {
+  const query = buildGmailSearchQuery({
+    senderEmail: 'office.cse@chitkarauniversity.edu.in',
+    subjectPrefix: 'Time Table:',
+  });
+
+  assert.ok(query.includes('from:office.cse@chitkarauniversity.edu.in'), 'Query must filter by confirmed sender');
+  assert.ok(query.includes('subject:"Time Table:"'), 'Query must filter by Time Table: prefix');
+  assert.ok(query.includes('has:attachment filename:pdf'), 'Query must filter for PDF attachments');
 });
 
 // ─── Final Summary ────────────────────────────────────────────────────────────

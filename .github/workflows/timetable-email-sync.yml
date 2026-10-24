@@ -20,6 +20,14 @@ on:
   # Manual trigger for testing and recovery
   workflow_dispatch:
     inputs:
+      force_full_search:
+        description: 'Bypass history cursor and force full search across existing timetable emails (Diagnostic dry-run)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
       dry_run_override:
         description: 'Force dry-run mode regardless of TIMETABLE_SYNC_ENABLED secret'
         required: false
@@ -83,19 +91,23 @@ jobs:
       - name: Determine sync mode
         id: sync_mode
         run: |
-          SYNC_ENABLED="${{ secrets.TIMETABLE_SYNC_ENABLED }}"
+          FORCE_FULL_SEARCH="${{ github.event.inputs.force_full_search }}"
           DRY_RUN_OVERRIDE="${{ github.event.inputs.dry_run_override }}"
+          SYNC_ENABLED="${{ secrets.TIMETABLE_SYNC_ENABLED }}"
 
-          # Manual workflow_dispatch with dry_run_override=true always overrides
-          if [ "$DRY_RUN_OVERRIDE" = "true" ]; then
-            echo "TIMETABLE_SYNC_ENABLED=false" >> "$GITHUB_OUTPUT"
+          # Pre-activation safety invariant:
+          # Always keep TIMETABLE_SYNC_ENABLED=false to force dry-run regardless of input.
+          echo "TIMETABLE_SYNC_ENABLED=false" >> "$GITHUB_OUTPUT"
+
+          if [ "$FORCE_FULL_SEARCH" = "true" ]; then
+            echo "FORCE_FULL_SEARCH=true" >> "$GITHUB_OUTPUT"
+            echo "Mode: DIAGNOSTIC DRY-RUN (force_full_search=true, history cursor bypassed)"
+          elif [ "$DRY_RUN_OVERRIDE" = "true" ]; then
+            echo "FORCE_FULL_SEARCH=false" >> "$GITHUB_OUTPUT"
             echo "Mode: DRY-RUN (manual override)"
-          elif [ "$SYNC_ENABLED" = "true" ]; then
-            echo "TIMETABLE_SYNC_ENABLED=true" >> "$GITHUB_OUTPUT"
-            echo "Mode: LIVE (TIMETABLE_SYNC_ENABLED secret is true)"
           else
-            echo "TIMETABLE_SYNC_ENABLED=false" >> "$GITHUB_OUTPUT"
-            echo "Mode: DRY-RUN (TIMETABLE_SYNC_ENABLED is not 'true')"
+            echo "FORCE_FULL_SEARCH=false" >> "$GITHUB_OUTPUT"
+            echo "Mode: DRY-RUN (Pre-activation safety lock)"
           fi
 
       # ── Run the sync dispatcher ─────────────────────────────────────────────
@@ -108,6 +120,7 @@ jobs:
           FIREBASE_PROJECT_ID: 'uniflow-b7a88'
           FIREBASE_ADMIN_UID: ${{ secrets.FIREBASE_ADMIN_UID || 'TngcyE1MF9ZLRIQYW25C7LefShp2' }}
           TIMETABLE_SYNC_ENABLED: ${{ steps.sync_mode.outputs.TIMETABLE_SYNC_ENABLED }}
+          FORCE_FULL_SEARCH: ${{ steps.sync_mode.outputs.FORCE_FULL_SEARCH }}
           TIMETABLE_SENDER_EMAIL: ${{ secrets.TIMETABLE_SENDER_EMAIL || 'office.cse@chitkarauniversity.edu.in' }}
           TIMETABLE_SUBJECT_PREFIX: ${{ secrets.TIMETABLE_SUBJECT_PREFIX || 'Time Table:' }}
         run: node --experimental-strip-types scripts/sync-admin-gmail-timetable.mjs

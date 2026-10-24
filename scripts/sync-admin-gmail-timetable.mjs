@@ -71,7 +71,7 @@ const MAX_PROCESSED_HASHES = 100;
 
 // ─── Environment Validation ───────────────────────────────────────────────────
 
-function validateEnvironment() {
+export function validateEnvironment(env = process.env) {
   const required = [
     'GMAIL_CLIENT_ID',
     'GMAIL_CLIENT_SECRET',
@@ -79,38 +79,46 @@ function validateEnvironment() {
     'FIREBASE_SERVICE_ACCOUNT_KEY',
   ];
 
-  const missing = required.filter((k) => !process.env[k] || process.env[k].trim() === '');
+  const missing = required.filter((k) => !env[k] || env[k].trim() === '');
   if (missing.length > 0) {
     console.error(`[UniFlow Sync] FATAL: Missing required environment variables: ${missing.join(', ')}`);
     console.error('[UniFlow Sync] Ensure all secrets are configured in GitHub Actions repository settings.');
     process.exit(1);
   }
 
-  const rawAdminUid = process.env.FIREBASE_ADMIN_UID?.trim();
-  if (rawAdminUid && rawAdminUid !== HARDCODED_ADMIN_UID && process.env.NODE_ENV !== 'test') {
+  const rawAdminUid = env.FIREBASE_ADMIN_UID?.trim();
+  if (rawAdminUid && rawAdminUid !== HARDCODED_ADMIN_UID && env.NODE_ENV !== 'test') {
     console.error(`[UniFlow Sync] SECURITY ERROR: Overriding administrator UID is prohibited in production.`);
     console.error(`[UniFlow Sync] Expected verified administrator UID: ${HARDCODED_ADMIN_UID}`);
     process.exit(1);
   }
   const adminUid = HARDCODED_ADMIN_UID;
 
-  const syncEnabled = (process.env.TIMETABLE_SYNC_ENABLED || 'false').trim().toLowerCase() === 'true';
-  if (syncEnabled) {
+  const forceFullSearch = (env.FORCE_FULL_SEARCH || 'false').trim().toLowerCase() === 'true';
+  let syncEnabled = (env.TIMETABLE_SYNC_ENABLED || 'false').trim().toLowerCase() === 'true';
+
+  // Safety invariant: Diagnostic runs are strictly dry-run to protect production data
+  if (forceFullSearch) {
+    syncEnabled = false;
+    console.log('[UniFlow Sync] 🔍 DIAGNOSTIC MODE: FORCE_FULL_SEARCH=true — bypassing history cursor to scan existing emails.');
+    console.log('[UniFlow Sync] 🔒 DRY-RUN FORCED: Timetable writing is strictly disabled during diagnostic runs.');
+  } else if (syncEnabled) {
     console.log('[UniFlow Sync] ⚡ LIVE MODE: TIMETABLE_SYNC_ENABLED=true — timetable writes ARE enabled.');
   } else {
     console.log('[UniFlow Sync] 🔒 DRY-RUN MODE: TIMETABLE_SYNC_ENABLED is not "true" — no timetable writes.');
   }
 
   return {
-    gmailClientId: process.env.GMAIL_CLIENT_ID,
-    gmailClientSecret: process.env.GMAIL_CLIENT_SECRET,
-    gmailRefreshToken: process.env.GMAIL_REFRESH_TOKEN,
-    serviceAccountKey: process.env.FIREBASE_SERVICE_ACCOUNT_KEY,
+    gmailClientId: env.GMAIL_CLIENT_ID,
+    gmailClientSecret: env.GMAIL_CLIENT_SECRET,
+    gmailRefreshToken: env.GMAIL_REFRESH_TOKEN,
+    serviceAccountKey: env.FIREBASE_SERVICE_ACCOUNT_KEY,
     adminUid,
     syncEnabled,
-    senderEmail: process.env.TIMETABLE_SENDER_EMAIL?.trim() || 'office.cse@chitkarauniversity.edu.in',
-    subjectPrefix: process.env.TIMETABLE_SUBJECT_PREFIX?.trim() || 'Time Table:',
-    projectId: process.env.FIREBASE_PROJECT_ID?.trim() || 'uniflow-b7a88',
+    forceFullSearch,
+    senderEmail: env.TIMETABLE_SENDER_EMAIL?.trim() || 'office.cse@chitkarauniversity.edu.in',
+    subjectPrefix: env.TIMETABLE_SUBJECT_PREFIX?.trim() || 'Time Table:',
+    projectId: env.FIREBASE_PROJECT_ID?.trim() || 'uniflow-b7a88',
   };
 }
 
@@ -175,7 +183,7 @@ async function initFirebaseAdmin(serviceAccountKey, projectId) {
 
 // ─── Main Entry Point ─────────────────────────────────────────────────────────
 
-(async () => {
+export async function runAdminGmailTimetableSync() {
   const startTime = Date.now();
   const syncJobId = `sync_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
 
@@ -187,7 +195,7 @@ async function initFirebaseAdmin(serviceAccountKey, projectId) {
 
   // ── Phase 1: Validate environment ────────────────────────────────────────────
   const env = validateEnvironment();
-  const { adminUid, syncEnabled } = env;
+  const { adminUid, syncEnabled, forceFullSearch } = env;
 
   // ── Phase 2: Initialize Firebase Admin ──────────────────────────────────────
   const { db } = await initFirebaseAdmin(env.serviceAccountKey, env.projectId);
@@ -205,7 +213,7 @@ async function initFirebaseAdmin(serviceAccountKey, projectId) {
   } catch (err) {
     await writeJobAndUpdateState(db, adminUid, syncJobId, {
       status: 'requires_manual_review',
-      mode: syncEnabled ? 'live' : 'dry_run',
+      mode: forceFullSearch ? 'diagnostic_dry_run' : syncEnabled ? 'live' : 'dry_run',
       featureFlagEnabled: syncEnabled,
       errorSummary: err.message,
       messagesExamined: 0,
@@ -234,7 +242,9 @@ async function initFirebaseAdmin(serviceAccountKey, projectId) {
       lastHistoryId = existingSyncState.lastHistoryId || null;
       processedHashes = existingSyncState.processedAttachmentHashes || [];
       console.log(`[UniFlow Sync] Last sync: ${existingSyncState.lastSuccessAt?.toDate?.()?.toISOString() || 'never'}`);
-      if (lastHistoryId) {
+      if (forceFullSearch) {
+        console.log(`[UniFlow Sync] Stored cursor (historyId: ${lastHistoryId || 'none'}) will be bypassed for forced diagnostic search.`);
+      } else if (lastHistoryId) {
         console.log(`[UniFlow Sync] Incremental sync from historyId: ${lastHistoryId}`);
       } else {
         console.log('[UniFlow Sync] No history cursor found — performing full search.');
@@ -255,7 +265,7 @@ async function initFirebaseAdmin(serviceAccountKey, projectId) {
   let historyExpired = false;
 
   try {
-    if (lastHistoryId) {
+    if (lastHistoryId && !forceFullSearch) {
       const { newMessageIds, latestHistoryId, historyExpired: expired } =
         await getNewMessagesSinceHistoryId(gmail, lastHistoryId);
 
@@ -269,30 +279,33 @@ async function initFirebaseAdmin(serviceAccountKey, projectId) {
       }
     }
 
-    // Full search (initial sync or history expired)
-    if (!lastHistoryId || historyExpired) {
+    // Full search (initial sync, history expired, or forced full search)
+    if (!lastHistoryId || historyExpired || forceFullSearch) {
+      if (forceFullSearch) {
+        console.log('[UniFlow Sync] [DIAGNOSTIC] Performing forced full search across existing matching messages.');
+      }
       const searchQuery = buildGmailSearchQuery({
         senderEmail: env.senderEmail,
         subjectPrefix: env.subjectPrefix,
-        // Search last 90 days on first run
+        // Search last 90 days on initial or forced search
         afterDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
       });
 
-      console.log(`[UniFlow Sync] Full search query (sender/subject filters applied, body not logged).`);
+      console.log(`[UniFlow Sync] Full search query: from:${env.senderEmail} subject:"${env.subjectPrefix}" has:attachment filename:pdf`);
       const messages = await searchTimetableMessages(gmail, searchQuery);
       messageIds = messages.map((m) => m.messageId);
       console.log(`[UniFlow Sync] Full search: found ${messageIds.length} candidate message(s).`);
     }
 
-    // Save current historyId for future incremental syncs
-    if (!newHistoryId) {
+    // Save current historyId for future incremental syncs (only for standard sync)
+    if (!newHistoryId && !forceFullSearch) {
       newHistoryId = await getCurrentHistoryId(gmail);
     }
   } catch (err) {
     console.error(`[UniFlow Sync] ERROR: Message discovery failed: ${err.message}`);
     await writeJobAndUpdateState(db, adminUid, syncJobId, {
       status: 'requires_manual_review',
-      mode: syncEnabled ? 'live' : 'dry_run',
+      mode: forceFullSearch ? 'diagnostic_dry_run' : syncEnabled ? 'live' : 'dry_run',
       featureFlagEnabled: syncEnabled,
       errorSummary: `Message discovery failed: ${err.message}`,
       messagesExamined: 0,
@@ -346,9 +359,16 @@ async function initFirebaseAdmin(serviceAccountKey, projectId) {
 
       // ── Deduplication: skip already-processed attachments ──────────────────
       const attachmentHash = computeAttachmentHash(pdfBuffer);
-      if (processedHashes.includes(attachmentHash) || newlyProcessedHashes.includes(attachmentHash)) {
+      if (!forceFullSearch && (processedHashes.includes(attachmentHash) || newlyProcessedHashes.includes(attachmentHash))) {
         console.log(`[UniFlow Sync] Skipping duplicate attachment (hash prefix: ${attachmentHash.slice(0, 8)}...)`);
         continue;
+      }
+      if (forceFullSearch && newlyProcessedHashes.includes(attachmentHash)) {
+        console.log(`[UniFlow Sync] Skipping duplicate attachment within same run (hash prefix: ${attachmentHash.slice(0, 8)}...)`);
+        continue;
+      }
+      if (forceFullSearch && processedHashes.includes(attachmentHash)) {
+        console.log(`[UniFlow Sync] [DIAGNOSTIC] Evaluating attachment (hash prefix: ${attachmentHash.slice(0, 8)}...) despite prior processed state.`);
       }
       attachmentsProcessed++;
 
@@ -369,6 +389,7 @@ async function initFirebaseAdmin(serviceAccountKey, projectId) {
       }
 
       console.log(`[UniFlow Sync] Parsed ${parseResult.totalLectures} lectures across sections: ${parseResult.sectionsFound?.join(', ') || 'unknown'}`);
+      console.log(`[UniFlow Sync] Detected semester: ${parseResult.detectedSemester || 'unknown'}, batch: ${parseResult.detectedBatch || 'unknown'}, effective: ${parseResult.effectiveDate || 'unknown'}`);
 
       const allSectionLectures = parseResult.allSectionLectures || {
         [parseResult.selectedSection || 'unknown']: parseResult.lectures,
@@ -448,8 +469,9 @@ async function initFirebaseAdmin(serviceAccountKey, projectId) {
               attachmentHash,
               attachmentFilename: attachment.filename,
               syncJobId,
+              skipProcessedHashCheck: forceFullSearch,
             },
-            !syncEnabled // dryRun = !syncEnabled
+            forceFullSearch ? true : !syncEnabled
           );
 
           reportEntry.publishResult = publishResult;
@@ -484,57 +506,98 @@ async function initFirebaseAdmin(serviceAccountKey, projectId) {
     ? 'completed'
     : 'completed';
 
-  // Update processed hash rolling window (keep last MAX_PROCESSED_HASHES)
-  const updatedHashes = [...processedHashes, ...newlyProcessedHashes]
-    .slice(-MAX_PROCESSED_HASHES);
+  if (forceFullSearch) {
+    console.log(`\n[UniFlow Sync] [DIAGNOSTIC] Preserving production sync state in authorizedPublishers/${adminUid}.`);
+    console.log(`[UniFlow Sync] [DIAGNOSTIC] Stored historyId (${lastHistoryId || 'none'}) and processed hashes (${processedHashes.length}) remain unchanged.`);
 
-  // All-or-nothing cursor handling:
-  // If failures occurred, do NOT advance lastHistoryId so messages remain retryable.
-  const cursorToSave = hadFailures ? lastHistoryId : (newHistoryId || lastHistoryId);
-  if (hadFailures && newHistoryId && newHistoryId !== lastHistoryId) {
-    console.warn(`[UniFlow Sync] WARN: Failures detected during execution. Preserving cursor at ${lastHistoryId} to ensure retryability.`);
+    // Record job in timetableImportJobs for audit logging with syncState = null to prevent overwriting cursor/hashes
+    await writeJobAndUpdateState(db, adminUid, syncJobId, {
+      status: jobStatus,
+      mode: 'diagnostic_dry_run',
+      featureFlagEnabled: false,
+      forcedFullSearch: true,
+      messagesExamined,
+      attachmentsFound,
+      attachmentsProcessed,
+      sectionsPublished,
+      validationReports: validationReports.map((r) => ({
+        ...r,
+        // Never include email content in job records
+        emailContent: undefined,
+      })),
+      durationMs: duration,
+    }, null);
+  } else {
+    // Normal sync: update processed hash rolling window and cursor
+    const updatedHashes = [...processedHashes, ...newlyProcessedHashes]
+      .slice(-MAX_PROCESSED_HASHES);
+
+    const cursorToSave = hadFailures ? lastHistoryId : (newHistoryId || lastHistoryId);
+    if (hadFailures && newHistoryId && newHistoryId !== lastHistoryId) {
+      console.warn(`[UniFlow Sync] WARN: Failures detected during execution. Preserving cursor at ${lastHistoryId} to ensure retryability.`);
+    }
+
+    const syncState = {
+      lastHistoryId: cursorToSave,
+      lastAttemptAt: new Date().toISOString(),
+      lastSuccessAt: hadFailures ? (existingSyncState.lastSuccessAt || null) : new Date().toISOString(),
+      lastError: hadFailures ? 'Errors encountered during sync run' : null,
+      processedAttachmentHashes: updatedHashes,
+      lastJobId: syncJobId,
+      totalMessagesExamined: (existingSyncState.totalMessagesExamined || 0) + messagesExamined,
+    };
+
+    await writeJobAndUpdateState(db, adminUid, syncJobId, {
+      status: jobStatus,
+      mode: syncEnabled ? 'live' : 'dry_run',
+      featureFlagEnabled: syncEnabled,
+      messagesExamined,
+      attachmentsFound,
+      attachmentsProcessed,
+      sectionsPublished,
+      validationReports: validationReports.map((r) => ({
+        ...r,
+        // Never include email content in job records
+        emailContent: undefined,
+      })),
+      durationMs: duration,
+    }, syncState);
   }
-
-  const syncState = {
-    lastHistoryId: cursorToSave,
-    lastAttemptAt: new Date().toISOString(),
-    lastSuccessAt: hadFailures ? (existingSyncState.lastSuccessAt || null) : new Date().toISOString(),
-    lastError: hadFailures ? 'Errors encountered during sync run' : null,
-    processedAttachmentHashes: updatedHashes,
-    lastJobId: syncJobId,
-    totalMessagesExamined: (existingSyncState.totalMessagesExamined || 0) + messagesExamined,
-  };
-
-  await writeJobAndUpdateState(db, adminUid, syncJobId, {
-    status: jobStatus,
-    mode: syncEnabled ? 'live' : 'dry_run',
-    featureFlagEnabled: syncEnabled,
-    messagesExamined,
-    attachmentsFound,
-    attachmentsProcessed,
-    sectionsPublished,
-    validationReports: validationReports.map((r) => ({
-      ...r,
-      // Never include email content in job records
-      emailContent: undefined,
-    })),
-    durationMs: duration,
-  }, syncState);
 
   // ── Summary ──────────────────────────────────────────────────────────────────
   console.log(`\n======================================================================`);
   console.log(` UniFlow Gmail Sync Summary`);
   console.log(`======================================================================`);
-  console.log(` Mode:                 ${syncEnabled ? 'LIVE' : 'DRY-RUN'}`);
+  console.log(` Mode:                 ${forceFullSearch ? 'DIAGNOSTIC (FORCED DRY-RUN)' : syncEnabled ? 'LIVE' : 'DRY-RUN'}`);
   console.log(` Messages examined:    ${messagesExamined}`);
   console.log(` Attachments found:    ${attachmentsFound}`);
   console.log(` Attachments processed:${attachmentsProcessed}`);
-  console.log(` Sections published:   ${sectionsPublished.length}`);
+  console.log(` Sections published:   ${sectionsPublished.length} ${syncEnabled && !forceFullSearch ? '' : '(simulated / dry-run)'}`);
   console.log(` Validation reports:   ${validationReports.length}`);
+  if (validationReports.length > 0) {
+    console.log(`\n--- Diagnostic Validation Breakdown ---`);
+    for (const rep of validationReports) {
+      console.log(` Section ${rep.section} (${rep.filename}): ${rep.valid ? '✅ VALID' : '❌ INVALID'} — ${rep.slotCount} slots`);
+      if (rep.errors && rep.errors.length > 0) {
+        rep.errors.forEach((e) => console.log(`    ❌ Error: ${e}`));
+      }
+      if (rep.warnings && rep.warnings.length > 0) {
+        rep.warnings.forEach((w) => console.log(`    ⚠️  Warning: ${w}`));
+      }
+    }
+  }
   console.log(` Duration:             ${(duration / 1000).toFixed(1)}s`);
   console.log(` Job ID:               ${syncJobId}`);
   console.log(`======================================================================\n`);
-})();
+}
+
+// Auto-execute when run directly as script
+if (process.argv[1]?.endsWith('sync-admin-gmail-timetable.mjs')) {
+  runAdminGmailTimetableSync().catch((err) => {
+    console.error(`[UniFlow Sync] Unhandled fatal error: ${err.message}`);
+    process.exit(1);
+  });
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

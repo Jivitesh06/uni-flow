@@ -243,7 +243,7 @@ export async function serverPublishSharedTimetable(
   const existingState = adminPublisherSnap.data()?.gmailSyncState || {};
   const processedHashes = existingState.processedAttachmentHashes || [];
 
-  if (auditMeta.attachmentHash && processedHashes.includes(auditMeta.attachmentHash)) {
+  if (!auditMeta.skipProcessedHashCheck && auditMeta.attachmentHash && processedHashes.includes(auditMeta.attachmentHash)) {
     return {
       success: true,
       duplicate: true,
