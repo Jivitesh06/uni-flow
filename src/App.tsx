@@ -21,6 +21,7 @@ import { EmailSyncPage } from './pages/EmailSyncPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { AdminRoute } from './components/auth/AdminRoute';
 import { AdminPublishPage } from './pages/AdminPublishPage';
+import { AdminGmailSyncPage } from './pages/AdminGmailSyncPage';
 import { OnboardingPage } from './pages/auth/OnboardingPage';
 import { useAuth } from './contexts/AuthContext';
 
@@ -96,6 +97,7 @@ export default function App() {
                 {/* Protected Admin Publishing Console */}
                 <Route element={<AdminRoute />}>
                   <Route path="/admin/publish" element={<AdminPublishPage />} />
+                  <Route path="/admin/gmail-sync" element={<AdminGmailSyncPage />} />
                   <Route path="/dashboard/admin/publish" element={<Navigate to="/admin/publish" replace />} />
                 </Route>
               </Route>

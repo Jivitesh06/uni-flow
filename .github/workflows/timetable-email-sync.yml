@@ -1,0 +1,119 @@
+name: Timetable Email Sync (Admin Gmail)
+
+# ============================================================
+# PRODUCTION ACTIVATION: This workflow is DISABLED by default.
+# To enable live timetable syncing:
+#   1. Review and approve the implementation with the UniFlow owner.
+#   2. Add the required GitHub Actions secrets (see README or admin-gmail-sync-architecture.md).
+#   3. Set the TIMETABLE_SYNC_ENABLED secret to 'true'.
+#   4. Enable this workflow in GitHub Actions UI (if manually disabled).
+#
+# IMPORTANT: Never set TIMETABLE_SYNC_ENABLED=true without explicit owner approval.
+# ============================================================
+
+on:
+  schedule:
+    # Runs every 60 minutes during college hours (08:00–20:00 IST = 02:30–14:30 UTC), Mon–Sat
+    # Adjust interval as needed; Gmail API free quota is 1B units/day so 60m is conservative.
+    - cron: '30 2-14 * * 1-6'
+
+  # Manual trigger for testing and recovery
+  workflow_dispatch:
+    inputs:
+      dry_run_override:
+        description: 'Force dry-run mode regardless of TIMETABLE_SYNC_ENABLED secret'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  sync-timetable:
+    name: Sync Admin Gmail Timetable
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ── Preflight: Verify required secrets are present ──────────────────────
+      - name: Preflight — Check required secrets
+        run: |
+          echo "Checking required GitHub Actions secrets..."
+          MISSING_SECRETS=()
+
+          if [ -z "${{ secrets.GMAIL_CLIENT_ID }}" ]; then
+            MISSING_SECRETS+=("GMAIL_CLIENT_ID")
+          fi
+          if [ -z "${{ secrets.GMAIL_CLIENT_SECRET }}" ]; then
+            MISSING_SECRETS+=("GMAIL_CLIENT_SECRET")
+          fi
+          if [ -z "${{ secrets.GMAIL_REFRESH_TOKEN }}" ]; then
+            MISSING_SECRETS+=("GMAIL_REFRESH_TOKEN")
+          fi
+          if [ -z "${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}" ]; then
+            MISSING_SECRETS+=("FIREBASE_SERVICE_ACCOUNT_KEY")
+          fi
+
+          if [ ${#MISSING_SECRETS[@]} -gt 0 ]; then
+            echo "ERROR: Missing required secrets: ${MISSING_SECRETS[*]}"
+            echo "Add them at: Settings → Secrets → Actions → New repository secret"
+            echo ""
+            echo "This workflow will exit with dry-run mode (no production writes)."
+            # Do not exit with error — let the script report the issue cleanly
+          else
+            echo "All required secrets are present."
+          fi
+
+      # ── Determine sync mode ─────────────────────────────────────────────────
+      - name: Determine sync mode
+        id: sync_mode
+        run: |
+          SYNC_ENABLED="${{ secrets.TIMETABLE_SYNC_ENABLED }}"
+          DRY_RUN_OVERRIDE="${{ github.event.inputs.dry_run_override }}"
+
+          # Manual workflow_dispatch with dry_run_override=true always overrides
+          if [ "$DRY_RUN_OVERRIDE" = "true" ]; then
+            echo "TIMETABLE_SYNC_ENABLED=false" >> "$GITHUB_OUTPUT"
+            echo "Mode: DRY-RUN (manual override)"
+          elif [ "$SYNC_ENABLED" = "true" ]; then
+            echo "TIMETABLE_SYNC_ENABLED=true" >> "$GITHUB_OUTPUT"
+            echo "Mode: LIVE (TIMETABLE_SYNC_ENABLED secret is true)"
+          else
+            echo "TIMETABLE_SYNC_ENABLED=false" >> "$GITHUB_OUTPUT"
+            echo "Mode: DRY-RUN (TIMETABLE_SYNC_ENABLED is not 'true')"
+          fi
+
+      # ── Run the sync dispatcher ─────────────────────────────────────────────
+      - name: Run Gmail timetable sync
+        env:
+          GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
+          GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
+          GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+          FIREBASE_PROJECT_ID: 'uniflow-b7a88'
+          FIREBASE_ADMIN_UID: ${{ secrets.FIREBASE_ADMIN_UID || 'TngcyE1MF9ZLRIQYW25C7LefShp2' }}
+          TIMETABLE_SYNC_ENABLED: ${{ steps.sync_mode.outputs.TIMETABLE_SYNC_ENABLED }}
+          TIMETABLE_SENDER_EMAIL: ${{ secrets.TIMETABLE_SENDER_EMAIL || 'office.cse@chitkarauniversity.edu.in' }}
+          TIMETABLE_SUBJECT_PREFIX: ${{ secrets.TIMETABLE_SUBJECT_PREFIX || 'Time Table:' }}
+        run: node --experimental-strip-types scripts/sync-admin-gmail-timetable.mjs
+
+      # ── Log: Never upload artifacts that might contain email content ─────────
+      # Note: We intentionally do NOT upload logs as artifacts to prevent
+      # accidental exposure of email metadata. The Firestore job record
+      # (timetableImportJobs) is the audit trail, readable by the admin.
