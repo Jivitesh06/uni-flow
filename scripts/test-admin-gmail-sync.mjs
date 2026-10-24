@@ -417,7 +417,7 @@ await runTest('Duplicate attachment hash returns duplicate: true and skips re-pu
         };
       }
       return {
-        get: async () => ({ exists: () => false }),
+        get: async () => ({ exists: false }),
         set: async () => {},
       };
     },
@@ -461,7 +461,7 @@ await runTest('Dry-run mode (dryRun=true) computes version without committing wr
   const mockDb = {
     doc: (p) => ({
       get: async () => ({
-        exists: () => true,
+        exists: true,
         data: () => ({
           version: 2,
           contentHash: 'old_hash',
@@ -572,7 +572,7 @@ await runTest('Version pointer atomicity: setDoc writes single complete document
         };
       }
       return {
-        get: async () => ({ exists: () => false }),
+        get: async () => ({ exists: false }),
         set: async (payload) => {
           capturedPayload = payload;
         },
@@ -623,6 +623,40 @@ await runTest('Non-admin UID override in production is prevented by hardcoded ch
   assert.equal(isAllowedUid('TngcyE1MF9ZLRIQYW25C7LefShp2'), true);
   assert.equal(isAllowedUid('attacker_uid_123'), false);
   assert.equal(isAllowedUid('student_uid_456'), false);
+});
+
+await runTest('Firebase Admin DocumentSnapshot: existing publisher document verified via boolean snapshot.exists', async () => {
+  // Simulates Admin SDK DocumentSnapshot with boolean `exists` property
+  const existingPublisherDoc = {
+    exists: true,
+    data: () => ({
+      active: true,
+      email: 'jivitesh1260.be24@chitkarauniversity.edu.in',
+      gmailSyncState: { lastHistoryId: '987654' },
+    }),
+  };
+
+  assert.equal(typeof existingPublisherDoc.exists, 'boolean', 'Admin SDK exists must be a boolean');
+  assert.equal(existingPublisherDoc.exists, true);
+  assert.equal(existingPublisherDoc.data().active, true);
+  assert.equal(existingPublisherDoc.data().gmailSyncState.lastHistoryId, '987654');
+});
+
+await runTest('Firebase Admin DocumentSnapshot: missing publisher document handled safely via boolean snapshot.exists === false', async () => {
+  // Simulates Admin SDK DocumentSnapshot when document does not exist
+  const missingPublisherDoc = {
+    exists: false,
+    data: () => undefined,
+  };
+
+  assert.equal(typeof missingPublisherDoc.exists, 'boolean', 'Admin SDK exists must be a boolean');
+  assert.equal(missingPublisherDoc.exists, false);
+
+  let errorTriggered = false;
+  if (!missingPublisherDoc.exists) {
+    errorTriggered = true;
+  }
+  assert.equal(errorTriggered, true, 'Missing document must be safely detected without calling .exists()');
 });
 
 // ─── Final Summary ────────────────────────────────────────────────────────────

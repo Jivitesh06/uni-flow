@@ -224,7 +224,7 @@ async function initFirebaseAdmin(serviceAccountKey, projectId) {
 
   try {
     const publisherSnap = await db.doc(`authorizedPublishers/${adminUid}`).get();
-    if (publisherSnap.exists()) {
+    if (publisherSnap.exists) {
       const data = publisherSnap.data();
       if (!data || data.active === false) {
         console.error(`[UniFlow Sync] FATAL: Admin UID ${adminUid} is not an active authorized publisher.`);

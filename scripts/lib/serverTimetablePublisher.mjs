@@ -260,7 +260,7 @@ export async function serverPublishSharedTimetable(
   let version = 1;
   let history = [];
 
-  if (existingSnap.exists()) {
+  if (existingSnap.exists) {
     const existing = existingSnap.data();
     // Content hash duplicate check (supports both SHA-256 and legacy rolling hash)
     const legacyHash = computeLegacyRollingContentHash(sanitizedSlots, effectiveDate);
@@ -306,7 +306,7 @@ export async function serverPublishSharedTimetable(
     publishedByName: publisherInfo.displayName || 'Admin Gmail Sync',
     publisherRole: 'admin',
     updatedAt: FieldValue.serverTimestamp(),
-    createdAt: existingSnap.exists()
+    createdAt: existingSnap.exists
       ? existingSnap.data().createdAt
       : FieldValue.serverTimestamp(),
     revisionHistory: history.slice(0, 10),
