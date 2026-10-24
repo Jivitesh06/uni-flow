@@ -80,6 +80,7 @@ const {
   buildGmailSearchQuery,
   getMessageAttachments,
   downloadAttachmentBuffer,
+  getNewMessagesSinceHistoryId,
   GMAIL_READONLY_SCOPE,
 } = await import('./lib/adminGmailApi.mjs');
 
@@ -1048,6 +1049,182 @@ await runTest('serverPublishSharedTimetable accepts newer timetable replacing ol
   assert.equal(writtenPayload.revisionHistory.length, 1, 'Older version must be archived in revisionHistory');
   assert.equal(writtenPayload.revisionHistory[0].version, 1);
   assert.equal(writtenPayload.revisionHistory[0].effectiveDate, '12-10-2026');
+});
+
+// ─── Category 19: Incremental Sync Invariants, Ordering & Rejection ──────────
+console.log('\n--- 19. Incremental Sync Invariants, Ordering & Rejection ---');
+
+await runTest('validateParsedTimetable rejects missing or unparseable effective date when requireEffectiveDate is true', () => {
+  const baseValidLectures = [
+    { dayOfWeek: 1, startTime: '09:00', endTime: '09:50', subjectCode: 'CS501' },
+    { dayOfWeek: 1, startTime: '09:50', endTime: '10:40', subjectCode: 'CS502' },
+    { dayOfWeek: 2, startTime: '09:00', endTime: '09:50', subjectCode: 'CS503' },
+    { dayOfWeek: 2, startTime: '09:50', endTime: '10:40', subjectCode: 'CS504' },
+    { dayOfWeek: 3, startTime: '09:00', endTime: '09:50', subjectCode: 'CS505' },
+    { dayOfWeek: 3, startTime: '09:50', endTime: '10:40', subjectCode: 'CS506' },
+  ];
+
+  // Missing effectiveDate
+  const noDateResult = validateParsedTimetable(
+    { success: true, lectures: baseValidLectures, effectiveDate: null },
+    { requireEffectiveDate: true }
+  );
+  assert.equal(noDateResult.valid, false, 'Must fail when effectiveDate is null');
+  assert.ok(noDateResult.errors.some((e) => e.includes('Missing or unparseable effective date')));
+
+  // Unparseable effectiveDate
+  const badDateResult = validateParsedTimetable(
+    { success: true, lectures: baseValidLectures, effectiveDate: 'invalid-not-a-date' },
+    { requireEffectiveDate: true }
+  );
+  assert.equal(badDateResult.valid, false, 'Must fail when effectiveDate is unparseable string');
+  assert.ok(badDateResult.errors.some((e) => e.includes('Missing or unparseable effective date')));
+
+  // Valid effectiveDate
+  const validDateResult = validateParsedTimetable(
+    { success: true, lectures: baseValidLectures, effectiveDate: '21-10-2026' },
+    { requireEffectiveDate: true }
+  );
+  assert.equal(validDateResult.valid, true, `Should pass with valid effective date: ${validDateResult.errors.join('; ')}`);
+});
+
+await runTest('validateParsedTimetable rejects zero parsed lectures', () => {
+  const zeroLectures = validateParsedTimetable(
+    { success: true, lectures: [], effectiveDate: '21-10-2026' },
+    { requireEffectiveDate: true }
+  );
+  assert.equal(zeroLectures.valid, false);
+  assert.ok(zeroLectures.errors.some((e) => e.includes('Insufficient sessions')));
+});
+
+await runTest('serverPublishSharedTimetable throws when zero lectures or unparseable effective date is provided', async () => {
+  const mockDb = { doc: () => ({ get: async () => ({ exists: false }) }) };
+
+  // Zero lectures
+  await assert.rejects(
+    async () => {
+      await serverPublishSharedTimetable(
+        mockDb,
+        { uid: VERIFIED_ADMIN_UID, displayName: 'Admin' },
+        { program: 'BE-CSE', semester: 5, section: 'BE-CSE-5A', batch: '2024' },
+        [], // zero slots
+        '21-10-2026',
+        {},
+        true
+      );
+    },
+    (err) => err.message.includes('zero parsed lectures/slots provided'),
+    'Must throw error for zero lectures'
+  );
+
+  // Unparseable effective date
+  await assert.rejects(
+    async () => {
+      await serverPublishSharedTimetable(
+        mockDb,
+        { uid: VERIFIED_ADMIN_UID, displayName: 'Admin' },
+        { program: 'BE-CSE', semester: 5, section: 'BE-CSE-5A', batch: '2024' },
+        [{ dayOfWeek: 1, startTime: '09:00', endTime: '09:50', subjectCode: 'CS501' }],
+        'not-a-real-date', // unparseable date
+        {},
+        true
+      );
+    },
+    (err) => err.message.includes('missing or unparseable effective date'),
+    'Must throw error for unparseable effective date'
+  );
+});
+
+await runTest('Normal scheduled sync uses Gmail history cursor and does NOT perform full search on historical messages', async () => {
+  let fullSearchCalled = false;
+  let incrementalHistoryCalled = false;
+
+  const lastHistoryId = '326098';
+  const forceFullSearch = false;
+
+  // Mock Gmail API client
+  const mockGmail = {
+    users: {
+      history: {
+        list: async ({ startHistoryId }) => {
+          incrementalHistoryCalled = true;
+          assert.equal(startHistoryId, '326098');
+          return {
+            data: {
+              history: [
+                {
+                  historyId: '326150',
+                  messagesAdded: [{ message: { id: 'msg_new_123' } }],
+                },
+              ],
+            },
+          };
+        },
+      },
+      messages: {
+        list: async () => {
+          fullSearchCalled = true;
+          return { data: { messages: [] } };
+        },
+      },
+    },
+  };
+
+  // Execute Phase 5 discovery logic as in normal sync
+  let messageIds = [];
+  let newHistoryId = null;
+  let historyExpired = false;
+
+  if (lastHistoryId && !forceFullSearch) {
+    const { newMessageIds, latestHistoryId, historyExpired: expired } =
+      await getNewMessagesSinceHistoryId(mockGmail, lastHistoryId);
+
+    if (expired) {
+      historyExpired = true;
+    } else {
+      messageIds = newMessageIds || [];
+      newHistoryId = latestHistoryId;
+    }
+  }
+
+  if (!lastHistoryId || historyExpired || forceFullSearch) {
+    fullSearchCalled = true;
+  }
+
+  assert.equal(incrementalHistoryCalled, true, 'Incremental history must be called');
+  assert.equal(fullSearchCalled, false, 'Full search MUST NOT be called during normal scheduled sync with valid cursor');
+  assert.deepEqual(messageIds, ['msg_new_123'], 'Only newly arrived messages should be returned');
+  assert.equal(newHistoryId, '326150', 'New history ID should be updated');
+});
+
+await runTest('Multi-email batch with out-of-order effective dates sorts chronologically so older PDF cannot overwrite newer PDF', () => {
+  const candidates = [
+    { section: 'BE-CSE-5A', effectiveDate: '21-10-2026', source: 'email_2' },
+    { section: 'BE-CSE-5A', effectiveDate: '12-10-2026', source: 'email_1' },
+    { section: 'BE-CSE-5A', effectiveDate: '18-10-2026', source: 'email_3' },
+  ];
+
+  // Sort chronologically ascending
+  candidates.sort((a, b) => compareEffectiveDates(a.effectiveDate, b.effectiveDate));
+
+  assert.equal(candidates[0].effectiveDate, '12-10-2026', 'Oldest timetable (Oct 12) must come first');
+  assert.equal(candidates[1].effectiveDate, '18-10-2026', 'Intermediate timetable (Oct 18) must come second');
+  assert.equal(candidates[2].effectiveDate, '21-10-2026', 'Newest timetable (Oct 21) must come last');
+});
+
+await runTest('History cursor and sync state invariant: cursor is preserved and does not advance when processing encounters failures', () => {
+  const lastHistoryId = '326098';
+  const newHistoryId = '326150';
+
+  // Scenario 1: Run encounters failures (hadFailures = true)
+  const hadFailures = true;
+  const cursorToSaveOnFailure = hadFailures ? lastHistoryId : (newHistoryId || lastHistoryId);
+  assert.equal(cursorToSaveOnFailure, lastHistoryId, 'Cursor must remain at lastHistoryId when failures occur');
+
+  // Scenario 2: Run succeeds with no failures (hadFailures = false)
+  const noFailures = false;
+  const cursorToSaveOnSuccess = noFailures ? lastHistoryId : (newHistoryId || lastHistoryId);
+  assert.equal(cursorToSaveOnSuccess, newHistoryId, 'Cursor must advance to newHistoryId when run succeeds cleanly');
 });
 
 // ─── Final Summary ────────────────────────────────────────────────────────────

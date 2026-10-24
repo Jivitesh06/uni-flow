@@ -208,7 +208,16 @@ export function normalizeEffectiveDate(rawDate) {
     return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
 
-  return trimmed;
+  // Try ISO date / Date.parse fallback if valid
+  const parsed = Date.parse(trimmed);
+  if (!isNaN(parsed)) {
+    const d = new Date(parsed);
+    if (d.getUTCFullYear() >= 2000 && d.getUTCFullYear() <= 2100) {
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -353,6 +362,15 @@ export async function serverPublishSharedTimetable(
   auditMeta = {},
   dryRun = false
 ) {
+  if (!slots || !Array.isArray(slots) || slots.length === 0) {
+    throw new Error('Cannot publish timetable: zero parsed lectures/slots provided.');
+  }
+
+  const normalizedDate = normalizeEffectiveDate(effectiveDate);
+  if (!effectiveDate || !normalizedDate) {
+    throw new Error(`Cannot publish timetable: missing or unparseable effective date ("${effectiveDate || ''}").`);
+  }
+
   const { FieldValue } = await import('firebase-admin/firestore');
 
   // Sanitize and normalize slots

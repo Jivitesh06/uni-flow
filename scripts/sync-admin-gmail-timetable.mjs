@@ -54,6 +54,8 @@ import {
   buildSharedGroupId,
   buildSharedGroupLabel,
   normalizeSemester,
+  normalizeEffectiveDate,
+  compareEffectiveDates,
   sanitizeForFirestore,
   ACTIVE_COHORT_BATCH_MAP,
 } from './lib/serverTimetablePublisher.mjs';
@@ -331,6 +333,9 @@ export async function runAdminGmailTimetableSync() {
   const validationReports = [];
   const newlyProcessedHashes = [];
 
+  // Candidates collected across all matching messages in this run
+  const candidatePublications = [];
+
   for (const messageId of messageIds) {
     messagesExamined++;
 
@@ -343,10 +348,21 @@ export async function runAdminGmailTimetableSync() {
       continue;
     }
 
+    // Filter messages by sender and subject prefix (especially during incremental sync where any new message in mailbox is returned)
+    if (env.senderEmail && messageInfo.from && !messageInfo.from.toLowerCase().includes(env.senderEmail.toLowerCase())) {
+      console.log(`[UniFlow Sync] Skipping message ${messageId}: sender "${messageInfo.from}" does not match "${env.senderEmail}".`);
+      continue;
+    }
+    if (env.subjectPrefix && messageInfo.subject && !messageInfo.subject.toLowerCase().includes(env.subjectPrefix.toLowerCase())) {
+      console.log(`[UniFlow Sync] Skipping message ${messageId}: subject "${messageInfo.subject}" does not match "${env.subjectPrefix}".`);
+      continue;
+    }
+
     if (messageInfo.attachments.length === 0) continue;
     attachmentsFound += messageInfo.attachments.length;
 
     for (const attachment of messageInfo.attachments) {
+      let attachmentHadFailure = false;
       console.log(`\n[UniFlow Sync] Processing: ${attachment.filename} (${(attachment.size / 1024).toFixed(1)} KB)`);
 
       // ── Download attachment ─────────────────────────────────────────────────
@@ -360,6 +376,7 @@ export async function runAdminGmailTimetableSync() {
         );
       } catch (err) {
         console.warn(`[UniFlow Sync] WARN: Cannot download ${attachment.filename}: ${err.message}`);
+        hadFailures = true;
         continue;
       }
 
@@ -391,11 +408,15 @@ export async function runAdminGmailTimetableSync() {
           status: 'parse_error',
           error: err.message,
         });
+        hadFailures = true;
         continue;
       }
 
       console.log(`[UniFlow Sync] Parsed ${parseResult.totalLectures} lectures across sections: ${parseResult.sectionsFound?.join(', ') || 'unknown'}`);
       console.log(`[UniFlow Sync] Detected semester: ${parseResult.detectedSemester || 'unknown'}, batch: ${parseResult.detectedBatch || 'unknown'}, effective: ${parseResult.effectiveDate || 'unknown'}`);
+
+      const rawEffectiveDate = parseResult.effectiveDate;
+      const normalizedEffectiveDate = normalizeEffectiveDate(rawEffectiveDate);
 
       const allSectionLectures = parseResult.allSectionLectures || {
         [parseResult.selectedSection || 'unknown']: parseResult.lectures,
@@ -403,7 +424,21 @@ export async function runAdminGmailTimetableSync() {
 
       // ── Process each section found in the PDF ─────────────────────────────
       for (const [section, lectures] of Object.entries(allSectionLectures)) {
-        if (!lectures || lectures.length === 0) continue;
+        if (!lectures || lectures.length === 0) {
+          const reportEntry = {
+            filename: attachment.filename,
+            section,
+            slotCount: 0,
+            valid: false,
+            errors: ['Zero parsed lectures found for section. Automated publishing blocked.'],
+            warnings: [],
+            stats: { totalSlots: 0, distinctDays: 0, g1Slots: 0, g2Slots: 0, allSlots: 0, errorCount: 1, warningCount: 0 },
+          };
+          validationReports.push(reportEntry);
+          hadFailures = true;
+          attachmentHadFailure = true;
+          continue;
+        }
 
         // Build a per-section parse result for validation
         const sectionParseResult = {
@@ -416,6 +451,7 @@ export async function runAdminGmailTimetableSync() {
         // ── Validate section ───────────────────────────────────────────────
         const validation = validateParsedTimetable(sectionParseResult, {
           expectedSection: section,
+          requireEffectiveDate: true,
         });
 
         const reportEntry = {
@@ -432,6 +468,8 @@ export async function runAdminGmailTimetableSync() {
         if (!validation.valid) {
           console.warn(`[UniFlow Sync] VALIDATION FAILED for ${section}:`);
           validation.errors.forEach((e) => console.warn(`  ❌ ${e}`));
+          hadFailures = true;
+          attachmentHadFailure = true;
           continue;
         }
 
@@ -442,10 +480,18 @@ export async function runAdminGmailTimetableSync() {
         // ── Determine academic group parameters ───────────────────────────
         const detectedSemester = parseResult.detectedSemester;
         const detectedBatch = parseResult.detectedBatch;
-        const effectiveDate = parseResult.effectiveDate || new Date().toISOString().split('T')[0];
 
         if (!detectedSemester) {
           console.warn(`[UniFlow Sync] Cannot determine semester for ${section} — skipping.`);
+          hadFailures = true;
+          attachmentHadFailure = true;
+          continue;
+        }
+
+        if (!rawEffectiveDate || !normalizedEffectiveDate) {
+          console.warn(`[UniFlow Sync] Missing or unparseable effective date ("${rawEffectiveDate || ''}") for ${section} — skipping.`);
+          hadFailures = true;
+          attachmentHadFailure = true;
           continue;
         }
 
@@ -462,45 +508,77 @@ export async function runAdminGmailTimetableSync() {
 
         const slots = sanitizeLecturesToSharedSlots(lectures);
 
-        // ── Publish (or dry-run) ──────────────────────────────────────────
-        try {
-          const publishResult = await serverPublishSharedTimetable(
-            db,
-            { uid: adminUid, displayName: 'UniFlow Admin Gmail Sync' },
-            groupParams,
-            slots,
-            effectiveDate,
-            {
-              sourceMessageId: messageId,
-              attachmentHash,
-              attachmentFilename: attachment.filename,
-              syncJobId,
-              skipProcessedHashCheck: forceFullSearch,
-            },
-            forceFullSearch ? true : !syncEnabled
-          );
-
-          reportEntry.publishResult = publishResult;
-
-          if (publishResult.skippedOlderVersion) {
-            console.log(`[UniFlow Sync] ⏸️  ${section}: ${publishResult.message}`);
-          } else if (publishResult.duplicate) {
-            console.log(`[UniFlow Sync] ${section}: ${publishResult.message}`);
-          } else if (publishResult.dryRun) {
-            console.log(`[UniFlow Sync] ${section}: [DRY RUN] ${publishResult.message}`);
-            sectionsPublished.push({ section, version: publishResult.version, dryRun: true });
-          } else {
-            console.log(`[UniFlow Sync] ✅ ${section}: ${publishResult.message}`);
-            sectionsPublished.push({ section, version: publishResult.version, dryRun: false });
-          }
-        } catch (err) {
-          console.error(`[UniFlow Sync] ERROR publishing ${section}: ${err.message}`);
-          reportEntry.publishError = err.message;
-          hadFailures = true;
-        }
+        candidatePublications.push({
+          messageId,
+          attachment,
+          attachmentHash,
+          section,
+          groupParams,
+          slots,
+          effectiveDate: rawEffectiveDate,
+          normalizedEffectiveDate,
+          reportEntry,
+          markFailure: () => {
+            attachmentHadFailure = true;
+            hadFailures = true;
+          },
+        });
       }
 
-      newlyProcessedHashes.push(attachmentHash);
+      if (!attachmentHadFailure) {
+        newlyProcessedHashes.push(attachmentHash);
+      }
+    }
+  }
+
+  // ── Multi-email handling: Chronological Effective Date Order ───────────────
+  // Sort candidate sections in chronological ascending order of effective date.
+  // This guarantees older timetables in the batch are evaluated before newer ones,
+  // preventing an older PDF from ever overwriting a newer one.
+  candidatePublications.sort((a, b) => compareEffectiveDates(a.effectiveDate, b.effectiveDate));
+
+  for (const candidate of candidatePublications) {
+    const { messageId, attachment, attachmentHash, section, groupParams, slots, effectiveDate, reportEntry, markFailure } = candidate;
+
+    try {
+      const publishResult = await serverPublishSharedTimetable(
+        db,
+        { uid: adminUid, displayName: 'UniFlow Admin Gmail Sync' },
+        groupParams,
+        slots,
+        effectiveDate,
+        {
+          sourceMessageId: messageId,
+          attachmentHash,
+          attachmentFilename: attachment.filename,
+          syncJobId,
+          skipProcessedHashCheck: forceFullSearch,
+        },
+        forceFullSearch ? true : !syncEnabled
+      );
+
+      reportEntry.publishResult = publishResult;
+
+      if (publishResult.skippedOlderVersion) {
+        console.log(`[UniFlow Sync] ⏸️  ${section}: ${publishResult.message}`);
+      } else if (publishResult.duplicate) {
+        console.log(`[UniFlow Sync] ${section}: ${publishResult.message}`);
+      } else if (publishResult.dryRun) {
+        console.log(`[UniFlow Sync] ${section}: [DRY RUN] ${publishResult.message}`);
+        sectionsPublished.push({ section, version: publishResult.version, dryRun: true });
+      } else {
+        console.log(`[UniFlow Sync] ✅ ${section}: ${publishResult.message}`);
+        sectionsPublished.push({ section, version: publishResult.version, dryRun: false });
+      }
+    } catch (err) {
+      console.error(`[UniFlow Sync] ERROR publishing ${section}: ${err.message}`);
+      reportEntry.publishError = err.message;
+      markFailure();
+      // Remove hash from newlyProcessedHashes if present
+      const hashIdx = newlyProcessedHashes.indexOf(attachmentHash);
+      if (hashIdx !== -1) {
+        newlyProcessedHashes.splice(hashIdx, 1);
+      }
     }
   }
 

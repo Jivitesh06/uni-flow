@@ -19,6 +19,7 @@
  */
 
 import crypto from 'node:crypto';
+import { normalizeEffectiveDate } from './serverTimetablePublisher.mjs';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -195,6 +196,18 @@ export function validateParsedTimetable(parseResult, options = {}) {
       warnings.push(
         `Only ${changePercent.toFixed(1)}% of slots differ from the current published version. ` +
         `Confirm this is an intentional update.`
+      );
+    }
+  }
+
+  // ── Rule 12: Effective date validity ────────────────────────────────────────
+  if (options.requireEffectiveDate) {
+    const rawDate = parseResult.effectiveDate;
+    const normalized = rawDate ? normalizeEffectiveDate(rawDate) : null;
+    if (!rawDate || !normalized) {
+      errors.push(
+        `Missing or unparseable effective date: "${rawDate || ''}". ` +
+        `Automated publishing blocked.`
       );
     }
   }
