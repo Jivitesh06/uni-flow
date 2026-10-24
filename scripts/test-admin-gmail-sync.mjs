@@ -69,6 +69,9 @@ const {
   serverPublishSharedTimetable,
   writeImportJobRecord,
   updateAdminSyncState,
+  normalizeEffectiveDate,
+  compareEffectiveDates,
+  sanitizeForFirestore,
   ACTIVE_COHORT_BATCH_MAP,
 } = await import('./lib/serverTimetablePublisher.mjs');
 
@@ -848,6 +851,203 @@ await runTest('Full search query strictly includes office.cse@chitkarauniversity
   assert.ok(query.includes('from:office.cse@chitkarauniversity.edu.in'), 'Query must filter by confirmed sender');
   assert.ok(query.includes('subject:"Time Table:"'), 'Query must filter by Time Table: prefix');
   assert.ok(query.includes('has:attachment filename:pdf'), 'Query must filter for PDF attachments');
+});
+
+// ─── Category 17: Firestore Undefined Sanitization & Safe Job Records ────────
+console.log('\n--- 17. Firestore Undefined Sanitization & Safe Job Records ---');
+
+await runTest('sanitizeForFirestore recursively removes undefined values at all nesting levels', () => {
+  const dirty = {
+    syncJobId: 'job_123',
+    status: 'completed',
+    emailContent: undefined,
+    nested: {
+      a: 1,
+      b: undefined,
+      deep: {
+        x: undefined,
+        y: 'keep_me',
+      },
+    },
+    arrayField: [
+      { id: 1, toRemove: undefined, toKeep: 'valid' },
+      undefined,
+      'primitive',
+    ],
+  };
+
+  const clean = sanitizeForFirestore(dirty);
+
+  assert.equal('emailContent' in clean, false, 'emailContent key must be omitted');
+  assert.equal('b' in clean.nested, false, 'nested.b key must be omitted');
+  assert.equal('x' in clean.nested.deep, false, 'nested.deep.x key must be omitted');
+  assert.equal(clean.nested.deep.y, 'keep_me', 'nested.deep.y must be preserved');
+  assert.equal('toRemove' in clean.arrayField[0], false, 'array item toRemove key must be omitted');
+  assert.equal(clean.arrayField[0].toKeep, 'valid');
+  assert.equal(clean.arrayField.length, 2, 'undefined array items must be filtered');
+});
+
+await runTest('writeImportJobRecord successfully sanitizes and saves jobData with nested undefined values', async () => {
+  let capturedDocId = null;
+  let capturedData = null;
+
+  const mockDb = {
+    collection: (name) => {
+      assert.equal(name, 'timetableImportJobs');
+      return {
+        doc: (id) => {
+          capturedDocId = id || 'auto_id_123';
+          return {
+            id: capturedDocId,
+            set: async (payload) => {
+              capturedData = payload;
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const jobDataWithUndefined = {
+    syncJobId: 'sync_test_job_999',
+    mode: 'diagnostic_dry_run',
+    validationReports: [
+      {
+        filename: 'test.pdf',
+        section: '5A',
+        emailContent: undefined,
+        errors: [],
+        warnings: [],
+        optionalNotes: undefined,
+      },
+    ],
+  };
+
+  const id = await writeImportJobRecord(mockDb, VERIFIED_ADMIN_UID, jobDataWithUndefined);
+  assert.equal(id, 'sync_test_job_999');
+  assert.ok(capturedData);
+  assert.equal(capturedData.uid, VERIFIED_ADMIN_UID);
+  assert.equal(capturedData.mode, 'diagnostic_dry_run');
+  assert.equal('emailContent' in capturedData.validationReports[0], false, 'Firestore payload must not contain emailContent');
+  assert.equal('optionalNotes' in capturedData.validationReports[0], false, 'Firestore payload must not contain optionalNotes');
+});
+
+// ─── Category 18: Effective Date Ordering & Precedence Protection ─────────────
+console.log('\n--- 18. Effective Date Ordering & Precedence Protection ---');
+
+await runTest('compareEffectiveDates correctly ranks dates across formats (DD-MM-YYYY, YYYY-MM-DD, textual)', () => {
+  // Newest: 21-10-2026 vs Older: 12-10-2026
+  assert.ok(compareEffectiveDates('21-10-2026', '12-10-2026') > 0, '21-10-2026 must be newer than 12-10-2026');
+  assert.ok(compareEffectiveDates('12-10-2026', '21-10-2026') < 0, '12-10-2026 must be older than 21-10-2026');
+
+  // Month-name parsing
+  assert.equal(compareEffectiveDates('October 21, 2026', '21-10-2026'), 0, 'October 21, 2026 and 21-10-2026 must be equivalent');
+  assert.ok(compareEffectiveDates('October 21, 2026', 'October 12, 2026') > 0, 'October 21 must be newer than October 12');
+
+  // August vs October
+  assert.ok(compareEffectiveDates('01-08-2026', '21-10-2026') < 0, 'August timetable must be older than October timetable');
+  assert.ok(compareEffectiveDates('2026-10-21', '2026-08-01') > 0, 'ISO date comparison');
+});
+
+await runTest('serverPublishSharedTimetable rejects older timetable replacing newer timetable (skippedOlderVersion)', async () => {
+  // Existing published timetable is Version 1 effective 21-10-2026
+  const mockDb = {
+    doc: (p) => {
+      if (p.startsWith('authorizedPublishers/')) {
+        return {
+          get: async () => ({
+            data: () => ({ gmailSyncState: { processedAttachmentHashes: [] } }),
+          }),
+        };
+      }
+      return {
+        get: async () => ({
+          exists: true,
+          data: () => ({
+            id: 'chitkara-university_be-cse_2024_sem5_be-cse-5a',
+            version: 1,
+            effectiveDate: '21-10-2026', // Current published version is Oct 21
+            contentHash: 'sha256_existing_october_hash',
+            slots: [{ subjectCode: 'CS501' }],
+          }),
+        }),
+        set: async () => {
+          throw new Error('docRef.set should NOT be called when candidate is older than published version');
+        },
+      };
+    },
+  };
+
+  // Candidate is an older attachment effective 12-10-2026 (or earlier)
+  const candidateSlots = [{ dayOfWeek: 1, startTime: '09:00', endTime: '09:50', subjectCode: 'CS502' }];
+  const pubRes = await serverPublishSharedTimetable(
+    mockDb,
+    { uid: VERIFIED_ADMIN_UID, displayName: 'Admin' },
+    { program: 'BE-CSE', semester: 5, section: 'BE-CSE-5A', batch: '2024' },
+    candidateSlots,
+    '12-10-2026', // Older effective date
+    { attachmentHash: 'candidate_older_hash' },
+    false // Live mode attempt
+  );
+
+  assert.equal(pubRes.success, true);
+  assert.equal(pubRes.skippedOlderVersion, true, 'Must flag as skippedOlderVersion');
+  assert.equal(pubRes.version, 1, 'Version must remain unchanged');
+  assert.ok(pubRes.message.includes('older than published version 1'), 'Message must explain candidate is older');
+});
+
+await runTest('serverPublishSharedTimetable accepts newer timetable replacing older timetable and archives to revisionHistory', async () => {
+  let writtenPayload = null;
+
+  // Existing published timetable is Version 1 effective 12-10-2026
+  const mockDb = {
+    doc: (p) => {
+      if (p.startsWith('authorizedPublishers/')) {
+        return {
+          get: async () => ({
+            data: () => ({ gmailSyncState: { processedAttachmentHashes: [] } }),
+          }),
+        };
+      }
+      return {
+        get: async () => ({
+          exists: true,
+          data: () => ({
+            id: 'chitkara-university_be-cse_2024_sem5_be-cse-5a',
+            version: 1,
+            effectiveDate: '12-10-2026',
+            contentHash: 'sha256_older_hash',
+            slots: [{ subjectCode: 'CS501' }],
+            createdAt: '2026-10-12T00:00:00.000Z',
+          }),
+        }),
+        set: async (payload) => {
+          writtenPayload = payload;
+        },
+      };
+    },
+  };
+
+  // Candidate is newer: effective 21-10-2026
+  const candidateSlots = [{ dayOfWeek: 1, startTime: '09:00', endTime: '09:50', subjectCode: 'CS502' }];
+  const pubRes = await serverPublishSharedTimetable(
+    mockDb,
+    { uid: VERIFIED_ADMIN_UID, displayName: 'Admin' },
+    { program: 'BE-CSE', semester: 5, section: 'BE-CSE-5A', batch: '2024' },
+    candidateSlots,
+    '21-10-2026', // Newer effective date
+    { attachmentHash: 'candidate_newer_hash' },
+    false // Live mode
+  );
+
+  assert.equal(pubRes.success, true);
+  assert.equal(pubRes.version, 2, 'Version must increment to 2');
+  assert.ok(writtenPayload, 'Payload must be written');
+  assert.equal(writtenPayload.version, 2);
+  assert.equal(writtenPayload.effectiveDate, '21-10-2026');
+  assert.equal(writtenPayload.revisionHistory.length, 1, 'Older version must be archived in revisionHistory');
+  assert.equal(writtenPayload.revisionHistory[0].version, 1);
+  assert.equal(writtenPayload.revisionHistory[0].effectiveDate, '12-10-2026');
 });
 
 // ─── Final Summary ────────────────────────────────────────────────────────────

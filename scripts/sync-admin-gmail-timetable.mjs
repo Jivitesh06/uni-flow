@@ -54,6 +54,7 @@ import {
   buildSharedGroupId,
   buildSharedGroupLabel,
   normalizeSemester,
+  sanitizeForFirestore,
   ACTIVE_COHORT_BATCH_MAP,
 } from './lib/serverTimetablePublisher.mjs';
 
@@ -173,6 +174,11 @@ async function initFirebaseAdmin(serviceAccountKey, projectId) {
       });
 
   const db = getFirestore(app);
+  try {
+    db.settings({ ignoreUndefinedProperties: true });
+  } catch {
+    // Settings may already be locked on reused app instance
+  }
   // Mask email for safe logging
   const emailParts = clientEmail.split('@');
   const maskedEmail = `${emailParts[0].slice(0, 3)}***@${emailParts[1]}`;
@@ -476,7 +482,9 @@ export async function runAdminGmailTimetableSync() {
 
           reportEntry.publishResult = publishResult;
 
-          if (publishResult.duplicate) {
+          if (publishResult.skippedOlderVersion) {
+            console.log(`[UniFlow Sync] ⏸️  ${section}: ${publishResult.message}`);
+          } else if (publishResult.duplicate) {
             console.log(`[UniFlow Sync] ${section}: ${publishResult.message}`);
           } else if (publishResult.dryRun) {
             console.log(`[UniFlow Sync] ${section}: [DRY RUN] ${publishResult.message}`);
@@ -506,6 +514,11 @@ export async function runAdminGmailTimetableSync() {
     ? 'completed'
     : 'completed';
 
+  const cleanValidationReports = validationReports.map((r) => {
+    const { emailContent, ...clean } = r;
+    return sanitizeForFirestore(clean);
+  });
+
   if (forceFullSearch) {
     console.log(`\n[UniFlow Sync] [DIAGNOSTIC] Preserving production sync state in authorizedPublishers/${adminUid}.`);
     console.log(`[UniFlow Sync] [DIAGNOSTIC] Stored historyId (${lastHistoryId || 'none'}) and processed hashes (${processedHashes.length}) remain unchanged.`);
@@ -520,11 +533,7 @@ export async function runAdminGmailTimetableSync() {
       attachmentsFound,
       attachmentsProcessed,
       sectionsPublished,
-      validationReports: validationReports.map((r) => ({
-        ...r,
-        // Never include email content in job records
-        emailContent: undefined,
-      })),
+      validationReports: cleanValidationReports,
       durationMs: duration,
     }, null);
   } else {
@@ -555,11 +564,7 @@ export async function runAdminGmailTimetableSync() {
       attachmentsFound,
       attachmentsProcessed,
       sectionsPublished,
-      validationReports: validationReports.map((r) => ({
-        ...r,
-        // Never include email content in job records
-        emailContent: undefined,
-      })),
+      validationReports: cleanValidationReports,
       durationMs: duration,
     }, syncState);
   }
@@ -603,13 +608,15 @@ if (process.argv[1]?.endsWith('sync-admin-gmail-timetable.mjs')) {
 
 async function writeJobAndUpdateState(db, adminUid, syncJobId, jobData, syncState = null) {
   try {
+    const cleanJobData = sanitizeForFirestore(jobData);
     await writeImportJobRecord(db, adminUid, {
-      ...jobData,
+      ...cleanJobData,
       syncJobId,
     });
 
     if (syncState) {
-      await updateAdminSyncState(db, adminUid, syncState);
+      const cleanSyncState = sanitizeForFirestore(syncState);
+      await updateAdminSyncState(db, adminUid, cleanSyncState);
     }
   } catch (err) {
     // State write failure is non-fatal — log and continue

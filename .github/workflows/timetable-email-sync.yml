@@ -61,20 +61,25 @@ jobs:
 
       # ── Preflight: Verify required secrets are present ──────────────────────
       - name: Preflight — Check required secrets
+        env:
+          GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
+          GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
+          GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
         run: |
-          echo "Checking required GitHub Actions secrets..."
+          echo "Checking required GitHub Actions secrets presence..."
           MISSING_SECRETS=()
 
-          if [ -z "${{ secrets.GMAIL_CLIENT_ID }}" ]; then
+          if [ -z "$GMAIL_CLIENT_ID" ]; then
             MISSING_SECRETS+=("GMAIL_CLIENT_ID")
           fi
-          if [ -z "${{ secrets.GMAIL_CLIENT_SECRET }}" ]; then
+          if [ -z "$GMAIL_CLIENT_SECRET" ]; then
             MISSING_SECRETS+=("GMAIL_CLIENT_SECRET")
           fi
-          if [ -z "${{ secrets.GMAIL_REFRESH_TOKEN }}" ]; then
+          if [ -z "$GMAIL_REFRESH_TOKEN" ]; then
             MISSING_SECRETS+=("GMAIL_REFRESH_TOKEN")
           fi
-          if [ -z "${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}" ]; then
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT_KEY" ]; then
             MISSING_SECRETS+=("FIREBASE_SERVICE_ACCOUNT_KEY")
           fi
 
@@ -90,19 +95,18 @@ jobs:
       # ── Determine sync mode ─────────────────────────────────────────────────
       - name: Determine sync mode
         id: sync_mode
+        env:
+          INPUT_FORCE_FULL_SEARCH: ${{ github.event.inputs.force_full_search }}
+          INPUT_DRY_RUN_OVERRIDE: ${{ github.event.inputs.dry_run_override }}
         run: |
-          FORCE_FULL_SEARCH="${{ github.event.inputs.force_full_search }}"
-          DRY_RUN_OVERRIDE="${{ github.event.inputs.dry_run_override }}"
-          SYNC_ENABLED="${{ secrets.TIMETABLE_SYNC_ENABLED }}"
-
           # Pre-activation safety invariant:
           # Always keep TIMETABLE_SYNC_ENABLED=false to force dry-run regardless of input.
           echo "TIMETABLE_SYNC_ENABLED=false" >> "$GITHUB_OUTPUT"
 
-          if [ "$FORCE_FULL_SEARCH" = "true" ]; then
+          if [ "$INPUT_FORCE_FULL_SEARCH" = "true" ]; then
             echo "FORCE_FULL_SEARCH=true" >> "$GITHUB_OUTPUT"
             echo "Mode: DIAGNOSTIC DRY-RUN (force_full_search=true, history cursor bypassed)"
-          elif [ "$DRY_RUN_OVERRIDE" = "true" ]; then
+          elif [ "$INPUT_DRY_RUN_OVERRIDE" = "true" ]; then
             echo "FORCE_FULL_SEARCH=false" >> "$GITHUB_OUTPUT"
             echo "Mode: DRY-RUN (manual override)"
           else

@@ -142,6 +142,136 @@ export function computeContentHash(slots, effectiveDate) {
   return `sha256_${sha}`;
 }
 
+// ─── Date Normalization & Ordering ───────────────────────────────────────────
+
+/**
+ * Normalizes an effective date string (DD-MM-YYYY, YYYY-MM-DD, "October 21, 2026")
+ * into a canonical ISO date string YYYY-MM-DD. Returns null if invalid or cannot be parsed.
+ *
+ * @param {string} rawDate
+ * @returns {string|null}
+ */
+const MONTH_MAP = {
+  jan: 1, january: 1,
+  feb: 2, february: 2,
+  mar: 3, march: 3,
+  apr: 4, april: 4,
+  may: 5,
+  jun: 6, june: 6,
+  jul: 7, july: 7,
+  aug: 8, august: 8,
+  sep: 9, september: 9,
+  oct: 10, october: 10,
+  nov: 11, november: 11,
+  dec: 12, december: 12,
+};
+
+export function normalizeEffectiveDate(rawDate) {
+  if (!rawDate || typeof rawDate !== 'string') return null;
+  const trimmed = rawDate.trim();
+  if (!trimmed) return null;
+
+  // DD-MM-YYYY or DD.MM.YYYY or DD/MM/YYYY
+  const dmy = trimmed.match(/^(\d{1,2})[-./](\d{1,2})[-./](\d{2,4})$/);
+  if (dmy) {
+    const day = parseInt(dmy[1], 10);
+    const month = parseInt(dmy[2], 10);
+    let year = parseInt(dmy[3], 10);
+    if (year < 100) year += 2000;
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+
+  // YYYY-MM-DD
+  const ymd = trimmed.match(/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})$/);
+  if (ymd) {
+    const year = parseInt(ymd[1], 10);
+    const month = parseInt(ymd[2], 10);
+    const day = parseInt(ymd[3], 10);
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+
+  // Textual Month first: "October 21, 2026" or "Oct 21 2026"
+  const monthFirst = trimmed.match(/\b([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s*(\d{4})\b/i);
+  if (monthFirst && MONTH_MAP[monthFirst[1].toLowerCase()]) {
+    const month = MONTH_MAP[monthFirst[1].toLowerCase()];
+    const day = parseInt(monthFirst[2], 10);
+    const year = parseInt(monthFirst[3], 10);
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+
+  // Textual Day first: "21 October 2026" or "21-Oct-2026"
+  const dayFirst = trimmed.match(/\b(\d{1,2})(?:st|nd|rd|th)?[\s\-]+([a-z]+)[\s\-]+(\d{4})\b/i);
+  if (dayFirst && MONTH_MAP[dayFirst[2].toLowerCase()]) {
+    const day = parseInt(dayFirst[1], 10);
+    const month = MONTH_MAP[dayFirst[2].toLowerCase()];
+    const year = parseInt(dayFirst[3], 10);
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+
+  return trimmed;
+}
+
+/**
+ * Compares two effective dates.
+ * Returns:
+ *   < 0 if dateA is earlier (older) than dateB
+ *   0 if dateA and dateB represent the same date
+ *   > 0 if dateA is later (newer) than dateB
+ *
+ * @param {string} dateA
+ * @param {string} dateB
+ * @returns {number}
+ */
+export function compareEffectiveDates(dateA, dateB) {
+  const normA = normalizeEffectiveDate(dateA);
+  const normB = normalizeEffectiveDate(dateB);
+  if (!normA && !normB) return 0;
+  if (!normA) return -1;
+  if (!normB) return 1;
+  if (normA < normB) return -1;
+  if (normA > normB) return 1;
+  return 0;
+}
+
+// ─── Firestore Serialization Sanitizer ────────────────────────────────────────
+
+/**
+ * Recursively sanitizes any value for Firestore:
+ * - Omits keys whose value is undefined
+ * - Recursively processes nested objects and arrays
+ * - Preserves Date, FieldValue, Timestamp, Buffers, null, and primitives
+ *
+ * @param {*} val
+ * @returns {*} sanitized value free of undefined
+ */
+export function sanitizeForFirestore(val) {
+  if (val === undefined) {
+    return null;
+  }
+  if (val === null || typeof val !== 'object') {
+    return val;
+  }
+  if (val instanceof Date) {
+    return val;
+  }
+  if (typeof val.isEqual === 'function' || val._methodName || Buffer.isBuffer(val)) {
+    return val;
+  }
+  if (Array.isArray(val)) {
+    return val
+      .filter((item) => item !== undefined)
+      .map((item) => sanitizeForFirestore(item));
+  }
+
+  const result = {};
+  for (const [k, v] of Object.entries(val)) {
+    if (v !== undefined) {
+      result[k] = sanitizeForFirestore(v);
+    }
+  }
+  return result;
+}
+
 // ─── Slot Sanitization ────────────────────────────────────────────────────────
 
 /**
@@ -262,6 +392,24 @@ export async function serverPublishSharedTimetable(
 
   if (existingSnap.exists) {
     const existing = existingSnap.data();
+
+    // ── Effective date ordering check ──────────────────────────────────────
+    // A timetable with an older effective date MUST NEVER replace a newer timetable!
+    if (existing.effectiveDate && effectiveDate) {
+      const cmp = compareEffectiveDates(effectiveDate, existing.effectiveDate);
+      if (cmp < 0) {
+        return {
+          success: true,
+          duplicate: false,
+          skippedOlderVersion: true,
+          version: existing.version,
+          groupId,
+          groupLabel,
+          message: `Skipping: Candidate effective date (${effectiveDate}) is older than published version ${existing.version} (${existing.effectiveDate}).`,
+        };
+      }
+    }
+
     // Content hash duplicate check (supports both SHA-256 and legacy rolling hash)
     const legacyHash = computeLegacyRollingContentHash(sanitizedSlots, effectiveDate);
     if (existing.contentHash === contentHash || existing.contentHash === legacyHash) {
@@ -289,7 +437,7 @@ export async function serverPublishSharedTimetable(
     });
   }
 
-  const payload = {
+  const payload = sanitizeForFirestore({
     id: groupId,
     groupLabel,
     institution: groupParams.institution || 'Chitkara University',
@@ -318,7 +466,7 @@ export async function serverPublishSharedTimetable(
       sourceMessageId: auditMeta.sourceMessageId || null,
       syncedAt: new Date().toISOString(),
     },
-  };
+  });
 
   if (dryRun) {
     return {
@@ -359,11 +507,13 @@ export async function serverPublishSharedTimetable(
 export async function writeImportJobRecord(adminDb, adminUid, jobData) {
   const { FieldValue } = await import('firebase-admin/firestore');
 
-  const jobRef = adminDb.collection('timetableImportJobs').doc();
+  const sanitized = sanitizeForFirestore(jobData);
+  const collection = adminDb.collection('timetableImportJobs');
+  const jobRef = sanitized.syncJobId ? collection.doc(sanitized.syncJobId) : collection.doc();
   await jobRef.set({
     uid: adminUid,
     source: 'email',
-    ...jobData,
+    ...sanitized,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   });
@@ -383,11 +533,12 @@ export async function writeImportJobRecord(adminDb, adminUid, jobData) {
 export async function updateAdminSyncState(adminDb, adminUid, syncState) {
   const { FieldValue } = await import('firebase-admin/firestore');
 
+  const sanitized = sanitizeForFirestore(syncState);
   const publisherRef = adminDb.doc(`authorizedPublishers/${adminUid}`);
   await publisherRef.set(
     {
       gmailSyncState: {
-        ...syncState,
+        ...sanitized,
         // Never store tokens or credentials here
         updatedAt: FieldValue.serverTimestamp(),
       },
