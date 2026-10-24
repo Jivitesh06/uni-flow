@@ -158,42 +158,84 @@ export async function searchTimetableMessages(gmail, query) {
  * @returns {Promise<{messageId, subject, date, attachments: Array<{attachmentId, filename, size}>}>}
  */
 export async function getMessageAttachments(gmail, messageId) {
+  // Use format: 'full' to retrieve complete MIME part tree, attachment IDs, sizes, and any inline body data
   const message = await gmail.users.messages.get({
     userId: 'me',
     id: messageId,
-    format: 'metadata',
-    metadataHeaders: ['Subject', 'Date', 'From'],
+    format: 'full',
   });
 
-  const headers = message.data.payload?.headers || [];
-  const subject = headers.find((h) => h.name === 'Subject')?.value || '';
-  const date = headers.find((h) => h.name === 'Date')?.value || '';
-  const from = headers.find((h) => h.name === 'From')?.value || '';
+  const payload = message.data.payload || {};
+  const headers = payload.headers || [];
+  const subject = headers.find((h) => h.name?.toLowerCase() === 'subject')?.value || '';
+  const date = headers.find((h) => h.name?.toLowerCase() === 'date')?.value || '';
+  const from = headers.find((h) => h.name?.toLowerCase() === 'from')?.value || '';
 
   const attachments = [];
-  const parts = message.data.payload?.parts || [];
 
-  function collectParts(partList) {
-    for (const part of partList) {
-      if (
-        part.filename &&
-        part.filename.toLowerCase().endsWith('.pdf') &&
-        part.body?.attachmentId
-      ) {
-        attachments.push({
-          attachmentId: part.body.attachmentId,
-          filename: part.filename,
-          size: part.body.size || 0,
-          mimeType: part.mimeType || 'application/pdf',
-        });
+  function sanitizeFilename(rawName) {
+    if (!rawName) return '';
+    // Strip surrounding quotes or header parameters
+    return rawName.replace(/^["']|["']$/g, '').trim();
+  }
+
+  function getFilenameFromHeaders(partHeaders = []) {
+    for (const h of partHeaders) {
+      const name = h.name?.toLowerCase();
+      if (name === 'content-disposition' || name === 'content-type') {
+        const val = h.value || '';
+        const match = val.match(/(?:filename|name)\s*=\s*(?:"([^"]+)"|([^;\s]+))/i);
+        if (match) {
+          return sanitizeFilename(match[1] || match[2]);
+        }
       }
-      if (part.parts) {
-        collectParts(part.parts);
+    }
+    return '';
+  }
+
+  function inspectAndCollect(part, depth = 0) {
+    if (!part) return;
+
+    const mimeType = (part.mimeType || '').toLowerCase();
+    const partFilename = sanitizeFilename(part.filename) || getFilenameFromHeaders(part.headers);
+    const body = part.body || {};
+    const attachmentId = body.attachmentId;
+    const inlineData = body.data;
+    const size = body.size || (inlineData ? inlineData.length : 0);
+
+    const isPdfMime = mimeType === 'application/pdf' || mimeType === 'application/x-pdf';
+    const isPdfExt = partFilename.toLowerCase().endsWith('.pdf');
+
+    // Safe diagnostic log (MIME structure & metadata only — never email content or tokens)
+    console.log(
+      `[UniFlow Gmail API] Part [depth=${depth}]: mime="${mimeType}", ` +
+      `filename="${partFilename || '<none>'}", size=${size}B, ` +
+      `hasAttachmentId=${Boolean(attachmentId)}, hasInlineData=${Boolean(inlineData)}`
+    );
+
+    // Matches if it has PDF extension or PDF MIME type, and contains an attachmentId or inline data
+    if ((isPdfExt || isPdfMime) && (attachmentId || inlineData)) {
+      const resolvedFilename = isPdfExt ? partFilename : (partFilename ? `${partFilename}.pdf` : 'timetable.pdf');
+      attachments.push({
+        attachmentId: attachmentId || null,
+        data: inlineData || null,
+        filename: resolvedFilename,
+        size,
+        mimeType: mimeType || 'application/pdf',
+      });
+    }
+
+    if (Array.isArray(part.parts) && part.parts.length > 0) {
+      for (const subPart of part.parts) {
+        inspectAndCollect(subPart, depth + 1);
       }
     }
   }
 
-  collectParts(parts);
+  // Check top-level payload first (single-part email where payload itself is the attachment)
+  inspectAndCollect(payload, 0);
+
+  console.log(`[UniFlow Gmail API] Message ${messageId}: found ${attachments.length} PDF attachment(s).`);
 
   return {
     messageId,
@@ -208,27 +250,33 @@ export async function getMessageAttachments(gmail, messageId) {
 
 /**
  * Downloads a PDF attachment into an in-memory Buffer.
+ * Supports both Gmail attachmentId retrieval and inline base64 body data.
  * The attachment is never written to disk.
  *
  * @param {import('googleapis').gmail_v1.Gmail} gmail
  * @param {string} messageId
- * @param {string} attachmentId
+ * @param {string|null} attachmentId - Attachment ID if externalized
+ * @param {string|null} [inlineData] - Base64 data if embedded inline in message body
  * @returns {Promise<Buffer>}
  */
-export async function downloadAttachmentBuffer(gmail, messageId, attachmentId) {
-  const response = await gmail.users.messages.attachments.get({
-    userId: 'me',
-    messageId,
-    id: attachmentId,
-  });
+export async function downloadAttachmentBuffer(gmail, messageId, attachmentId, inlineData = null) {
+  let rawData = inlineData;
 
-  const data = response.data.data;
-  if (!data) {
-    throw new Error(`Attachment data is empty for message ${messageId}, attachment ${attachmentId}`);
+  if (!rawData && attachmentId) {
+    const response = await gmail.users.messages.attachments.get({
+      userId: 'me',
+      messageId,
+      id: attachmentId,
+    });
+    rawData = response.data?.data;
+  }
+
+  if (!rawData) {
+    throw new Error(`Attachment data is empty for message ${messageId}, attachment ${attachmentId || 'inline'}`);
   }
 
   // Gmail API returns base64url-encoded data
-  const base64 = data.replace(/-/g, '+').replace(/_/g, '/');
+  const base64 = rawData.replace(/-/g, '+').replace(/_/g, '/');
   return Buffer.from(base64, 'base64');
 }
 

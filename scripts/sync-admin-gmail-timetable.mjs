@@ -333,7 +333,12 @@ async function initFirebaseAdmin(serviceAccountKey, projectId) {
       // ── Download attachment ─────────────────────────────────────────────────
       let pdfBuffer;
       try {
-        pdfBuffer = await downloadAttachmentBuffer(gmail, messageId, attachment.attachmentId);
+        pdfBuffer = await downloadAttachmentBuffer(
+          gmail,
+          messageId,
+          attachment.attachmentId,
+          attachment.data
+        );
       } catch (err) {
         console.warn(`[UniFlow Sync] WARN: Cannot download ${attachment.filename}: ${err.message}`);
         continue;

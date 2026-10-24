@@ -75,6 +75,8 @@ const {
 const {
   createAuthenticatedOAuth2Client,
   buildGmailSearchQuery,
+  getMessageAttachments,
+  downloadAttachmentBuffer,
   GMAIL_READONLY_SCOPE,
 } = await import('./lib/adminGmailApi.mjs');
 
@@ -150,6 +152,118 @@ await runTest('buildGmailSearchQuery formats from, subject, and filename filters
 await runTest('buildGmailSearchQuery works with fallback defaults', () => {
   const query = buildGmailSearchQuery({});
   assert.ok(query.includes('has:attachment filename:pdf'));
+});
+
+await runTest('getMessageAttachments parses nested multipart MIME tree with attachmentId', async () => {
+  // Simulates multipart/mixed -> multipart/alternative -> text/html + application/pdf
+  const mockGmail = {
+    users: {
+      messages: {
+        get: async () => ({
+          data: {
+            payload: {
+              headers: [
+                { name: 'Subject', value: 'Time Table: BE CSE 2024 batch-5th Semester (W.e.f. October 21, 2026)' },
+                { name: 'From', value: 'office.cse@chitkarauniversity.edu.in' },
+                { name: 'Date', value: 'Wed, 21 Oct 2026 10:00:00 +0530' },
+              ],
+              parts: [
+                {
+                  mimeType: 'multipart/alternative',
+                  parts: [
+                    { mimeType: 'text/plain', body: { size: 100 } },
+                    { mimeType: 'text/html', body: { size: 450 } },
+                  ],
+                },
+                {
+                  mimeType: 'application/pdf',
+                  filename: 'Time Table-BE CSE 2024 batch-5th Semester-(wef 21.10.2026).pdf',
+                  headers: [
+                    { name: 'Content-Disposition', value: 'attachment; filename="Time Table-BE CSE 2024 batch-5th Semester-(wef 21.10.2026).pdf"' },
+                  ],
+                  body: {
+                    attachmentId: 'att_id_abc_123',
+                    size: 118722,
+                  },
+                },
+              ],
+            },
+          },
+        }),
+      },
+    },
+  };
+
+  const res = await getMessageAttachments(mockGmail, 'msg_test_001');
+  assert.equal(res.attachments.length, 1);
+  assert.equal(res.attachments[0].attachmentId, 'att_id_abc_123');
+  assert.equal(res.attachments[0].filename, 'Time Table-BE CSE 2024 batch-5th Semester-(wef 21.10.2026).pdf');
+  assert.equal(res.attachments[0].size, 118722);
+  assert.equal(res.attachments[0].mimeType, 'application/pdf');
+});
+
+await runTest('getMessageAttachments detects deeply nested PDF in multipart/related with inline data', async () => {
+  const dummyBase64 = Buffer.from('FAKE_PDF_CONTENT').toString('base64');
+  const mockGmail = {
+    users: {
+      messages: {
+        get: async () => ({
+          data: {
+            payload: {
+              headers: [{ name: 'Subject', value: 'Time Table Update' }],
+              parts: [
+                {
+                  mimeType: 'multipart/related',
+                  parts: [
+                    {
+                      mimeType: 'application/octet-stream',
+                      filename: 'TimeTable.pdf',
+                      body: {
+                        data: dummyBase64,
+                        size: dummyBase64.length,
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        }),
+      },
+    },
+  };
+
+  const res = await getMessageAttachments(mockGmail, 'msg_test_002');
+  assert.equal(res.attachments.length, 1);
+  assert.equal(res.attachments[0].filename, 'TimeTable.pdf');
+  assert.equal(res.attachments[0].data, dummyBase64);
+
+  // Test downloading from inline data without API network call
+  const buf = await downloadAttachmentBuffer(mockGmail, 'msg_test_002', null, res.attachments[0].data);
+  assert.equal(buf.toString(), 'FAKE_PDF_CONTENT');
+});
+
+await runTest('getMessageAttachments returns 0 attachments when message has no PDFs', async () => {
+  const mockGmail = {
+    users: {
+      messages: {
+        get: async () => ({
+          data: {
+            payload: {
+              headers: [{ name: 'Subject', value: 'Announcement' }],
+              parts: [
+                { mimeType: 'text/plain', body: { size: 50 } },
+                { mimeType: 'image/png', filename: 'header.png', body: { attachmentId: 'att_img' } },
+              ],
+            },
+          },
+        }),
+      },
+    },
+  };
+
+  const res = await getMessageAttachments(mockGmail, 'msg_test_003');
+  assert.equal(res.attachments.length, 0);
 });
 
 // ─── Category 4: Duplicate & Hash Deduplication ───────────────────────────────
