@@ -73,9 +73,8 @@ jobs:
           if [ ${#MISSING_SECRETS[@]} -gt 0 ]; then
             echo "ERROR: Missing required secrets: ${MISSING_SECRETS[*]}"
             echo "Add them at: Settings → Secrets → Actions → New repository secret"
-            echo ""
-            echo "This workflow will exit with dry-run mode (no production writes)."
-            # Do not exit with error — let the script report the issue cleanly
+            echo "Halting workflow execution safely to prevent unauthorized or failing runs."
+            exit 1
           else
             echo "All required secrets are present."
           fi

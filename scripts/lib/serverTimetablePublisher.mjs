@@ -14,7 +14,7 @@
  * - Audit record is written after successful publish only.
  */
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+import crypto from 'node:crypto';
 
 const KNOWN_CORRUPT_SUBJECT_CODES = new Set([
   'CL01', 'CL02', 'CL03', 'CL04', 'CL05',
@@ -98,10 +98,10 @@ export function buildSharedGroupLabel(params) {
 }
 
 /**
- * Computes a deterministic content hash for duplicate prevention.
- * Mirrors src/lib/sharedTimetable.ts computeTimetableContentHash()
+ * Computes a legacy 32-bit rolling hash (as in src/lib/sharedTimetable.ts)
+ * for backward-compatibility checking against historical records.
  */
-export function computeContentHash(slots, effectiveDate) {
+export function computeLegacyRollingContentHash(slots, effectiveDate) {
   const normalized = slots
     .map((s) =>
       `${s.dayOfWeek}_${s.startTime}_${s.endTime}_${s.subjectCode.toUpperCase()}_` +
@@ -117,6 +117,29 @@ export function computeContentHash(slots, effectiveDate) {
     hash |= 0;
   }
   return `thash_${Math.abs(hash).toString(16)}`;
+}
+
+/**
+ * Computes a collision-resistant, deterministic SHA-256 content fingerprint
+ * for server-side timetable publication and idempotency.
+ * Produces 'sha256_<64-hex-chars>'.
+ *
+ * @param {Array<object>} slots - SharedSlot items
+ * @param {string} effectiveDate - Effective date string
+ * @returns {string} SHA-256 fingerprint
+ */
+export function computeContentHash(slots, effectiveDate) {
+  const normalized = slots
+    .map((s) =>
+      `${s.dayOfWeek}_${s.startTime}_${s.endTime}_${s.subjectCode.toUpperCase()}_` +
+      `${(s.group || 'ALL').toUpperCase()}_${(s.room || '').toUpperCase()}`
+    )
+    .sort()
+    .join('|');
+
+  const payload = `${(effectiveDate || '').trim()}::${normalized}`;
+  const sha = crypto.createHash('sha256').update(payload).digest('hex');
+  return `sha256_${sha}`;
 }
 
 // ─── Slot Sanitization ────────────────────────────────────────────────────────
@@ -239,8 +262,9 @@ export async function serverPublishSharedTimetable(
 
   if (existingSnap.exists()) {
     const existing = existingSnap.data();
-    // Content hash duplicate check
-    if (existing.contentHash === contentHash) {
+    // Content hash duplicate check (supports both SHA-256 and legacy rolling hash)
+    const legacyHash = computeLegacyRollingContentHash(sanitizedSlots, effectiveDate);
+    if (existing.contentHash === contentHash || existing.contentHash === legacyHash) {
       return {
         success: true,
         duplicate: true,

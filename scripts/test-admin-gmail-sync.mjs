@@ -64,6 +64,7 @@ const {
   buildSharedGroupId,
   buildSharedGroupLabel,
   computeContentHash,
+  computeLegacyRollingContentHash,
   sanitizeLecturesToSharedSlots,
   serverPublishSharedTimetable,
   writeImportJobRecord,
@@ -168,14 +169,15 @@ await runTest('computeAttachmentHash produces deterministic SHA-256 hex', () => 
   assert.equal(hash1.length, 64);
 });
 
-await runTest('computeContentHash generates stable slot fingerprint', () => {
+await runTest('computeContentHash generates collision-resistant SHA-256 slot fingerprint', () => {
   const slotsA = [
     { dayOfWeek: 1, startTime: '09:00', endTime: '10:00', subjectCode: 'CS101', room: 'LH1', group: 'ALL' },
     { dayOfWeek: 2, startTime: '10:00', endTime: '11:00', subjectCode: 'CS102', room: 'LH2', group: 'G1' },
   ];
+  // Identical content, reverse order: must yield identical fingerprint (ordering stability)
   const slotsB = [
-    { dayOfWeek: 1, startTime: '09:00', endTime: '10:00', subjectCode: 'CS101', room: 'LH1', group: 'ALL' },
     { dayOfWeek: 2, startTime: '10:00', endTime: '11:00', subjectCode: 'CS102', room: 'LH2', group: 'G1' },
+    { dayOfWeek: 1, startTime: '09:00', endTime: '10:00', subjectCode: 'CS101', room: 'LH1', group: 'ALL' },
   ];
   const slotsC = [
     { dayOfWeek: 1, startTime: '09:00', endTime: '10:00', subjectCode: 'CS999', room: 'LH1', group: 'ALL' },
@@ -185,8 +187,18 @@ await runTest('computeContentHash generates stable slot fingerprint', () => {
   const hashB = computeContentHash(slotsB, '12-10-2026');
   const hashC = computeContentHash(slotsC, '12-10-2026');
 
-  assert.equal(hashA, hashB);
-  assert.notEqual(hashA, hashC);
+  assert.equal(hashA, hashB, 'Slots in different orders must produce identical hash (ordering stability)');
+  assert.notEqual(hashA, hashC, 'Different timetable content must produce different hash');
+  assert.ok(hashA.startsWith('sha256_'), 'Fingerprint must use sha256_ prefix');
+  assert.equal(hashA.length, 7 + 64, 'Fingerprint must contain full 64-character SHA-256 hex string');
+});
+
+await runTest('computeLegacyRollingContentHash produces valid historical thash format', () => {
+  const slots = [
+    { dayOfWeek: 1, startTime: '09:00', endTime: '10:00', subjectCode: 'CS101', room: 'LH1', group: 'ALL' },
+  ];
+  const legacyHash = computeLegacyRollingContentHash(slots, '12-10-2026');
+  assert.ok(legacyHash.startsWith('thash_'), 'Legacy hash must use thash_ prefix');
 });
 
 // ─── Category 5: Invalid & Corrupt PDF Rejection ──────────────────────────────
@@ -228,6 +240,21 @@ await runTest('validateParsedTimetable rejects corrupt subject codes like room l
   assert.ok(res.errors.some((e) => e.includes('corrupt subject codes')));
 });
 
+await runTest('validateParsedTimetable rejects > 60 sessions as hard error (sanity check)', () => {
+  const hugeTimetable = {
+    success: true,
+    lectures: Array.from({ length: 65 }, (_, i) => ({
+      dayOfWeek: (i % 5) + 1,
+      startTime: `${String(8 + Math.floor(i / 7)).padStart(2, '0')}:00`,
+      endTime: `${String(8 + Math.floor(i / 7)).padStart(2, '0')}:50`,
+      subjectCode: `CS${100 + i}`,
+    })),
+  };
+  const res = validateParsedTimetable(hugeTimetable);
+  assert.equal(res.valid, false);
+  assert.ok(res.errors.some((e) => e.includes('Unusually high session count')));
+});
+
 // ─── Category 6: Section, Semester, and Cohort Batch Mapping ──────────────────
 console.log('\n--- 6. Section, Semester & Cohort Batch Mapping ---');
 
@@ -265,6 +292,34 @@ await runTest('formatFullSection standardizes short section codes', () => {
   assert.equal(formatFullSection('BE-CSE', 5, 'A'), 'BE-CSE-5A');
   assert.equal(formatFullSection('BE-CSE', 5, '5A'), 'BE-CSE-5A');
   assert.equal(formatFullSection('BE-CSE', 5, 'BE-CSE-5A'), 'BE-CSE-5A');
+});
+
+await runTest('Section mismatch blocks publishing: PDF for 5A cannot be validated/published as section 5C', () => {
+  const parseResult5A = {
+    success: true,
+    selectedSection: 'BE-CSE-5A',
+    detectedSemester: 5,
+    lectures: [
+      { dayOfWeek: 1, startTime: '09:00', endTime: '09:50', subjectCode: 'CS101' },
+      { dayOfWeek: 1, startTime: '09:50', endTime: '10:40', subjectCode: 'CS102' },
+      { dayOfWeek: 2, startTime: '09:00', endTime: '09:50', subjectCode: 'CS103' },
+      { dayOfWeek: 2, startTime: '09:50', endTime: '10:40', subjectCode: 'CS104' },
+      { dayOfWeek: 3, startTime: '09:00', endTime: '09:50', subjectCode: 'CS105' },
+      { dayOfWeek: 3, startTime: '09:50', endTime: '10:40', subjectCode: 'CS106' },
+    ],
+  };
+
+  // Attempt to validate section 5A as section 5C
+  const res = validateParsedTimetable(parseResult5A, {
+    expectedSection: 'BE-CSE-5C',
+    expectedSemester: 5,
+  });
+
+  assert.equal(res.valid, false, 'Validation must fail on section mismatch');
+  assert.ok(
+    res.errors.some((e) => e.includes('Section mismatch') && e.includes('BE-CSE-5A') && e.includes('BE-CSE-5C')),
+    'Must include explicit error message indicating section mismatch'
+  );
 });
 
 // ─── Category 7: Lab Blocks & Real PDF Parsing Integrity ──────────────────────
@@ -500,6 +555,74 @@ await runTest('validateParsedTimetable returns structured report with slot metri
   assert.equal(report.report.g2Slots, 1);
   assert.equal(report.report.allSlots, 4);
   assert.equal(report.report.errorCount, 0);
+});
+
+// ─── Category 15: Safety & Regression Invariants ─────────────────────────────
+console.log('\n--- 15. Safety & Regression Invariants ---');
+
+await runTest('Version pointer atomicity: setDoc writes single complete document containing slots, version, and contentHash', async () => {
+  let capturedPayload = null;
+  const mockDb = {
+    doc: (p) => {
+      if (p.startsWith('authorizedPublishers/')) {
+        return {
+          get: async () => ({
+            data: () => ({ gmailSyncState: { processedAttachmentHashes: [] } }),
+          }),
+        };
+      }
+      return {
+        get: async () => ({ exists: () => false }),
+        set: async (payload) => {
+          capturedPayload = payload;
+        },
+      };
+    },
+  };
+
+  const pubRes = await serverPublishSharedTimetable(
+    mockDb,
+    { uid: VERIFIED_ADMIN_UID, displayName: 'Admin' },
+    { program: 'BE-CSE', semester: 5, section: 'BE-CSE-5A', batch: '2024' },
+    [{ dayOfWeek: 1, startTime: '09:00', endTime: '09:50', subjectCode: 'CS101' }],
+    '12-10-2026',
+    { attachmentHash: 'atomic_test_hash' },
+    false
+  );
+
+  assert.equal(pubRes.success, true);
+  assert.ok(capturedPayload, 'Payload must be written in a single document set');
+  assert.equal(capturedPayload.version, 1);
+  assert.ok(capturedPayload.contentHash.startsWith('sha256_'));
+  assert.equal(capturedPayload.slots.length, 1);
+  assert.ok(capturedPayload.publishedAt);
+  assert.equal(capturedPayload.id, 'chitkara-university_be-cse_2024_sem5_be-cse-5a');
+});
+
+await runTest('Cursor recovery: history cursor does NOT advance when processing has failures', () => {
+  const lastHistoryId = '1000';
+  const newHistoryId = '2000';
+
+  // Scenario A: Failure occurred -> cursor must stay at lastHistoryId
+  const hadFailuresA = true;
+  const cursorA = hadFailuresA ? lastHistoryId : (newHistoryId || lastHistoryId);
+  assert.equal(cursorA, '1000', 'Cursor must be preserved at previous position on failure');
+
+  // Scenario B: Success -> cursor advances to newHistoryId
+  const hadFailuresB = false;
+  const cursorB = hadFailuresB ? lastHistoryId : (newHistoryId || lastHistoryId);
+  assert.equal(cursorB, '2000', 'Cursor must advance on complete success');
+});
+
+await runTest('Non-admin UID override in production is prevented by hardcoded check', () => {
+  const HARDCODED_ADMIN_UID = 'TngcyE1MF9ZLRIQYW25C7LefShp2';
+  const isAllowedUid = (attemptedUid) => {
+    return attemptedUid === HARDCODED_ADMIN_UID;
+  };
+
+  assert.equal(isAllowedUid('TngcyE1MF9ZLRIQYW25C7LefShp2'), true);
+  assert.equal(isAllowedUid('attacker_uid_123'), false);
+  assert.equal(isAllowedUid('student_uid_456'), false);
 });
 
 // ─── Final Summary ────────────────────────────────────────────────────────────

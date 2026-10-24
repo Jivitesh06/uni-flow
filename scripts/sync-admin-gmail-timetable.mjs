@@ -86,11 +86,13 @@ function validateEnvironment() {
     process.exit(1);
   }
 
-  const adminUid = process.env.FIREBASE_ADMIN_UID?.trim() || HARDCODED_ADMIN_UID;
-  if (!adminUid.match(/^[a-zA-Z0-9_-]{20,}$/)) {
-    console.error(`[UniFlow Sync] FATAL: FIREBASE_ADMIN_UID does not look like a valid Firebase UID.`);
+  const rawAdminUid = process.env.FIREBASE_ADMIN_UID?.trim();
+  if (rawAdminUid && rawAdminUid !== HARDCODED_ADMIN_UID && process.env.NODE_ENV !== 'test') {
+    console.error(`[UniFlow Sync] SECURITY ERROR: Overriding administrator UID is prohibited in production.`);
+    console.error(`[UniFlow Sync] Expected verified administrator UID: ${HARDCODED_ADMIN_UID}`);
     process.exit(1);
   }
+  const adminUid = HARDCODED_ADMIN_UID;
 
   const syncEnabled = (process.env.TIMETABLE_SYNC_ENABLED || 'false').trim().toLowerCase() === 'true';
   if (syncEnabled) {
@@ -305,6 +307,7 @@ async function initFirebaseAdmin(serviceAccountKey, projectId) {
   let messagesExamined = 0;
   let attachmentsFound = 0;
   let attachmentsProcessed = 0;
+  let hadFailures = false;
   const sectionsPublished = [];
   const validationReports = [];
   const newlyProcessedHashes = [];
@@ -317,6 +320,7 @@ async function initFirebaseAdmin(serviceAccountKey, projectId) {
       messageInfo = await getMessageAttachments(gmail, messageId);
     } catch (err) {
       console.warn(`[UniFlow Sync] WARN: Could not read attachments for message ${messageId}: ${err.message}`);
+      hadFailures = true;
       continue;
     }
 
@@ -457,6 +461,7 @@ async function initFirebaseAdmin(serviceAccountKey, projectId) {
         } catch (err) {
           console.error(`[UniFlow Sync] ERROR publishing ${section}: ${err.message}`);
           reportEntry.publishError = err.message;
+          hadFailures = true;
         }
       }
 
@@ -466,7 +471,9 @@ async function initFirebaseAdmin(serviceAccountKey, projectId) {
 
   // ── Phase 7: Write job record and update sync state ──────────────────────────
   const duration = Date.now() - startTime;
-  const jobStatus = sectionsPublished.length > 0 || validationReports.length > 0
+  const jobStatus = hadFailures
+    ? 'completed_with_errors'
+    : sectionsPublished.length > 0 || validationReports.length > 0
     ? 'completed'
     : messagesExamined === 0
     ? 'completed'
@@ -476,11 +483,18 @@ async function initFirebaseAdmin(serviceAccountKey, projectId) {
   const updatedHashes = [...processedHashes, ...newlyProcessedHashes]
     .slice(-MAX_PROCESSED_HASHES);
 
+  // All-or-nothing cursor handling:
+  // If failures occurred, do NOT advance lastHistoryId so messages remain retryable.
+  const cursorToSave = hadFailures ? lastHistoryId : (newHistoryId || lastHistoryId);
+  if (hadFailures && newHistoryId && newHistoryId !== lastHistoryId) {
+    console.warn(`[UniFlow Sync] WARN: Failures detected during execution. Preserving cursor at ${lastHistoryId} to ensure retryability.`);
+  }
+
   const syncState = {
-    lastHistoryId: newHistoryId || lastHistoryId,
+    lastHistoryId: cursorToSave,
     lastAttemptAt: new Date().toISOString(),
-    lastSuccessAt: new Date().toISOString(),
-    lastError: null,
+    lastSuccessAt: hadFailures ? (existingSyncState.lastSuccessAt || null) : new Date().toISOString(),
+    lastError: hadFailures ? 'Errors encountered during sync run' : null,
     processedAttachmentHashes: updatedHashes,
     lastJobId: syncJobId,
     totalMessagesExamined: (existingSyncState.totalMessagesExamined || 0) + messagesExamined,

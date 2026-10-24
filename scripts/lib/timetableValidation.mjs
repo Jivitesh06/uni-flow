@@ -86,8 +86,9 @@ export function validateParsedTimetable(parseResult, options = {}) {
 
   // ── Rule 2: Maximum session count (sanity check) ─────────────────────────────
   if (lectures.length > MAX_LECTURE_COUNT) {
-    warnings.push(
-      `Unusually high session count (${lectures.length}). Verify this is a single-section timetable.`
+    errors.push(
+      `Unusually high session count (${lectures.length} > ${MAX_LECTURE_COUNT}). ` +
+      `Fails safety sanity check — automated publishing blocked to prevent corrupt multi-section collisions.`
     );
   }
 
@@ -166,10 +167,10 @@ export function validateParsedTimetable(parseResult, options = {}) {
   if (expectedSection && parseResult.selectedSection) {
     const normalizedPdf = parseResult.selectedSection.toUpperCase().replace(/\s+/g, '');
     const normalizedExpected = expectedSection.toUpperCase().replace(/\s+/g, '');
-    if (normalizedPdf !== normalizedExpected && !normalizedPdf.includes(normalizedExpected)) {
-      warnings.push(
+    if (normalizedPdf !== normalizedExpected && !normalizedPdf.includes(normalizedExpected) && !normalizedExpected.includes(normalizedPdf)) {
+      errors.push(
         `Section mismatch: PDF section is "${parseResult.selectedSection}", expected "${expectedSection}". ` +
-        `Verify before publishing.`
+        `Automated publishing blocked.`
       );
     }
   }
