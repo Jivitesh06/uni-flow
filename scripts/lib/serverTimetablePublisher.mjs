@@ -104,7 +104,7 @@ export function buildSharedGroupLabel(params) {
 export function computeLegacyRollingContentHash(slots, effectiveDate) {
   const normalized = slots
     .map((s) =>
-      `${s.dayOfWeek}_${s.startTime}_${s.endTime}_${s.subjectCode.toUpperCase()}_` +
+      `${s.dayOfWeek}_${s.startTime}_${s.endTime}_${(s.subjectCode || s.subjectId || '').toUpperCase()}_` +
       `${(s.group || 'ALL').toUpperCase()}_${(s.room || '').toUpperCase()}`
     )
     .sort()
@@ -131,7 +131,7 @@ export function computeLegacyRollingContentHash(slots, effectiveDate) {
 export function computeContentHash(slots, effectiveDate) {
   const normalized = slots
     .map((s) =>
-      `${s.dayOfWeek}_${s.startTime}_${s.endTime}_${s.subjectCode.toUpperCase()}_` +
+      `${s.dayOfWeek}_${s.startTime}_${s.endTime}_${(s.subjectCode || s.subjectId || '').toUpperCase()}_` +
       `${(s.group || 'ALL').toUpperCase()}_${(s.room || '').toUpperCase()}`
     )
     .sort()
@@ -446,8 +446,10 @@ export async function serverPublishSharedTimetable(
     history.unshift({
       revisionId: `rev_v${existing.version}_${Date.now()}`,
       version: existing.version,
-      effectiveDate: existing.effectiveDate || 'Unknown',
-      publishedAt: existing.publishedAt?.toDate().toISOString() || new Date().toISOString(),
+      effectiveDate: existing.effectiveDate || null,
+      publishedAt: typeof existing.publishedAt?.toDate === 'function'
+        ? existing.publishedAt.toDate().toISOString()
+        : (existing.publishedAt || new Date().toISOString()),
       publishedBy: existing.publishedBy || 'system',
       contentHash: existing.contentHash || 'legacy',
       slotCount: existing.slots?.length || 0,
@@ -492,6 +494,7 @@ export async function serverPublishSharedTimetable(
       duplicate: false,
       dryRun: true,
       version,
+      previousVersion: existingSnap.exists ? (existingSnap.data().version || 1) : null,
       groupId,
       groupLabel,
       slotCount: sanitizedSlots.length,
@@ -507,6 +510,7 @@ export async function serverPublishSharedTimetable(
     duplicate: false,
     dryRun: false,
     version,
+    previousVersion: existingSnap.exists ? (existingSnap.data().version || 1) : null,
     groupId,
     groupLabel,
     slotCount: sanitizedSlots.length,

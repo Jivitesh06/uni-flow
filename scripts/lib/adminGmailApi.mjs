@@ -291,9 +291,11 @@ export async function downloadAttachmentBuffer(gmail, messageId, attachmentId, i
  * @returns {Promise<{newMessageIds: string[], latestHistoryId: string | null}>}
  */
 export async function getNewMessagesSinceHistoryId(gmail, startHistoryId) {
-  const newMessageIds = new Set();
+  const newMessageIds = [];
+  const messageHistoryMap = new Map();
   let pageToken = undefined;
   let latestHistoryId = null;
+  let mailboxHistoryId = null;
 
   try {
     do {
@@ -304,31 +306,54 @@ export async function getNewMessagesSinceHistoryId(gmail, startHistoryId) {
         pageToken,
       });
 
-      const historyList = response.data.history || [];
+      if (response.data?.historyId) {
+        mailboxHistoryId = response.data.historyId;
+      }
+
+      const historyList = response.data?.history || [];
       for (const history of historyList) {
-        if (history.historyId && (!latestHistoryId || parseInt(history.historyId) > parseInt(latestHistoryId))) {
-          latestHistoryId = history.historyId;
+        if (history.historyId) {
+          try {
+            if (!latestHistoryId || BigInt(history.historyId) > BigInt(latestHistoryId)) {
+              latestHistoryId = history.historyId;
+            }
+          } catch {
+            if (!latestHistoryId || parseInt(history.historyId, 10) > parseInt(latestHistoryId, 10)) {
+              latestHistoryId = history.historyId;
+            }
+          }
         }
-        for (const added of history.messagesAdded || []) {
-          if (added.message?.id) {
-            newMessageIds.add(added.message.id);
+
+        const addedMessages = history.messagesAdded || [];
+        for (const added of addedMessages) {
+          const mId = added.message?.id;
+          if (mId) {
+            if (!newMessageIds.includes(mId)) {
+              newMessageIds.push(mId);
+            }
+            if (history.historyId) {
+              messageHistoryMap.set(mId, history.historyId);
+            }
           }
         }
       }
 
-      pageToken = response.data.nextPageToken;
+      pageToken = response.data?.nextPageToken;
     } while (pageToken);
   } catch (err) {
     // historyId expired (>7 days) — fall back to full search
     if (err.code === 404 || (err.message && err.message.includes('historyId'))) {
-      return { newMessageIds: null, latestHistoryId: null, historyExpired: true };
+      return { newMessageIds: null, latestHistoryId: null, messageHistoryMap: {}, historyExpired: true };
     }
     throw err;
   }
 
+  const finalLatestHistoryId = latestHistoryId || mailboxHistoryId;
+
   return {
-    newMessageIds: [...newMessageIds],
-    latestHistoryId,
+    newMessageIds,
+    latestHistoryId: finalLatestHistoryId,
+    messageHistoryMap: Object.fromEntries(messageHistoryMap),
     historyExpired: false,
   };
 }

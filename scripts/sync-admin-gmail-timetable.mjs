@@ -72,6 +72,9 @@ const HARDCODED_ADMIN_UID = 'TngcyE1MF9ZLRIQYW25C7LefShp2';
 /** Maximum processed hashes to keep in Firestore state (rolling window) */
 const MAX_PROCESSED_HASHES = 100;
 
+/** Maximum consecutive retry attempts before quarantining an unprocessable message */
+const MAX_MESSAGE_RETRY_ATTEMPTS = 5;
+
 // ─── Environment Validation ───────────────────────────────────────────────────
 
 export function validateEnvironment(env = process.env) {
@@ -237,6 +240,7 @@ export async function runAdminGmailTimetableSync() {
   let lastHistoryId = null;
   let processedHashes = [];
   let existingSyncState = {};
+  let failedMessageRetries = {};
 
   try {
     const publisherSnap = await db.doc(`authorizedPublishers/${adminUid}`).get();
@@ -249,6 +253,7 @@ export async function runAdminGmailTimetableSync() {
       existingSyncState = data.gmailSyncState || {};
       lastHistoryId = existingSyncState.lastHistoryId || null;
       processedHashes = existingSyncState.processedAttachmentHashes || [];
+      failedMessageRetries = { ...(existingSyncState.failedMessageRetries || {}) };
       console.log(`[UniFlow Sync] Last sync: ${existingSyncState.lastSuccessAt?.toDate?.()?.toISOString() || 'never'}`);
       if (forceFullSearch) {
         console.log(`[UniFlow Sync] Stored cursor (historyId: ${lastHistoryId || 'none'}) will be bypassed for forced diagnostic search.`);
@@ -271,10 +276,11 @@ export async function runAdminGmailTimetableSync() {
   let messageIds = [];
   let newHistoryId = null;
   let historyExpired = false;
+  let messageHistoryMap = {};
 
   try {
     if (lastHistoryId && !forceFullSearch) {
-      const { newMessageIds, latestHistoryId, historyExpired: expired } =
+      const { newMessageIds, latestHistoryId, historyExpired: expired, messageHistoryMap: historyMap } =
         await getNewMessagesSinceHistoryId(gmail, lastHistoryId);
 
       if (expired) {
@@ -283,6 +289,7 @@ export async function runAdminGmailTimetableSync() {
       } else {
         messageIds = newMessageIds || [];
         newHistoryId = latestHistoryId;
+        messageHistoryMap = historyMap || {};
         console.log(`[UniFlow Sync] Incremental: found ${messageIds.length} new message(s) since last sync.`);
       }
     }
@@ -332,12 +339,23 @@ export async function runAdminGmailTimetableSync() {
   const sectionsPublished = [];
   const validationReports = [];
   const newlyProcessedHashes = [];
+  const failedMessageIds = new Set();
+  const succeededMessageIds = new Set();
+  const quarantinedMessageIds = new Set();
 
   // Candidates collected across all matching messages in this run
   const candidatePublications = [];
 
   for (const messageId of messageIds) {
     messagesExamined++;
+    let messageHadFailure = false;
+
+    // Check if this message was previously quarantined
+    if ((failedMessageRetries[messageId] || 0) >= MAX_MESSAGE_RETRY_ATTEMPTS) {
+      console.warn(`[UniFlow Sync] Skipping quarantined message ${messageId} (${failedMessageRetries[messageId]} prior failures).`);
+      quarantinedMessageIds.add(messageId);
+      continue;
+    }
 
     let messageInfo;
     try {
@@ -345,20 +363,26 @@ export async function runAdminGmailTimetableSync() {
     } catch (err) {
       console.warn(`[UniFlow Sync] WARN: Could not read attachments for message ${messageId}: ${err.message}`);
       hadFailures = true;
+      failedMessageIds.add(messageId);
       continue;
     }
 
     // Filter messages by sender and subject prefix (especially during incremental sync where any new message in mailbox is returned)
     if (env.senderEmail && messageInfo.from && !messageInfo.from.toLowerCase().includes(env.senderEmail.toLowerCase())) {
       console.log(`[UniFlow Sync] Skipping message ${messageId}: sender "${messageInfo.from}" does not match "${env.senderEmail}".`);
+      succeededMessageIds.add(messageId);
       continue;
     }
     if (env.subjectPrefix && messageInfo.subject && !messageInfo.subject.toLowerCase().includes(env.subjectPrefix.toLowerCase())) {
       console.log(`[UniFlow Sync] Skipping message ${messageId}: subject "${messageInfo.subject}" does not match "${env.subjectPrefix}".`);
+      succeededMessageIds.add(messageId);
       continue;
     }
 
-    if (messageInfo.attachments.length === 0) continue;
+    if (messageInfo.attachments.length === 0) {
+      succeededMessageIds.add(messageId);
+      continue;
+    }
     attachmentsFound += messageInfo.attachments.length;
 
     for (const attachment of messageInfo.attachments) {
@@ -377,6 +401,7 @@ export async function runAdminGmailTimetableSync() {
       } catch (err) {
         console.warn(`[UniFlow Sync] WARN: Cannot download ${attachment.filename}: ${err.message}`);
         hadFailures = true;
+        messageHadFailure = true;
         continue;
       }
 
@@ -409,6 +434,7 @@ export async function runAdminGmailTimetableSync() {
           error: err.message,
         });
         hadFailures = true;
+        messageHadFailure = true;
         continue;
       }
 
@@ -437,6 +463,7 @@ export async function runAdminGmailTimetableSync() {
           validationReports.push(reportEntry);
           hadFailures = true;
           attachmentHadFailure = true;
+          messageHadFailure = true;
           continue;
         }
 
@@ -470,6 +497,7 @@ export async function runAdminGmailTimetableSync() {
           validation.errors.forEach((e) => console.warn(`  ❌ ${e}`));
           hadFailures = true;
           attachmentHadFailure = true;
+          messageHadFailure = true;
           continue;
         }
 
@@ -485,6 +513,7 @@ export async function runAdminGmailTimetableSync() {
           console.warn(`[UniFlow Sync] Cannot determine semester for ${section} — skipping.`);
           hadFailures = true;
           attachmentHadFailure = true;
+          messageHadFailure = true;
           continue;
         }
 
@@ -492,6 +521,7 @@ export async function runAdminGmailTimetableSync() {
           console.warn(`[UniFlow Sync] Missing or unparseable effective date ("${rawEffectiveDate || ''}") for ${section} — skipping.`);
           hadFailures = true;
           attachmentHadFailure = true;
+          messageHadFailure = true;
           continue;
         }
 
@@ -520,7 +550,9 @@ export async function runAdminGmailTimetableSync() {
           reportEntry,
           markFailure: () => {
             attachmentHadFailure = true;
+            messageHadFailure = true;
             hadFailures = true;
+            failedMessageIds.add(messageId);
           },
         });
       }
@@ -529,15 +561,43 @@ export async function runAdminGmailTimetableSync() {
         newlyProcessedHashes.push(attachmentHash);
       }
     }
+
+    if (messageHadFailure) {
+      failedMessageIds.add(messageId);
+    } else {
+      succeededMessageIds.add(messageId);
+    }
   }
 
-  // ── Multi-email handling: Chronological Effective Date Order ───────────────
+  // ── Multi-email handling: Deduplicate superseded versions within same batch ─
+  const candidatesBySection = new Map();
+  for (const candidate of candidatePublications) {
+    if (!candidatesBySection.has(candidate.section)) {
+      candidatesBySection.set(candidate.section, []);
+    }
+    candidatesBySection.get(candidate.section).push(candidate);
+  }
+
+  for (const [sec, cands] of candidatesBySection.entries()) {
+    if (cands.length > 1) {
+      cands.sort((a, b) => compareEffectiveDates(a.effectiveDate, b.effectiveDate));
+      const latestCandidate = cands[cands.length - 1];
+      for (let i = 0; i < cands.length - 1; i++) {
+        const older = cands[i];
+        older.supersededInBatch = true;
+        older.reportEntry.supersededInBatch = true;
+        console.log(`[UniFlow Sync] Section ${sec}: candidate from ${older.attachment.filename} (effective ${older.effectiveDate}) superseded by newer candidate (effective ${latestCandidate.effectiveDate}) within same batch. Skipping publication of older version.`);
+      }
+    }
+  }
+
   // Sort candidate sections in chronological ascending order of effective date.
-  // This guarantees older timetables in the batch are evaluated before newer ones,
-  // preventing an older PDF from ever overwriting a newer one.
   candidatePublications.sort((a, b) => compareEffectiveDates(a.effectiveDate, b.effectiveDate));
 
   for (const candidate of candidatePublications) {
+    if (candidate.supersededInBatch) {
+      continue;
+    }
     const { messageId, attachment, attachmentHash, section, groupParams, slots, effectiveDate, reportEntry, markFailure } = candidate;
 
     try {
@@ -582,15 +642,58 @@ export async function runAdminGmailTimetableSync() {
     }
   }
 
+  // ── Retry and Quarantine State Maintenance ──────────────────────────────────
+  for (const messageId of failedMessageIds) {
+    const attempts = (failedMessageRetries[messageId] || 0) + 1;
+    failedMessageRetries[messageId] = attempts;
+    if (attempts >= MAX_MESSAGE_RETRY_ATTEMPTS) {
+      quarantinedMessageIds.add(messageId);
+      console.warn(`[UniFlow Sync] QUARANTINED: Message ${messageId} failed ${attempts} consecutive times. Quarantined to unblock cursor progression.`);
+    }
+  }
+
+  for (const messageId of succeededMessageIds) {
+    if (!failedMessageIds.has(messageId)) {
+      delete failedMessageRetries[messageId];
+    }
+  }
+
+  // ── Checkpoint & Cursor Calculation ─────────────────────────────────────────
+  let cursorToSave = lastHistoryId;
+  const activeFailedMessageIds = new Set(
+    [...failedMessageIds].filter((id) => !quarantinedMessageIds.has(id))
+  );
+
+  if (activeFailedMessageIds.size === 0) {
+    // All messages either succeeded or were quarantined
+    cursorToSave = newHistoryId || lastHistoryId;
+  } else {
+    // Find the first failed message in arrival order
+    const firstFailedIdx = messageIds.findIndex((id) => activeFailedMessageIds.has(id));
+    if (firstFailedIdx > 0) {
+      const lastSafeMessageId = messageIds[firstFailedIdx - 1];
+      const safeHistoryId = messageHistoryMap[lastSafeMessageId];
+      if (safeHistoryId) {
+        cursorToSave = safeHistoryId;
+        console.log(`[UniFlow Sync] Partial batch success: advancing cursor to historyId ${safeHistoryId} (prior to first failed message ${messageIds[firstFailedIdx]}).`);
+      } else {
+        console.warn(`[UniFlow Sync] WARN: Failures detected. Preserving cursor at ${lastHistoryId} to ensure retryability.`);
+      }
+    } else {
+      console.warn(`[UniFlow Sync] WARN: First message in batch failed. Preserving cursor at ${lastHistoryId} to ensure retryability.`);
+    }
+  }
+
   // ── Phase 7: Write job record and update sync state ──────────────────────────
   const duration = Date.now() - startTime;
-  const jobStatus = hadFailures
-    ? 'completed_with_errors'
-    : sectionsPublished.length > 0 || validationReports.length > 0
-    ? 'completed'
-    : messagesExamined === 0
-    ? 'completed'
-    : 'completed';
+  let jobStatus;
+  if (hadFailures) {
+    jobStatus = 'completed_with_errors';
+  } else if (messagesExamined === 0) {
+    jobStatus = 'completed_empty';
+  } else {
+    jobStatus = 'completed';
+  }
 
   const cleanValidationReports = validationReports.map((r) => {
     const { emailContent, ...clean } = r;
@@ -612,6 +715,7 @@ export async function runAdminGmailTimetableSync() {
       attachmentsProcessed,
       sectionsPublished,
       validationReports: cleanValidationReports,
+      quarantinedMessages: [...quarantinedMessageIds],
       durationMs: duration,
     }, null);
   } else {
@@ -619,17 +723,13 @@ export async function runAdminGmailTimetableSync() {
     const updatedHashes = [...processedHashes, ...newlyProcessedHashes]
       .slice(-MAX_PROCESSED_HASHES);
 
-    const cursorToSave = hadFailures ? lastHistoryId : (newHistoryId || lastHistoryId);
-    if (hadFailures && newHistoryId && newHistoryId !== lastHistoryId) {
-      console.warn(`[UniFlow Sync] WARN: Failures detected during execution. Preserving cursor at ${lastHistoryId} to ensure retryability.`);
-    }
-
     const syncState = {
       lastHistoryId: cursorToSave,
       lastAttemptAt: new Date().toISOString(),
       lastSuccessAt: hadFailures ? (existingSyncState.lastSuccessAt || null) : new Date().toISOString(),
       lastError: hadFailures ? 'Errors encountered during sync run' : null,
       processedAttachmentHashes: updatedHashes,
+      failedMessageRetries,
       lastJobId: syncJobId,
       totalMessagesExamined: (existingSyncState.totalMessagesExamined || 0) + messagesExamined,
     };
@@ -643,6 +743,7 @@ export async function runAdminGmailTimetableSync() {
       attachmentsProcessed,
       sectionsPublished,
       validationReports: cleanValidationReports,
+      quarantinedMessages: [...quarantinedMessageIds],
       durationMs: duration,
     }, syncState);
   }
@@ -652,11 +753,15 @@ export async function runAdminGmailTimetableSync() {
   console.log(` UniFlow Gmail Sync Summary`);
   console.log(`======================================================================`);
   console.log(` Mode:                 ${forceFullSearch ? 'DIAGNOSTIC (FORCED DRY-RUN)' : syncEnabled ? 'LIVE' : 'DRY-RUN'}`);
+  console.log(` Status:               ${jobStatus}`);
   console.log(` Messages examined:    ${messagesExamined}`);
   console.log(` Attachments found:    ${attachmentsFound}`);
   console.log(` Attachments processed:${attachmentsProcessed}`);
   console.log(` Sections published:   ${sectionsPublished.length} ${syncEnabled && !forceFullSearch ? '' : '(simulated / dry-run)'}`);
   console.log(` Validation reports:   ${validationReports.length}`);
+  if (quarantinedMessageIds.size > 0) {
+    console.log(` Quarantined messages: ${[...quarantinedMessageIds].join(', ')}`);
+  }
   if (validationReports.length > 0) {
     console.log(`\n--- Diagnostic Validation Breakdown ---`);
     for (const rep of validationReports) {
@@ -672,7 +777,12 @@ export async function runAdminGmailTimetableSync() {
   console.log(` Duration:             ${(duration / 1000).toFixed(1)}s`);
   console.log(` Job ID:               ${syncJobId}`);
   console.log(`======================================================================\n`);
+
+  if (hadFailures && !forceFullSearch) {
+    process.exitCode = 1;
+  }
 }
+
 
 // Auto-execute when run directly as script
 if (process.argv[1]?.endsWith('sync-admin-gmail-timetable.mjs')) {

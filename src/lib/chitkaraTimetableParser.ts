@@ -337,6 +337,14 @@ export function extractEffectiveDate(filename: string, textContent: string = '')
     return monthMatch[1];
   }
 
+  // Check for day-first textual date e.g. "21 October 2026" or "21-Oct-2026"
+  const dayFirstMatch = (filename + ' ' + textContent).match(
+    /\b(\d{1,2}(?:st|nd|rd|th)?[\s\-]+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s\-]+,?\s*\d{4})\b/i
+  );
+  if (dayFirstMatch) {
+    return dayFirstMatch[1];
+  }
+
   return undefined;
 }
 
@@ -514,7 +522,8 @@ export async function parseChitkaraPdf(
     }
   }
 
-  const effectiveDate = extractEffectiveDate(filename) || detectedGenDate;
+  const page1Text = (selectedPage.rawItems || []).map((i) => i.str).join(' ');
+  const effectiveDate = extractEffectiveDate(filename, page1Text) || detectedGenDate;
 
   // Pass 2: Extract timetable grid on the selected page
   const items = selectedPage.rawItems;

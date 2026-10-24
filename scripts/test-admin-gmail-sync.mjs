@@ -1227,6 +1227,192 @@ await runTest('History cursor and sync state invariant: cursor is preserved and 
   assert.equal(cursorToSaveOnSuccess, newHistoryId, 'Cursor must advance to newHistoryId when run succeeds cleanly');
 });
 
+// ─── Category 20: Safe Checkpointing, Batch Deduplication & Quarantine ─────────
+console.log('--- 20. Safe Checkpointing, Batch Deduplication & Quarantine ---');
+
+await runTest('Partial batch checkpoint: cursor advances to historyId of last successful message before first failure', () => {
+  const lastHistoryId = '326090';
+  const newHistoryId = '326120';
+  const messageIds = ['msg_1', 'msg_2', 'msg_3'];
+  const messageHistoryMap = {
+    msg_1: '326100',
+    msg_2: '326110',
+    msg_3: '326120',
+  };
+  const failedMessageIds = new Set(['msg_2']); // msg_1 succeeded, msg_2 failed
+  const quarantinedMessageIds = new Set();
+
+  const activeFailedMessageIds = new Set(
+    [...failedMessageIds].filter((id) => !quarantinedMessageIds.has(id))
+  );
+
+  let cursorToSave = lastHistoryId;
+  if (activeFailedMessageIds.size === 0) {
+    cursorToSave = newHistoryId;
+  } else {
+    const firstFailedIdx = messageIds.findIndex((id) => activeFailedMessageIds.has(id));
+    if (firstFailedIdx > 0) {
+      const lastSafeMessageId = messageIds[firstFailedIdx - 1];
+      cursorToSave = messageHistoryMap[lastSafeMessageId] || lastHistoryId;
+    }
+  }
+
+  assert.equal(cursorToSave, '326100', 'Cursor must advance to msg_1 historyId (326100) so msg_1 is never re-queried');
+});
+
+await runTest('First message failure: cursor is strictly preserved at lastHistoryId', () => {
+  const lastHistoryId = '326090';
+  const newHistoryId = '326120';
+  const messageIds = ['msg_1', 'msg_2'];
+  const messageHistoryMap = {
+    msg_1: '326100',
+    msg_2: '326120',
+  };
+  const failedMessageIds = new Set(['msg_1']); // first message failed
+  const quarantinedMessageIds = new Set();
+
+  const activeFailedMessageIds = new Set(
+    [...failedMessageIds].filter((id) => !quarantinedMessageIds.has(id))
+  );
+
+  let cursorToSave = lastHistoryId;
+  if (activeFailedMessageIds.size === 0) {
+    cursorToSave = newHistoryId;
+  } else {
+    const firstFailedIdx = messageIds.findIndex((id) => activeFailedMessageIds.has(id));
+    if (firstFailedIdx > 0) {
+      const lastSafeMessageId = messageIds[firstFailedIdx - 1];
+      cursorToSave = messageHistoryMap[lastSafeMessageId] || lastHistoryId;
+    }
+  }
+
+  assert.equal(cursorToSave, '326090', 'Cursor must stay at lastHistoryId when first message fails');
+});
+
+await runTest('Same-batch multi-candidate deduplication: marks older versions as superseded within batch', () => {
+  const candidates = [
+    { section: 'BE-CSE-5A', effectiveDate: '15-10-2026', attachment: { filename: 'draft1.pdf' }, reportEntry: {} },
+    { section: 'BE-CSE-5B', effectiveDate: '21-10-2026', attachment: { filename: 'final_5B.pdf' }, reportEntry: {} },
+    { section: 'BE-CSE-5A', effectiveDate: '21-10-2026', attachment: { filename: 'revised_5A.pdf' }, reportEntry: {} },
+  ];
+
+  const candidatesBySection = new Map();
+  for (const c of candidates) {
+    if (!candidatesBySection.has(c.section)) candidatesBySection.set(c.section, []);
+    candidatesBySection.get(c.section).push(c);
+  }
+
+  for (const [sec, cands] of candidatesBySection.entries()) {
+    if (cands.length > 1) {
+      cands.sort((a, b) => compareEffectiveDates(a.effectiveDate, b.effectiveDate));
+      for (let i = 0; i < cands.length - 1; i++) {
+        cands[i].supersededInBatch = true;
+        cands[i].reportEntry.supersededInBatch = true;
+      }
+    }
+  }
+
+  const sec5ACandidates = candidates.filter((c) => c.section === 'BE-CSE-5A');
+  const older5A = sec5ACandidates.find((c) => c.effectiveDate === '15-10-2026');
+  const newer5A = sec5ACandidates.find((c) => c.effectiveDate === '21-10-2026');
+
+  assert.equal(older5A.supersededInBatch, true, 'Older candidate for section 5A must be marked supersededInBatch');
+  assert.equal(newer5A.supersededInBatch, undefined, 'Newer candidate for section 5A must NOT be superseded');
+});
+
+await runTest('Poison-pill quarantine: message failing 5 times is quarantined and does not block cursor', () => {
+  const failedMessageRetries = {
+    corrupt_msg_1: 4, // 4 prior failures
+  };
+  const failedMessageIds = new Set(['corrupt_msg_1']);
+  const quarantinedMessageIds = new Set();
+
+  for (const msgId of failedMessageIds) {
+    const attempts = (failedMessageRetries[msgId] || 0) + 1;
+    failedMessageRetries[msgId] = attempts;
+    if (attempts >= 5) {
+      quarantinedMessageIds.add(msgId);
+    }
+  }
+
+  assert.equal(failedMessageRetries.corrupt_msg_1, 5, 'Failure count should be incremented to 5');
+  assert.equal(quarantinedMessageIds.has('corrupt_msg_1'), true, 'Message should be in quarantinedMessageIds');
+
+  const activeFailed = new Set([...failedMessageIds].filter((id) => !quarantinedMessageIds.has(id)));
+  assert.equal(activeFailed.size, 0, 'Quarantined message should not be an active failure blocking cursor');
+});
+
+await runTest('Textual effective date extraction from page headers: matches day-first textual dates', () => {
+  const headerText1 = 'Time Table: BE CSE 2024 batch-5th Semester (W.e.f. October 21, 2026) || Section 5A-5G';
+  const extracted1 = extractEffectiveDate('', headerText1);
+  assert.equal(extracted1, 'October 21, 2026', 'Should extract month-first date');
+
+  const headerText2 = 'Department of Computer Science w.e.f. 21 October 2026 Section 5A';
+  const extracted2 = extractEffectiveDate('', headerText2);
+  assert.equal(extracted2, '21 October 2026', 'Should extract day-first date');
+
+  const headerText3 = 'Academic Session 2026-27 (w.e.f. 21-Oct-2026)';
+  const extracted3 = extractEffectiveDate('', headerText3);
+  assert.equal(extracted3, '21-Oct-2026', 'Should extract day-monthAbbr-year date');
+});
+
+await runTest('Server publisher safely handles existing timetable publishedAt Timestamp object', async () => {
+  const mockExistingDoc = {
+    exists: true,
+    data: () => ({
+      version: 1,
+      effectiveDate: '15-10-2026',
+      contentHash: 'hash_old',
+      slots: [],
+      publishedAt: {
+        toDate: () => new Date('2026-10-15T09:00:00.000Z'),
+      },
+    }),
+  };
+
+  const mockDb = {
+    doc: (p) => ({
+      get: async () => mockExistingDoc,
+      set: async () => {},
+    }),
+  };
+
+  const dummySlots = [
+    {
+      subjectId: 'CS501',
+      subjectName: 'Computer Networks',
+      dayOfWeek: 1,
+      startTime: '09:00',
+      endTime: '10:00',
+      group: 'ALL',
+      isActive: true,
+    },
+  ];
+
+  const groupParams = {
+    institution: 'Chitkara University',
+    program: 'BE-CSE',
+    batch: '2024',
+    semester: 5,
+    section: 'BE-CSE-5A',
+  };
+
+  // Call in dry-run mode
+  const res = await serverPublishSharedTimetable(
+    mockDb,
+    { uid: VERIFIED_ADMIN_UID, displayName: 'Test Admin' },
+    groupParams,
+    dummySlots,
+    '21-10-2026',
+    { attachmentHash: 'new_hash' },
+    true // dryRun
+  );
+
+  assert.equal(res.dryRun, true);
+  assert.equal(res.version, 2, 'Should increment to version 2');
+  assert.equal(res.previousVersion, 1);
+});
+
 // ─── Final Summary ────────────────────────────────────────────────────────────
 console.log('\n======================================================================');
 console.log(` RESULT: ${passedTests} / ${totalTests} tests passed`);
