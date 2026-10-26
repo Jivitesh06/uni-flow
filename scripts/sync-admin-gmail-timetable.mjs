@@ -241,6 +241,7 @@ export async function runAdminGmailTimetableSync() {
   let processedHashes = [];
   let existingSyncState = {};
   let failedMessageRetries = {};
+  let storedQuarantinedMessageIds = [];
 
   try {
     const publisherSnap = await db.doc(`authorizedPublishers/${adminUid}`).get();
@@ -254,6 +255,7 @@ export async function runAdminGmailTimetableSync() {
       lastHistoryId = existingSyncState.lastHistoryId || null;
       processedHashes = existingSyncState.processedAttachmentHashes || [];
       failedMessageRetries = { ...(existingSyncState.failedMessageRetries || {}) };
+      storedQuarantinedMessageIds = existingSyncState.quarantinedMessageIds || [];
       console.log(`[UniFlow Sync] Last sync: ${existingSyncState.lastSuccessAt?.toDate?.()?.toISOString() || 'never'}`);
       if (forceFullSearch) {
         console.log(`[UniFlow Sync] Stored cursor (historyId: ${lastHistoryId || 'none'}) will be bypassed for forced diagnostic search.`);
@@ -341,7 +343,7 @@ export async function runAdminGmailTimetableSync() {
   const newlyProcessedHashes = [];
   const failedMessageIds = new Set();
   const succeededMessageIds = new Set();
-  const quarantinedMessageIds = new Set();
+  const quarantinedMessageIds = new Set(storedQuarantinedMessageIds);
 
   // Candidates collected across all matching messages in this run
   const candidatePublications = [];
@@ -553,6 +555,7 @@ export async function runAdminGmailTimetableSync() {
             messageHadFailure = true;
             hadFailures = true;
             failedMessageIds.add(messageId);
+            succeededMessageIds.delete(messageId);
           },
         });
       }
@@ -671,13 +674,39 @@ export async function runAdminGmailTimetableSync() {
     // Find the first failed message in arrival order
     const firstFailedIdx = messageIds.findIndex((id) => activeFailedMessageIds.has(id));
     if (firstFailedIdx > 0) {
-      const lastSafeMessageId = messageIds[firstFailedIdx - 1];
-      const safeHistoryId = messageHistoryMap[lastSafeMessageId];
+      const firstFailedMsgId = messageIds[firstFailedIdx];
+      const failedHistoryId = messageHistoryMap[firstFailedMsgId];
+
+      // To guarantee the failed message is returned on replay, the checkpoint cursor
+      // must be strictly less than the failed message's historyId.
+      let safeHistoryId = null;
+      for (let i = firstFailedIdx - 1; i >= 0; i--) {
+        const prevId = messageIds[i];
+        const prevHist = messageHistoryMap[prevId];
+        if (prevHist) {
+          if (!failedHistoryId) {
+            safeHistoryId = prevHist;
+            break;
+          }
+          try {
+            if (BigInt(prevHist) < BigInt(failedHistoryId)) {
+              safeHistoryId = prevHist;
+              break;
+            }
+          } catch {
+            if (prevHist !== failedHistoryId) {
+              safeHistoryId = prevHist;
+              break;
+            }
+          }
+        }
+      }
+
       if (safeHistoryId) {
         cursorToSave = safeHistoryId;
         console.log(`[UniFlow Sync] Partial batch success: advancing cursor to historyId ${safeHistoryId} (prior to first failed message ${messageIds[firstFailedIdx]}).`);
       } else {
-        console.warn(`[UniFlow Sync] WARN: Failures detected. Preserving cursor at ${lastHistoryId} to ensure retryability.`);
+        console.warn(`[UniFlow Sync] WARN: Failures detected and preceding messages share historyId. Preserving cursor at ${lastHistoryId} to ensure retryability.`);
       }
     } else {
       console.warn(`[UniFlow Sync] WARN: First message in batch failed. Preserving cursor at ${lastHistoryId} to ensure retryability.`);
@@ -730,6 +759,8 @@ export async function runAdminGmailTimetableSync() {
       lastError: hadFailures ? 'Errors encountered during sync run' : null,
       processedAttachmentHashes: updatedHashes,
       failedMessageRetries,
+      quarantinedMessageIds: [...quarantinedMessageIds],
+      clearedRetryMessageIds: [...succeededMessageIds].filter((id) => !failedMessageIds.has(id)),
       lastJobId: syncJobId,
       totalMessagesExamined: (existingSyncState.totalMessagesExamined || 0) + messagesExamined,
     };

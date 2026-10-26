@@ -557,14 +557,92 @@ export async function updateAdminSyncState(adminDb, adminUid, syncState) {
 
   const sanitized = sanitizeForFirestore(syncState);
   const publisherRef = adminDb.doc(`authorizedPublishers/${adminUid}`);
-  await publisherRef.set(
-    {
-      gmailSyncState: {
-        ...sanitized,
-        // Never store tokens or credentials here
-        updatedAt: FieldValue.serverTimestamp(),
+
+  if (typeof adminDb.runTransaction === 'function') {
+    await adminDb.runTransaction(async (transaction) => {
+      const snap = await transaction.get(publisherRef);
+      if (snap && snap.exists) {
+        const existingData = typeof snap.data === 'function' ? snap.data() || {} : {};
+        const existingSync = existingData.gmailSyncState || {};
+        const storedHistoryId = existingSync.lastHistoryId;
+        const candidateHistoryId = sanitized.lastHistoryId;
+
+        // Monotonic guard: Never overwrite with a stale/older cursor
+        if (storedHistoryId && candidateHistoryId) {
+          try {
+            if (BigInt(storedHistoryId) > BigInt(candidateHistoryId)) {
+              console.warn(
+                `[UniFlow Sync] Monotonic checkpoint guard: Stored historyId (${storedHistoryId}) is newer than candidate (${candidateHistoryId}). Preserving stored cursor.`
+              );
+              sanitized.lastHistoryId = storedHistoryId;
+            }
+          } catch {
+            if (storedHistoryId > candidateHistoryId) {
+              sanitized.lastHistoryId = storedHistoryId;
+            }
+          }
+        }
+
+        // Monotonically union processed hashes
+        if (Array.isArray(existingSync.processedAttachmentHashes) || Array.isArray(sanitized.processedAttachmentHashes)) {
+          const merged = [
+            ...(existingSync.processedAttachmentHashes || []),
+            ...(sanitized.processedAttachmentHashes || []),
+          ];
+          sanitized.processedAttachmentHashes = [...new Set(merged)].slice(-100);
+        }
+
+        // Monotonically union quarantined message IDs
+        if (Array.isArray(existingSync.quarantinedMessageIds) || Array.isArray(sanitized.quarantinedMessageIds)) {
+          const mergedQuarantine = [
+            ...(existingSync.quarantinedMessageIds || []),
+            ...(sanitized.quarantinedMessageIds || []),
+          ];
+          sanitized.quarantinedMessageIds = [...new Set(mergedQuarantine)];
+        }
+
+        // Monotonically merge retry states: preserve maximum retry attempts and respect cleared retries
+        if (existingSync.failedMessageRetries || sanitized.failedMessageRetries) {
+          const mergedRetries = { ...(existingSync.failedMessageRetries || {}) };
+          const clearedIds = new Set(sanitized.clearedRetryMessageIds || []);
+          for (const clearedId of clearedIds) {
+            // Succeeded message retries are cleared if not quarantined
+            if ((mergedRetries[clearedId] || 0) < 5) {
+              delete mergedRetries[clearedId];
+            }
+          }
+          for (const [msgId, count] of Object.entries(sanitized.failedMessageRetries || {})) {
+            mergedRetries[msgId] = Math.max(mergedRetries[msgId] || 0, count);
+          }
+          sanitized.failedMessageRetries = mergedRetries;
+        }
+      }
+
+      delete sanitized.clearedRetryMessageIds;
+
+      transaction.set(
+        publisherRef,
+        {
+          gmailSyncState: {
+            ...sanitized,
+            // Never store tokens or credentials here
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+        },
+        { merge: true }
+      );
+    });
+  } else {
+    delete sanitized.clearedRetryMessageIds;
+    await publisherRef.set(
+      {
+        gmailSyncState: {
+          ...sanitized,
+          // Never store tokens or credentials here
+          updatedAt: FieldValue.serverTimestamp(),
+        },
       },
-    },
-    { merge: true }
-  );
+      { merge: true }
+    );
+  }
 }

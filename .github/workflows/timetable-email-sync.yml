@@ -40,6 +40,11 @@ on:
 env:
   NODE_VERSION: '22'
 
+# Strict concurrency serialization: prevents overlapping or concurrent sync jobs from racing
+concurrency:
+  group: admin-gmail-timetable-sync
+  cancel-in-progress: false
+
 jobs:
   sync-timetable:
     name: Sync Admin Gmail Timetable

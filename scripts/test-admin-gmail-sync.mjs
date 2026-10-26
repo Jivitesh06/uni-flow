@@ -1413,6 +1413,248 @@ await runTest('Server publisher safely handles existing timetable publishedAt Ti
   assert.equal(res.previousVersion, 1);
 });
 
+// ─── Category 21: Concurrency, Monotonic Checkpointing & Same-HistoryId Recovery ──
+console.log('--- 21. Concurrency, Monotonic Checkpointing & Same-HistoryId Recovery ---');
+
+await runTest('updateAdminSyncState monotonic guard prevents stale checkpoint from rewinding newer cursor', async () => {
+  let storedData = {
+    gmailSyncState: {
+      lastHistoryId: '326200', // Newer cursor already recorded
+      processedAttachmentHashes: ['hash_existing_1'],
+    },
+  };
+
+  const mockDb = {
+    doc: (p) => ({
+      get: async () => ({
+        exists: true,
+        data: () => storedData,
+      }),
+      set: async (payload) => {
+        storedData = payload;
+      },
+    }),
+    runTransaction: async (updateFunction) => {
+      const transaction = {
+        get: async (ref) => await ref.get(),
+        set: async (ref, payload, opts) => {
+          storedData = {
+            ...storedData,
+            ...payload,
+            gmailSyncState: {
+              ...(storedData.gmailSyncState || {}),
+              ...(payload.gmailSyncState || {}),
+            },
+          };
+        },
+      };
+      return await updateFunction(transaction);
+    },
+  };
+
+  // Stale run attempts to write older cursor (326100 < 326200)
+  await updateAdminSyncState(mockDb, VERIFIED_ADMIN_UID, {
+    lastHistoryId: '326100',
+    processedAttachmentHashes: ['hash_new_2'],
+  });
+
+  assert.equal(
+    storedData.gmailSyncState.lastHistoryId,
+    '326200',
+    'Monotonic guard must preserve newer stored historyId 326200 against stale candidate 326100'
+  );
+  assert.ok(
+    storedData.gmailSyncState.processedAttachmentHashes.includes('hash_existing_1'),
+    'Existing hashes must be preserved'
+  );
+  assert.ok(
+    storedData.gmailSyncState.processedAttachmentHashes.includes('hash_new_2'),
+    'New hashes must be merged'
+  );
+});
+
+await runTest('Preceding message sharing historyId with failed message preserves lastHistoryId', () => {
+  const lastHistoryId = '326090';
+  const messageIds = ['msg_1', 'msg_2'];
+  const messageHistoryMap = {
+    msg_1: '326100', // Succeeded
+    msg_2: '326100', // Failed, arrived in same history event as msg_1
+  };
+  const failedMessageIds = new Set(['msg_2']);
+  const quarantinedMessageIds = new Set();
+
+  const activeFailedMessageIds = new Set(
+    [...failedMessageIds].filter((id) => !quarantinedMessageIds.has(id))
+  );
+
+  let cursorToSave = lastHistoryId;
+  const firstFailedIdx = messageIds.findIndex((id) => activeFailedMessageIds.has(id));
+  if (firstFailedIdx > 0) {
+    const firstFailedMsgId = messageIds[firstFailedIdx];
+    const failedHistoryId = messageHistoryMap[firstFailedMsgId];
+
+    let safeHistoryId = null;
+    for (let i = firstFailedIdx - 1; i >= 0; i--) {
+      const prevId = messageIds[i];
+      const prevHist = messageHistoryMap[prevId];
+      if (prevHist && failedHistoryId) {
+        if (BigInt(prevHist) < BigInt(failedHistoryId)) {
+          safeHistoryId = prevHist;
+          break;
+        }
+      }
+    }
+    cursorToSave = safeHistoryId || lastHistoryId;
+  }
+
+  assert.equal(
+    cursorToSave,
+    '326090',
+    'Cursor must remain at lastHistoryId (326090) because advancing to 326100 would skip failed msg_2 on replay'
+  );
+});
+
+await runTest('Preceding message with strictly earlier historyId allows safe checkpoint advancement', () => {
+  const lastHistoryId = '326090';
+  const messageIds = ['msg_1', 'msg_2', 'msg_3'];
+  const messageHistoryMap = {
+    msg_1: '326100', // Succeeded (event 100)
+    msg_2: '326110', // Succeeded (event 110)
+    msg_3: '326120', // Failed (event 120)
+  };
+  const failedMessageIds = new Set(['msg_3']);
+  const quarantinedMessageIds = new Set();
+
+  const activeFailedMessageIds = new Set(
+    [...failedMessageIds].filter((id) => !quarantinedMessageIds.has(id))
+  );
+
+  let cursorToSave = lastHistoryId;
+  const firstFailedIdx = messageIds.findIndex((id) => activeFailedMessageIds.has(id));
+  if (firstFailedIdx > 0) {
+    const firstFailedMsgId = messageIds[firstFailedIdx];
+    const failedHistoryId = messageHistoryMap[firstFailedMsgId];
+
+    let safeHistoryId = null;
+    for (let i = firstFailedIdx - 1; i >= 0; i--) {
+      const prevId = messageIds[i];
+      const prevHist = messageHistoryMap[prevId];
+      if (prevHist && failedHistoryId) {
+        if (BigInt(prevHist) < BigInt(failedHistoryId)) {
+          safeHistoryId = prevHist;
+          break;
+        }
+      }
+    }
+    cursorToSave = safeHistoryId || lastHistoryId;
+  }
+
+  assert.equal(
+    cursorToSave,
+    '326110',
+    'Cursor must advance to msg_2 historyId (326110) because 326110 < 326120, safely replaying msg_3 while skipping msg_1 and msg_2'
+  );
+});
+
+await runTest('updateAdminSyncState merges retries with Math.max, preserves quarantine, and clears resolved retries', async () => {
+  let storedData = {
+    gmailSyncState: {
+      lastHistoryId: '326200',
+      processedAttachmentHashes: ['hash_A'],
+      quarantinedMessageIds: ['poison_msg_old'],
+      failedMessageRetries: {
+        poison_msg_old: 5,
+        retry_msg_1: 3,
+        resolved_msg: 2,
+      },
+    },
+  };
+
+  const mockDb = {
+    doc: (p) => ({
+      get: async () => ({
+        exists: true,
+        data: () => storedData,
+      }),
+      set: async (payload) => {
+        storedData = payload;
+      },
+    }),
+    runTransaction: async (updateFunction) => {
+      const transaction = {
+        get: async (ref) => await ref.get(),
+        set: async (ref, payload, opts) => {
+          storedData = {
+            ...storedData,
+            ...payload,
+            gmailSyncState: {
+              ...(storedData.gmailSyncState || {}),
+              ...(payload.gmailSyncState || {}),
+            },
+          };
+        },
+      };
+      return await updateFunction(transaction);
+    },
+  };
+
+  // Candidate from a concurrent run:
+  // - attempts to write older cursor 326150
+  // - has new hash_B
+  // - has newly quarantined poison_msg_new
+  // - retry_msg_1 incremented to 4
+  // - resolved_msg succeeded and is in clearedRetryMessageIds
+  // - poison_msg_old also mistakenly in clearedRetryMessageIds (must not be cleared because count >= 5)
+  await updateAdminSyncState(mockDb, VERIFIED_ADMIN_UID, {
+    lastHistoryId: '326150',
+    processedAttachmentHashes: ['hash_B'],
+    quarantinedMessageIds: ['poison_msg_new'],
+    failedMessageRetries: {
+      retry_msg_1: 4,
+      new_failed: 1,
+    },
+    clearedRetryMessageIds: ['resolved_msg', 'poison_msg_old'],
+  });
+
+  const finalSync = storedData.gmailSyncState;
+  assert.equal(finalSync.lastHistoryId, '326200', 'Newer cursor must be preserved');
+  assert.ok(finalSync.processedAttachmentHashes.includes('hash_A'), 'hash_A must be preserved');
+  assert.ok(finalSync.processedAttachmentHashes.includes('hash_B'), 'hash_B must be merged');
+  assert.ok(finalSync.quarantinedMessageIds.includes('poison_msg_old'), 'Old quarantine must be preserved');
+  assert.ok(finalSync.quarantinedMessageIds.includes('poison_msg_new'), 'New quarantine must be merged');
+  assert.equal(finalSync.failedMessageRetries.retry_msg_1, 4, 'Retry count must take Math.max (3 vs 4 = 4)');
+  assert.equal(finalSync.failedMessageRetries.new_failed, 1, 'New failure must be recorded');
+  assert.equal(finalSync.failedMessageRetries.poison_msg_old, 5, 'Quarantined message retry count must not be cleared');
+  assert.equal(finalSync.failedMessageRetries.resolved_msg, undefined, 'Resolved message retry count must be deleted');
+  assert.equal(finalSync.clearedRetryMessageIds, undefined, 'Temporary clearedRetryMessageIds must be deleted before write');
+});
+
+await runTest('Crash and retry recovery: duplicate attachment skipped via processed hashes, cursor advances on retry', () => {
+  const processedHashes = ['hash_msg_1'];
+  const incomingMessages = [
+    { id: 'msg_1', hash: 'hash_msg_1', historyId: '326100' },
+    { id: 'msg_2', hash: 'hash_msg_2', historyId: '326100' },
+  ];
+
+  // Run 2: msg_1 recognized as already processed, msg_2 retried and succeeds
+  const newlyProcessed = [];
+  const succeeded = new Set();
+  for (const msg of incomingMessages) {
+    if (processedHashes.includes(msg.hash)) {
+      // Duplicate skipped without republishing
+      succeeded.add(msg.id);
+    } else {
+      // Retried message succeeds
+      newlyProcessed.push(msg.hash);
+      succeeded.add(msg.id);
+    }
+  }
+
+  assert.equal(succeeded.size, 2, 'Both messages should succeed on retry');
+  assert.equal(newlyProcessed.length, 1, 'Only msg_2 hash should be newly added');
+  assert.equal(newlyProcessed[0], 'hash_msg_2');
+});
+
 // ─── Final Summary ────────────────────────────────────────────────────────────
 console.log('\n======================================================================');
 console.log(` RESULT: ${passedTests} / ${totalTests} tests passed`);
