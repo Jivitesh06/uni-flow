@@ -55,6 +55,9 @@ async function runTest(name, fn) {
 const {
   validateParsedTimetable,
   computeAttachmentHash,
+  isTimetableSubject,
+  isTimetableFilename,
+  NON_TIMETABLE_KEYWORDS,
 } = await import('./lib/timetableValidation.mjs');
 
 const {
@@ -1653,6 +1656,196 @@ await runTest('Crash and retry recovery: duplicate attachment skipped via proces
   assert.equal(succeeded.size, 2, 'Both messages should succeed on retry');
   assert.equal(newlyProcessed.length, 1, 'Only msg_2 hash should be newly added');
   assert.equal(newlyProcessed[0], 'hash_msg_2');
+});
+
+// ─── Category 22: Placement PDF & Non-Timetable Filtering ─────────────────────
+console.log('\n--- 22. Placement PDF & Non-Timetable Filtering ---');
+
+await runTest('isTimetableSubject accepts genuine timetable subjects and rejects placement subjects', () => {
+  // Genuine timetable subjects
+  assert.equal(
+    isTimetableSubject('Time Table: BE CSE 2024 batch-5th Semester (W.e.f. October 21, 2026) || Section 5A-5G'),
+    true,
+    'Real Chitkara timetable subject must be accepted'
+  );
+  assert.equal(isTimetableSubject('Time Table - BE CSE 3rd Semester'), true);
+  assert.equal(isTimetableSubject('Time Table: 1st Year Schedule'), true);
+  assert.equal(isTimetableSubject('Time Table: BE CSE 2023 batch-7th Semester'), true);
+
+  // Placement / non-academic subjects from same sender must be rejected
+  assert.equal(
+    isTimetableSubject('Time Table: Placement drive schedule for 10 August 2026'),
+    false,
+    'Placement drive subject must be rejected'
+  );
+  assert.equal(
+    isTimetableSubject('Time Table: Infosys Placement Interview Slots'),
+    false,
+    'Placement interview subject must be rejected'
+  );
+  assert.equal(
+    isTimetableSubject('Time Table: Campus Recruitment Drive 2026'),
+    false,
+    'Recruitment drive subject must be rejected'
+  );
+  assert.equal(
+    isTimetableSubject('Time Table: Internship Guidelines & Shortlisted Candidates'),
+    false,
+    'Internship and shortlist subject must be rejected'
+  );
+  assert.equal(
+    isTimetableSubject('Time Table: Aptitude Test Seating Plan'),
+    false,
+    'Aptitude test seating plan subject must be rejected'
+  );
+  assert.equal(
+    isTimetableSubject('General Circular: Campus Holiday Notice'),
+    false,
+    'Non-timetable circular subject must be rejected'
+  );
+});
+
+await runTest('isTimetableFilename accepts genuine timetable PDFs and rejects placement/notice PDFs', () => {
+  // Genuine timetable filenames
+  assert.equal(isTimetableFilename('Time Table-BE CSE 2024 batch-5th Semester-(wef 12.10.2026).pdf'), true);
+  assert.equal(isTimetableFilename('BE CSE 1st sem.pdf'), true);
+  assert.equal(isTimetableFilename('BE CSE 3rd sem Section Wise.pdf'), true);
+  assert.equal(isTimetableFilename('TimeTable_5thSem.pdf'), true);
+  assert.equal(isTimetableFilename('BE-CSE-5A-Schedule.pdf'), true);
+
+  // Placement and non-timetable filenames must be rejected
+  assert.equal(
+    isTimetableFilename('Placement_Schedule_10_August_2026.pdf'),
+    false,
+    'Placement schedule filename must be rejected'
+  );
+  assert.equal(isTimetableFilename('Chitkara_Placement_Policy.pdf'), false);
+  assert.equal(isTimetableFilename('Campus_Drive_Guidelines.pdf'), false);
+  assert.equal(isTimetableFilename('Shortlisted_Candidates_Interview_Slots.pdf'), false);
+  assert.equal(isTimetableFilename('Company_Job_Description.pdf'), false);
+  assert.equal(isTimetableFilename('Aptitude_Test_Seating.pdf'), false);
+  assert.equal(isTimetableFilename('Circular_Notice.pdf'), false);
+  assert.equal(isTimetableFilename('Resume_Format.pdf'), false);
+  assert.equal(isTimetableFilename('Non_Academic_Document.pdf'), false);
+});
+
+await runTest('Sync loop skips placement email and placement PDF without counting validation failures', () => {
+  // Simulate sync processing of a placement message from office.cse
+  const messageInfo = {
+    messageId: 'msg_placement_001',
+    from: 'office.cse@chitkarauniversity.edu.in',
+    subject: 'Time Table: Placement drive schedule for 10 August 2026',
+    attachments: [
+      {
+        filename: 'Placement_Schedule_10_August_2026.pdf',
+        size: 50000,
+      },
+    ],
+  };
+
+  const succeededMessageIds = new Set();
+  const failedMessageIds = new Set();
+  const validationReports = [];
+  let hadFailures = false;
+
+  const env = {
+    senderEmail: 'office.cse@chitkarauniversity.edu.in',
+    subjectPrefix: 'Time Table:',
+  };
+
+  // Test email-level filtering
+  if (env.senderEmail && messageInfo.from && !messageInfo.from.toLowerCase().includes(env.senderEmail.toLowerCase())) {
+    succeededMessageIds.add(messageInfo.messageId);
+  } else if (!isTimetableSubject(messageInfo.subject, env.subjectPrefix)) {
+    // Correctly identified as placement/non-timetable subject
+    succeededMessageIds.add(messageInfo.messageId);
+  } else {
+    // Attachment-level check
+    for (const att of messageInfo.attachments) {
+      if (!isTimetableFilename(att.filename)) {
+        continue;
+      }
+      hadFailures = true;
+    }
+  }
+
+  assert.equal(succeededMessageIds.has('msg_placement_001'), true, 'Placement email must be marked as succeeded to advance cursor');
+  assert.equal(failedMessageIds.size, 0, 'No failures should be recorded for skipped placement email');
+  assert.equal(hadFailures, false, 'hadFailures must remain false');
+  assert.equal(validationReports.length, 0, 'Zero validation reports should be generated for placement email');
+});
+
+await runTest('Zero-lecture validation guard is preserved for genuine timetable PDFs', () => {
+  // Genuine timetable parse result for a section where parser found 0 lectures
+  const emptySectionParse = {
+    success: true,
+    sectionsFound: ['BE-CSE-5A'],
+    selectedSection: 'BE-CSE-5A',
+    totalLectures: 0,
+    lectures: [],
+    effectiveDate: '21-10-2026',
+  };
+
+  const validation = validateParsedTimetable(emptySectionParse, {
+    expectedSection: 'BE-CSE-5A',
+    requireEffectiveDate: true,
+  });
+
+  assert.equal(validation.valid, false, 'Section with 0 lectures in timetable must fail validation');
+  assert.ok(
+    validation.errors.some((e) => e.includes('Insufficient sessions')),
+    'Must report insufficient sessions error'
+  );
+});
+
+await runTest('Whole-document zero lectures skips non-timetable PDF while partial empty section triggers validation failure', () => {
+  // Case A: 7-page placement document where each page parsed 0 lectures
+  const placementDocParse = {
+    totalLectures: 0,
+    allSectionLectures: {
+      'Page 1': [],
+      'Page 2': [],
+      'Page 3': [],
+      'Page 4': [],
+      'Page 5': [],
+      'Page 6': [],
+      'Page 7': [],
+    },
+  };
+
+  const totalDocLecturesA = Object.values(placementDocParse.allSectionLectures).reduce(
+    (acc, sec) => acc + (sec?.length || 0),
+    0
+  );
+
+  const shouldSkipDocumentA = totalDocLecturesA === 0;
+  assert.equal(shouldSkipDocumentA, true, 'Whole document with 0 lectures across all pages must be skipped without error');
+
+  // Case B: Genuine timetable with 5A having lectures but 5B having 0 lectures
+  const timetableParse = {
+    totalLectures: 25,
+    allSectionLectures: {
+      'BE-CSE-5A': [
+        { id: 'slot1', dayOfWeek: 1, startTime: '09:00', endTime: '10:00', subjectCode: 'CS101' },
+      ],
+      'BE-CSE-5B': [],
+    },
+  };
+
+  const totalDocLecturesB = Object.values(timetableParse.allSectionLectures).reduce(
+    (acc, sec) => acc + (sec?.length || 0),
+    0
+  );
+
+  const shouldSkipDocumentB = totalDocLecturesB === 0;
+  assert.equal(shouldSkipDocumentB, false, 'Genuine timetable with lectures must not be skipped at document level');
+
+  // Section 5B within the genuine timetable must fail validation
+  const validation5B = validateParsedTimetable(
+    { success: true, totalLectures: 0, lectures: [], effectiveDate: '21-10-2026' },
+    { expectedSection: 'BE-CSE-5B' }
+  );
+  assert.equal(validation5B.valid, false, 'Section with 0 lectures in genuine timetable must fail validation');
 });
 
 // ─── Final Summary ────────────────────────────────────────────────────────────

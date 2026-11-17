@@ -69,17 +69,41 @@ export function formatRoomDisplay(normalizedRoom: string): string {
 }
 
 /**
- * Collects and deduplicates all timetable slots across every available timetable in storage and local seed.
- * Automatically discovers any newly imported or cached timetables.
+ * In-memory registry of live timetable documents from Cloud Firestore.
+ * Updated automatically whenever live Firestore snapshots arrive.
  */
-export function getAllDiscoveredTimetableDocs(): {
+let inMemoryLiveTimetableDocs: { id: string; section?: string; semester?: number; slots: any[] }[] | null = null;
+
+export function registerLiveTimetableDocs(
+  docs: { id: string; section?: string; semester?: number; slots: any[] }[]
+): void {
+  if (Array.isArray(docs) && docs.length > 0) {
+    inMemoryLiveTimetableDocs = docs;
+  }
+}
+
+export function getRegisteredLiveTimetableDocs(): { id: string; section?: string; semester?: number; slots: any[] }[] | null {
+  return inMemoryLiveTimetableDocs;
+}
+
+export function resetLiveTimetableDocsRegistry(): void {
+  inMemoryLiveTimetableDocs = null;
+}
+
+/**
+ * Collects and deduplicates all timetable slots across every available timetable in storage and local seed.
+ * Prioritizes live Firestore documents, then localStorage cache, then seeded baseline.
+ */
+export function getAllDiscoveredTimetableDocs(
+  customLiveDocs?: { id: string; section?: string; semester?: number; slots: any[] }[]
+): {
   docs: { id: string; section?: string; semester?: number; slots: any[] }[];
   isComplete: boolean;
   warning?: string;
 } {
   const docsMap = new Map<string, { id: string; section?: string; semester?: number; slots: any[] }>();
 
-  // 1. Ingest all seeded shared timetables across all semesters (1, 3, 5, etc.)
+  // 1. Ingest all seeded shared timetables across all semesters (1, 3, 5, etc.) as foundational baseline
   if (SEEDED_SHARED_TIMETABLES && typeof SEEDED_SHARED_TIMETABLES === 'object') {
     for (const [id, doc] of Object.entries(SEEDED_SHARED_TIMETABLES)) {
       if (doc && Array.isArray(doc.slots)) {
@@ -116,6 +140,21 @@ export function getAllDiscoveredTimetableDocs(): {
       }
     } catch {
       // LocalStorage inspection safe fallback
+    }
+  }
+
+  // 3. Highest priority: Live database documents from Firestore (passed directly or in-memory)
+  const effectiveLiveDocs = customLiveDocs || inMemoryLiveTimetableDocs;
+  if (Array.isArray(effectiveLiveDocs) && effectiveLiveDocs.length > 0) {
+    for (const doc of effectiveLiveDocs) {
+      if (doc && Array.isArray(doc.slots)) {
+        docsMap.set(doc.id, {
+          id: doc.id,
+          section: doc.section || doc.id.split('_').pop(),
+          semester: doc.semester,
+          slots: doc.slots,
+        });
+      }
     }
   }
 
@@ -211,7 +250,7 @@ export function calculateFreeClassrooms(
       if (!slot.room || !slot.startTime || !slot.endTime) continue;
 
       const roomNorm = normalizeRoomIdentifier(slot.room);
-      if (!roomNorm) continue;
+      if (!roomNorm || roomNorm === 'TBA' || roomNorm === 'ONLINE' || roomNorm === 'NONE') continue;
 
       const sMin = timeToMinutes(slot.startTime);
       const eMin = timeToMinutes(slot.endTime);

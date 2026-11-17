@@ -47,6 +47,91 @@ const COLLEGE_END_HOUR = 19;   // 19:00
 /** Minimum meaningful change to trigger a new publish */
 const MIN_CHANGE_THRESHOLD_PERCENT = 5;
 
+// ─── Timetable vs Non-Timetable / Placement Classification ───────────────────
+
+/**
+ * Keywords indicating placement, recruitment, career, or non-timetable content.
+ * Emails or attachments matching these must NOT be treated as timetable candidates.
+ */
+export const NON_TIMETABLE_KEYWORDS = [
+  'placement',
+  'placements',
+  'placement drive',
+  'placement process',
+  'campus drive',
+  'recruitment',
+  'recruiter',
+  'internship',
+  'interview',
+  'shortlist',
+  'shortlisted',
+  'aptitude',
+  'aptitude test',
+  'training & placement',
+  'training and placement',
+  't&p',
+  'company visit',
+  'hiring',
+  'job description',
+  'offer letter',
+  'seating plan',
+  'datesheet',
+  'date sheet',
+];
+
+export const NON_TIMETABLE_PATTERN = new RegExp(
+  `(?<![a-zA-Z0-9])(?:${NON_TIMETABLE_KEYWORDS.map((k) => {
+    const escaped = k.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
+    return escaped.replace(/\\s+/g, '[\\s_-]+');
+  }).join('|')})(?![a-zA-Z0-9])`,
+  'i'
+);
+
+export const TIMETABLE_FILENAME_PATTERN = /(?:time[\s_-]*table|timetable|schedule|be[\s_-]*cse|semester|sem|section|sec)/i;
+
+/**
+ * Checks whether an email subject indicates a genuine timetable email.
+ * Rejects subjects containing placement, recruitment, or non-academic terms.
+ *
+ * @param {string} subject
+ * @param {string} [requiredPrefix] - Optional prefix requirement (e.g. 'Time Table:')
+ * @returns {boolean}
+ */
+export function isTimetableSubject(subject, requiredPrefix = 'Time Table:') {
+  if (!subject || typeof subject !== 'string') return false;
+  const clean = subject.trim();
+  if (NON_TIMETABLE_PATTERN.test(clean)) {
+    return false;
+  }
+  if (requiredPrefix) {
+    const basePrefix = requiredPrefix.replace(/[:\s-]+$/, '').trim().toLowerCase();
+    if (!clean.toLowerCase().includes(basePrefix)) {
+      return false;
+    }
+  } else if (!/(?:time[\s_-]*table|timetable)/i.test(clean)) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Checks whether an attachment filename corresponds to a timetable PDF.
+ * Rejects filenames containing placement, recruitment, guidelines, policies, or notices.
+ *
+ * @param {string} filename
+ * @returns {boolean}
+ */
+export function isTimetableFilename(filename) {
+  if (!filename || typeof filename !== 'string') return false;
+  const clean = filename.trim();
+  if (!clean.toLowerCase().endsWith('.pdf')) return false;
+  if (NON_TIMETABLE_PATTERN.test(clean)) return false;
+  if (/(?<![a-zA-Z0-9])(?:policy|policies|guideline|guidelines|circular|notice|rules|resume|cv|jd)(?![a-zA-Z0-9])/i.test(clean)) {
+    return false;
+  }
+  return TIMETABLE_FILENAME_PATTERN.test(clean);
+}
+
 // ─── Core Validation ──────────────────────────────────────────────────────────
 
 /**

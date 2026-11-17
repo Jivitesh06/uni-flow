@@ -24,7 +24,7 @@ import { calculateFreeClassrooms } from '../lib/roomAvailability';
 import { getGreeting } from '../lib/greeting';
 import { LiveClassCard } from '../components/timetable/LiveClassCard';
 import { FreeClassroomCard } from '../components/timetable/FreeClassroomCard';
-import { useSharedTimetable } from '../hooks/useSharedTimetable';
+import { useSharedTimetable, useAllSharedTimetables } from '../hooks/useSharedTimetable';
 import { useClassReminder } from '../hooks/useClassReminder';
 import { ClassReminderBanner } from '../components/notifications/ClassReminderBanner';
 import {
@@ -281,13 +281,54 @@ export function DashboardPage() {
     return calculateLiveClassState(studentApplicableSlots, now);
   }, [studentApplicableSlots, now]);
 
+  // Live departmental timetables from Cloud Firestore sharedTimetables collection
+  const { allDocs: allLiveSharedTimetables } = useAllSharedTimetables();
+
+  // Combine live shared timetables across all sections with current user's personal effective slots
+  const combinedRoomTimetableDocs = useMemo(() => {
+    const currentGroupId = groupParams ? buildSharedGroupId(groupParams) : null;
+    if (!allLiveSharedTimetables || allLiveSharedTimetables.length === 0) {
+      if (effectiveSlots.length > 0 && currentGroupId) {
+        return [{ id: currentGroupId, section: userProfile?.section || 'C', semester: userProfile?.semester || 5, slots: effectiveSlots }];
+      }
+      return undefined;
+    }
+
+    if (!currentGroupId || effectiveSlots.length === 0) {
+      return allLiveSharedTimetables;
+    }
+
+    let foundCurrent = false;
+    const mapped: { id: string; section?: string; semester?: number; slots: any[] }[] = allLiveSharedTimetables.map((doc) => {
+      if (doc.id === currentGroupId) {
+        foundCurrent = true;
+        return {
+          ...doc,
+          slots: effectiveSlots,
+        };
+      }
+      return doc;
+    });
+
+    if (!foundCurrent) {
+      mapped.push({
+        id: currentGroupId,
+        section: userProfile?.section || 'C',
+        semester: userProfile?.semester || 5,
+        slots: effectiveSlots,
+      });
+    }
+
+    return mapped;
+  }, [allLiveSharedTimetables, groupParams, effectiveSlots, userProfile?.section, userProfile?.semester]);
+
   const [isRefreshingRooms, setIsRefreshingRooms] = useState(false);
   const [roomRefreshTicker, setRoomRefreshTicker] = useState(0);
 
   const roomInspection = useMemo(() => {
-    // Re-evaluates based on current time or manual refresh
-    return calculateFreeClassrooms(now);
-  }, [now, roomRefreshTicker]);
+    // Evaluates with latest database timetables in real-time
+    return calculateFreeClassrooms(now, combinedRoomTimetableDocs);
+  }, [now, combinedRoomTimetableDocs, roomRefreshTicker]);
 
   function handleRefreshRooms() {
     setIsRefreshingRooms(true);

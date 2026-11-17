@@ -27,17 +27,91 @@ export const CANONICAL_VAPID_SUBJECT =
   'mailto:notifications@uniflow-cu.web.app';
 
 /**
- * Formats a Date to YYYY-MM-DD
+ * Extracts date and time components explicitly in Asia/Kolkata (IST) timezone.
+ * Eliminates UTC vs. IST discrepancies on GitHub-hosted and cloud runners.
+ *
+ * @param {Date|string|number} [date=new Date()]
+ * @returns {{
+ *   year: number,
+ *   month: number,
+ *   day: number,
+ *   hour: number,
+ *   minute: number,
+ *   second: number,
+ *   dayOfWeek: number, // 0=Sun, 1=Mon, ..., 6=Sat
+ *   dateKey: string,   // YYYY-MM-DD
+ *   timeKey: string,   // HH:mm
+ *   minutesIntoDay: number
+ * }}
  */
-export function getLocalDateKey(date = new Date()) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+export function getIstParts(date = new Date()) {
+  const d = date instanceof Date ? date : new Date(date);
+  const validDate = isNaN(d.getTime()) ? new Date() : d;
+
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  });
+
+  const parts = formatter.formatToParts(validDate);
+  const partMap = {};
+  for (const p of parts) {
+    partMap[p.type] = p.value;
+  }
+
+  const year = parseInt(partMap.year, 10);
+  const month = parseInt(partMap.month, 10);
+  const day = parseInt(partMap.day, 10);
+  const hour = parseInt(partMap.hour, 10);
+  const minute = parseInt(partMap.minute, 10);
+  const second = parseInt(partMap.second, 10);
+
+  const weekdayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const dayOfWeek = weekdayMap[partMap.weekday] ?? 0;
+
+  const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const timeKey = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+
+  return {
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    second,
+    dayOfWeek,
+    dateKey,
+    timeKey,
+    minutesIntoDay: hour * 60 + minute + second / 60,
+  };
 }
 
 /**
- * Constructs canonical deterministic notification ID for reminders
+ * Formats a Date to YYYY-MM-DD strictly in Asia/Kolkata (IST)
+ */
+export function getLocalDateKey(date = new Date()) {
+  if (typeof date === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+    const parsed = new Date(date);
+    if (!isNaN(parsed.getTime())) {
+      date = parsed;
+    } else {
+      return date;
+    }
+  }
+  return getIstParts(date).dateKey;
+}
+
+/**
+ * Constructs canonical deterministic notification ID for reminders.
+ * Guaranteed to use the IST date key and slot start time.
  */
 export function buildDeterministicNotificationId(
   uid,
@@ -55,24 +129,30 @@ export function buildDeterministicNotificationId(
 }
 
 /**
- * Evaluates whether a timetable slot starts within the target 10-minute reminder window
- * (window: between 8 and 12 minutes from the evaluation timestamp).
+ * Evaluates whether a timetable slot starts within the reminder window
+ * in Asia/Kolkata timezone.
+ * Default window [2, 15] provides resilience against runner delays
+ * while preventing stale reminders for classes that have already started.
  */
-export function isSlotIn10MinWindow(slotStartTime, now = new Date(), windowStartMin = 8, windowEndMin = 12) {
+export function isSlotIn10MinWindow(
+  slotStartTime,
+  now = new Date(),
+  windowStartMin = 2,
+  windowEndMin = 15
+) {
   if (!slotStartTime) return false;
   const [sh, sm] = slotStartTime.split(':').map(Number);
-  const slotDate = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-    sh,
-    sm,
-    0,
-    0
-  );
+  if (isNaN(sh) || isNaN(sm)) return false;
 
-  const diffMs = slotDate.getTime() - now.getTime();
-  const diffMinutes = diffMs / 60000;
+  const ist = getIstParts(now);
+  const slotMinutes = sh * 60 + sm;
+  const nowMinutes = ist.hour * 60 + ist.minute + (ist.second || 0) / 60;
+
+  let diffMinutes = slotMinutes - nowMinutes;
+  // Handle midnight boundaries
+  if (diffMinutes < -720) diffMinutes += 1440;
+  if (diffMinutes > 720) diffMinutes -= 1440;
+
   return diffMinutes >= windowStartMin && diffMinutes <= windowEndMin;
 }
 
@@ -84,6 +164,9 @@ export function buildFcmPayload(slot, tokens, minutesLeft = CANONICAL_REMINDER_O
   const body = `${slot.startTime} – ${slot.endTime} | Room: ${slot.room || 'TBA'}${
     slot.faculty ? ` | Faculty: ${slot.faculty}` : ''
   }`;
+  const slotIdentifier = slot.id || slot.subjectCode || 'class';
+  const startIdentifier = slot.startTime ? slot.startTime.replace(/[^a-zA-Z0-9]/g, '') : 'time';
+  const tag = `uniflow-reminder-${slotIdentifier}-${startIdentifier}`;
 
   return {
     notification: {
@@ -96,6 +179,7 @@ export function buildFcmPayload(slot, tokens, minutesLeft = CANONICAL_REMINDER_O
       subjectCode: String(slot.subjectCode || ''),
       startTime: String(slot.startTime || ''),
       url: '/timetable',
+      tag,
     },
     tokens,
   };
@@ -109,6 +193,9 @@ export function buildWebPushPayload(slot, minutesLeft = CANONICAL_REMINDER_OFFSE
   const body = `${slot.startTime} – ${slot.endTime} | Room: ${slot.room || 'TBA'}${
     slot.faculty ? ` | Faculty: ${slot.faculty}` : ''
   }`;
+  const slotIdentifier = slot.id || slot.subjectCode || 'class';
+  const startIdentifier = slot.startTime ? slot.startTime.replace(/[^a-zA-Z0-9]/g, '') : 'time';
+  const tag = `uniflow-reminder-${slotIdentifier}-${startIdentifier}`;
 
   return {
     title,
@@ -116,11 +203,13 @@ export function buildWebPushPayload(slot, minutesLeft = CANONICAL_REMINDER_OFFSE
     icon: '/icons/icon-192x192.png',
     badge: '/favicon.svg',
     url: '/timetable',
+    tag,
     notification: {
       title,
       body,
       icon: '/icons/icon-192x192.png',
       badge: '/favicon.svg',
+      tag,
     },
     data: {
       type: 'class_reminder',
@@ -128,13 +217,36 @@ export function buildWebPushPayload(slot, minutesLeft = CANONICAL_REMINDER_OFFSE
       subjectCode: String(slot.subjectCode || ''),
       startTime: String(slot.startTime || ''),
       url: '/timetable',
+      tag,
     },
   };
 }
 
 /**
+ * Normalizes a base64 / base64url key string by stripping whitespace,
+ * surrounding quotes, and standardizing padding and URL-safe characters.
+ *
+ * @param {string} rawKey
+ * @returns {string}
+ */
+export function normalizeBase64Key(rawKey) {
+  if (!rawKey || typeof rawKey !== 'string') return '';
+  let str = rawKey.trim();
+  if ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'"))) {
+    str = str.slice(1, -1).trim();
+  }
+  return str.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+/**
  * Cryptographically validates that a P-256 VAPID private key matches the public key
  * using Node's native crypto without exposing secret values.
+ *
+ * Enforces:
+ * 1. Private key decodes to exactly 32 bytes (256-bit scalar).
+ * 2. If a 65-byte public key was mistakenly supplied, explains root cause clearly.
+ * 3. Public key is a valid 65-byte uncompressed P-256 point starting with 0x04.
+ * 4. Derived public key matches configured public key.
  */
 export function validateVapidKeypair(publicKey, privateKey) {
   if (!publicKey) {
@@ -145,21 +257,41 @@ export function validateVapidKeypair(publicKey, privateKey) {
   }
 
   try {
-    const privBuf = Buffer.from(privateKey, 'base64url');
-    if (privBuf.length !== 32) {
-      return { valid: false, error: `Invalid VAPID private key length (${privBuf.length} bytes, expected 32 bytes)` };
+    const cleanPriv = normalizeBase64Key(privateKey);
+    const privBuf = Buffer.from(cleanPriv, 'base64url');
+
+    if (privBuf.length === 65) {
+      return {
+        valid: false,
+        error:
+          'Invalid VAPID private key length (65 bytes, expected 32 bytes). ' +
+          'A 65-byte uncompressed P-256 public key was mistakenly supplied in place of the private key. ' +
+          'VAPID_PRIVATE_KEY must be the 32-byte private key scalar.',
+      };
     }
 
-    const pubBuf = Buffer.from(publicKey, 'base64url');
+    if (privBuf.length !== 32) {
+      return {
+        valid: false,
+        error: `Invalid VAPID private key length (${privBuf.length} bytes, expected 32 bytes)`,
+      };
+    }
+
+    const cleanPub = normalizeBase64Key(publicKey);
+    const pubBuf = Buffer.from(cleanPub, 'base64url');
+
     if (pubBuf.length !== 65 || pubBuf[0] !== 0x04) {
-      return { valid: false, error: `Invalid VAPID public key format (${pubBuf.length} bytes, expected 65-byte uncompressed point starting with 0x04)` };
+      return {
+        valid: false,
+        error: `Invalid VAPID public key format (${pubBuf.length} bytes, expected 65-byte uncompressed point starting with 0x04)`,
+      };
     }
 
     const ecdh = crypto.createECDH('prime256v1');
     ecdh.setPrivateKey(privBuf);
     const derivedPub = ecdh.getPublicKey('base64url');
 
-    if (derivedPub !== publicKey) {
+    if (derivedPub !== cleanPub) {
       return { valid: false, error: 'VAPID private key does not match the configured public key' };
     }
 
@@ -176,16 +308,20 @@ export async function sendWebPushNotification(subscription, payload, vapidOption
   const webpushModule = await import('web-push');
   const webpush = webpushModule.default || webpushModule;
 
-  const pub = vapidOptions.publicKey || process.env.VAPID_PUBLIC_KEY || CANONICAL_VAPID_PUBLIC_KEY;
-  const priv = vapidOptions.privateKey || process.env.VAPID_PRIVATE_KEY;
-  const subject = vapidOptions.subject || process.env.VAPID_SUBJECT || CANONICAL_VAPID_SUBJECT;
+  const rawPub = vapidOptions.publicKey || process.env.VAPID_PUBLIC_KEY || CANONICAL_VAPID_PUBLIC_KEY;
+  const rawPriv = vapidOptions.privateKey || process.env.VAPID_PRIVATE_KEY;
+  const rawSubject = vapidOptions.subject || process.env.VAPID_SUBJECT || CANONICAL_VAPID_SUBJECT;
 
-  if (!priv) {
+  if (!rawPriv) {
     throw new Error(
       '[UniFlow Dispatcher] Cannot dispatch Web Push notification: VAPID_PRIVATE_KEY is missing. ' +
       'Please configure the VAPID_PRIVATE_KEY secret/environment variable.'
     );
   }
+
+  const pub = normalizeBase64Key(rawPub);
+  const priv = normalizeBase64Key(rawPriv);
+  const subject = String(rawSubject).trim().replace(/^["']|["']$/g, '');
 
   webpush.setVapidDetails(subject, pub, priv);
 
@@ -388,15 +524,17 @@ export async function runReminderDispatcher(options = {}) {
     vapidOptions = {},
     testRecipientUid = null,
     isTestPush = false,
+    sendWebPushFn = sendWebPushNotification,
   } = options;
 
   // Resolve effective execution mode
   const effectiveMode = dryRun || mode === 'dry-run' ? 'dry-run' : (mode === 'test-push' || isTestPush ? 'test-push' : 'live');
+  const ist = getIstParts(now);
 
   console.log('============================================================');
   console.log(`[UniFlow Dispatcher] Mode: ${effectiveMode.toUpperCase()}`);
-  console.log(`[UniFlow Dispatcher] Timestamp: ${now.toISOString()} (Local: ${now.toLocaleTimeString()})`);
-  console.log(`[UniFlow Dispatcher] Target day of week: ${now.getDay()}`);
+  console.log(`[UniFlow Dispatcher] Timestamp (UTC): ${now.toISOString()} | IST: ${ist.dateKey} ${ist.timeKey}`);
+  console.log(`[UniFlow Dispatcher] Target day of week: ${ist.dayOfWeek}`);
   if (testRecipientUid) {
     console.log(`[UniFlow Dispatcher] Target Test Recipient UID: ${testRecipientUid}`);
   }
@@ -529,7 +667,7 @@ export async function runReminderDispatcher(options = {}) {
     for (const sub of pushSubscriptions) {
       testPushAttempts++;
       try {
-        await sendWebPushNotification(
+        await sendWebPushFn(
           { endpoint: sub.endpoint, keys: sub.keys },
           testPayload,
           { ...vapidOptions, publicKey: vapidPub, privateKey: vapidPriv }
@@ -616,12 +754,12 @@ export async function runReminderDispatcher(options = {}) {
         continue;
       }
 
-      // 3. Read personal timetable slots for today
+      // 3. Read personal timetable slots for today in Asia/Kolkata timezone
       const timetableSnap = await db
         .collection('users')
         .doc(uid)
         .collection('timetable')
-        .where('dayOfWeek', '==', now.getDay())
+        .where('dayOfWeek', '==', ist.dayOfWeek)
         .where('isActive', '==', true)
         .get();
 
@@ -638,7 +776,7 @@ export async function runReminderDispatcher(options = {}) {
           if (sharedDoc.exists) {
             const sharedData = sharedDoc.data();
             const groupSlots = (sharedData.slots || []).filter(
-              (s) => s.dayOfWeek === now.getDay() && s.isActive !== false
+              (s) => s.dayOfWeek === ist.dayOfWeek && s.isActive !== false
             );
             // Filter by student group (G1/G2) if applicable
             const studentGroup = userData.studentGroup || 'ALL';
@@ -678,7 +816,7 @@ export async function runReminderDispatcher(options = {}) {
             for (const sub of pushSubscriptions) {
               pushAttempts++;
               try {
-                await sendWebPushNotification(
+                await sendWebPushFn(
                   {
                     endpoint: sub.endpoint,
                     keys: sub.keys,
@@ -754,7 +892,7 @@ export async function runReminderDispatcher(options = {}) {
                 read: false,
                 slotId: slot.id || null,
                 subjectCode: slot.subjectCode || null,
-                classDate: getLocalDateKey(now),
+                classDate: ist.dateKey,
                 reminderOffset: CANONICAL_REMINDER_OFFSET,
                 source: 'background_push_dispatcher',
                 createdAt: new Date(),
@@ -780,6 +918,8 @@ export async function runReminderDispatcher(options = {}) {
     finalStatus = 'dry_run_complete';
   } else if (eligibleCount === 0) {
     finalStatus = 'success_no_eligible_reminders';
+  } else if (pushAttempts === 0 && alreadyRecordedCount === 0) {
+    finalStatus = 'success_no_registered_subscriptions';
   } else if (failedSends > 0 && successfulSends === 0) {
     finalStatus = 'failed_all_pushes';
   } else if (failedSends > 0 && successfulSends > 0) {
@@ -801,9 +941,40 @@ export async function runReminderDispatcher(options = {}) {
     fcmTokensPruned,
     dispatchedCount: totalDispatched,
     timestamp: now.toISOString(),
+    istDateKey: ist.dateKey,
+    istTimeKey: ist.timeKey,
   };
 
   console.log('[UniFlow Dispatcher] Run summary:', summary);
+
+  // Write markdown step summary if running inside GitHub Actions
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    try {
+      const summaryMarkdown = [
+        '### 🔔 UniFlow Class Reminders Dispatcher Summary',
+        '',
+        `| Metric | Value |`,
+        `| :--- | :--- |`,
+        `| **Status** | \`${summary.status}\` |`,
+        `| **Mode** | \`${summary.mode.toUpperCase()}\` |`,
+        `| **Timestamp (UTC)** | \`${summary.timestamp}\` |`,
+        `| **Timestamp (IST)** | \`${ist.dateKey} ${ist.timeKey}\` |`,
+        `| **Users Evaluated** | ${summary.totalUsersEvaluated} |`,
+        `| **Eligible Class Reminders** | ${summary.eligibleCount} |`,
+        `| **Already Dispatched (Deduplicated)** | ${summary.alreadyRecordedCount} |`,
+        `| **Push Attempts** | ${summary.pushAttempts} |`,
+        `| **Successful Sends** | ${summary.successfulSends} |`,
+        `| **Failed Sends** | ${summary.failedSends} |`,
+        `| **Expired Subscriptions Pruned** | ${summary.expiredSubscriptionsPruned} |`,
+        `| **Invalid FCM Tokens Pruned** | ${summary.fcmTokensPruned} |`,
+        '',
+      ].join('\n');
+      fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summaryMarkdown);
+    } catch (summaryErr) {
+      console.warn('[UniFlow Dispatcher] Failed to write GitHub step summary:', summaryErr.message);
+    }
+  }
+
   return summary;
 }
 

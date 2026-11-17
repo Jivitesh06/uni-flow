@@ -13,6 +13,8 @@ import {
   normalizeRoomIdentifier,
   extractKnownRoomInventory,
   getAllDiscoveredTimetableDocs,
+  registerLiveTimetableDocs,
+  resetLiveTimetableDocsRegistry,
 } from '../src/lib/roomAvailability.ts';
 
 console.log('======================================================================');
@@ -270,6 +272,169 @@ runTest('Future timetable additions are automatically aggregated without modifyi
   const res = calculateFreeClassrooms(new Date(2026, 9, 12, 10, 0), dynamicDocs);
   assert.ok(res.allRooms.some(r => r.room === 'NEWLAB99'), 'Should automatically discover and include NEWLAB99');
   assert.equal(res.allRooms.find(r => r.room === 'NEWLAB99')?.isFree, false);
+});
+
+runTest('Live database timetable updates override older versions and dynamically swap room occupancy', () => {
+  // Baseline: Section 5A originally occupied RJ204R at 14:30 on Monday (dayOfWeek = 1)
+  // Updated DB timetable: Section 5A shifted to RJ310R at 14:30, making RJ204R free!
+  const updatedDbDocs = [
+    {
+      id: 'chitkara-university_be-cse_2024_sem5_be-cse-5a',
+      section: 'BE-CSE-5A',
+      semester: 5,
+      version: 2,
+      slots: [
+        {
+          id: 'v2_slot_1',
+          subjectCode: 'ADI-FA',
+          room: 'RJ310R', // Shifted from RJ204R to RJ310R
+          dayOfWeek: 1,
+          startTime: '14:30',
+          endTime: '16:10',
+          isActive: true,
+        },
+      ],
+    },
+  ];
+
+  // At 15:00 on Monday (dayOfWeek = 1)
+  const mondayAt3pm = new Date(2026, 9, 12, 15, 0); // Monday Oct 12, 2026 15:00
+  const result = calculateFreeClassrooms(mondayAt3pm, updatedDbDocs);
+
+  // RJ310R must be occupied by Section 5A
+  const rj310r = result.allRooms.find(r => r.room === 'RJ310R');
+  assert.ok(rj310r, 'RJ310R should be tracked');
+  assert.equal(rj310r.isFree, false, 'RJ310R must be occupied by the updated schedule');
+  assert.equal(rj310r.currentClass?.subjectCode, 'ADI-FA');
+  assert.equal(rj310r.currentClass?.section, 'BE-CSE-5A');
+  assert.equal(rj310r.currentClass?.endTime, '16:10');
+});
+
+runTest('In-memory live doc registry automatically supplies updated DB timetables to calculateFreeClassrooms', () => {
+  try {
+    const liveDocsFromDb = [
+      {
+        id: 'chitkara-university_be-cse_2024_sem5_be-cse-5c',
+        section: 'BE-CSE-5C',
+        semester: 5,
+        version: 3,
+        slots: [
+          {
+            id: 'live_slot_5c',
+            subjectCode: 'CLOUD-LAB',
+            room: 'LAB_CL99',
+            dayOfWeek: 2, // Tuesday
+            startTime: '10:00',
+            endTime: '11:40',
+            isActive: true,
+          },
+        ],
+      },
+    ];
+
+    // Register live docs from Firestore
+    registerLiveTimetableDocs(liveDocsFromDb);
+
+    // Call calculateFreeClassrooms with NO custom docs argument (mirrors global UI callers)
+    const tuesdayAt1030 = new Date(2026, 9, 13, 10, 30); // Tuesday 10:30
+    const result = calculateFreeClassrooms(tuesdayAt1030);
+
+    const cl99 = result.allRooms.find(r => r.room === 'LABCL99');
+    assert.ok(cl99, 'LABCL99 should be tracked from registered live docs');
+    assert.equal(cl99.isFree, false, 'LABCL99 must be occupied by live CLOUD-LAB session');
+    assert.equal(cl99.currentClass?.subjectCode, 'CLOUD-LAB');
+  } finally {
+    resetLiveTimetableDocsRegistry();
+  }
+});
+
+runTest('Cancelled or inactive classes (isActive: false) in updated DB timetable free up the room immediately', () => {
+  const cancelledDoc = [
+    {
+      id: 'mock_cancelled',
+      section: 'BE-CSE-5B',
+      semester: 5,
+      slots: [
+        {
+          subjectCode: 'CANCELLED-LEC',
+          room: 'RJ204R',
+          dayOfWeek: 3, // Wednesday
+          startTime: '09:00',
+          endTime: '09:50',
+          isActive: false, // Class cancelled in updated DB timetable
+        },
+      ],
+    },
+  ];
+
+  const wednesdayAt930 = new Date(2026, 9, 14, 9, 30);
+  const result = calculateFreeClassrooms(wednesdayAt930, cancelledDoc);
+  const rj204r = result.allRooms.find(r => r.room === 'RJ204R');
+  assert.ok(rj204r);
+  assert.equal(rj204r.isFree, true, 'Inactive/cancelled class must leave room free');
+});
+
+runTest('Free room inspection calculates correct nextClass subject, time, and remaining duration', () => {
+  const scheduleWithGap = [
+    {
+      id: 'mock_gap_schedule',
+      section: 'BE-CSE-5A',
+      slots: [
+        {
+          subjectCode: 'NETWORKS',
+          room: 'RJ309R',
+          dayOfWeek: 4, // Thursday
+          startTime: '14:30',
+          endTime: '15:20',
+          isActive: true,
+        },
+      ],
+    },
+  ];
+
+  // At 12:00 on Thursday (2h 30m = 150m before class)
+  const thursdayAtNoon = new Date(2026, 9, 15, 12, 0);
+  const result = calculateFreeClassrooms(thursdayAtNoon, scheduleWithGap);
+  const rj309r = result.allRooms.find(r => r.room === 'RJ309R');
+
+  assert.ok(rj309r);
+  assert.equal(rj309r.isFree, true);
+  assert.equal(rj309r.nextClass?.subjectCode, 'NETWORKS');
+  assert.equal(rj309r.nextClass?.startTime, '14:30');
+  assert.equal(rj309r.freeDurationMinutes, 150); // 12:00 to 14:30 = 150 minutes
+});
+
+runTest('Non-physical virtual room codes (TBA, ONLINE, NONE) are never tracked as physical rooms', () => {
+  const virtualDoc = [
+    {
+      id: 'mock_virtual',
+      section: 'BE-CSE-1A',
+      slots: [
+        {
+          subjectCode: 'MOOC101',
+          room: 'ONLINE',
+          dayOfWeek: 1,
+          startTime: '09:00',
+          endTime: '10:00',
+          isActive: true,
+        },
+        {
+          subjectCode: 'SEMINAR',
+          room: 'TBA',
+          dayOfWeek: 1,
+          startTime: '10:00',
+          endTime: '11:00',
+          isActive: true,
+        },
+      ],
+    },
+  ];
+
+  const rooms = extractKnownRoomInventory(virtualDoc);
+  assert.equal(rooms.length, 0, 'Virtual rooms must be excluded from inventory');
+
+  const result = calculateFreeClassrooms(new Date(2026, 9, 12, 9, 30), virtualDoc);
+  assert.ok(!result.allRooms.some(r => r.room === 'ONLINE' || r.room === 'TBA'));
 });
 
 console.log('\n======================================================================');

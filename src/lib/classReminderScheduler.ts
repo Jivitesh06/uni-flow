@@ -17,7 +17,59 @@ const DISMISSED_KEY_PREFIX = 'uniflow_dismissed_notifications_';
 const inFlightDispatches = new Set<string>();
 
 /**
- * Formats a Date object to YYYY-MM-DD for stable daily deduplication keys
+ * Extracts date and time components explicitly in Asia/Kolkata (IST) timezone.
+ */
+export function getIstParts(date: Date | string | number = new Date()) {
+  const d = date instanceof Date ? date : new Date(date);
+  const validDate = isNaN(d.getTime()) ? new Date() : d;
+
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  });
+
+  const parts = formatter.formatToParts(validDate);
+  const partMap: Record<string, string> = {};
+  for (const p of parts) {
+    partMap[p.type] = p.value;
+  }
+
+  const year = parseInt(partMap.year, 10);
+  const month = parseInt(partMap.month, 10);
+  const day = parseInt(partMap.day, 10);
+  const hour = parseInt(partMap.hour, 10);
+  const minute = parseInt(partMap.minute, 10);
+  const second = parseInt(partMap.second, 10);
+
+  const weekdayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const dayOfWeek = weekdayMap[partMap.weekday] ?? 0;
+
+  const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const timeKey = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+
+  return {
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    second,
+    dayOfWeek,
+    dateKey,
+    timeKey,
+    minutesIntoDay: hour * 60 + minute + second / 60,
+  };
+}
+
+/**
+ * Formats a Date object to YYYY-MM-DD strictly in Asia/Kolkata (IST)
  */
 export function getLocalDateKey(date: Date | string = new Date()): string {
   if (typeof date === 'string') {
@@ -29,10 +81,7 @@ export function getLocalDateKey(date: Date | string = new Date()): string {
       return date;
     }
   }
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  return getIstParts(date).dateKey;
 }
 
 /**
@@ -342,11 +391,15 @@ export async function dispatchClassReminderNotification(
       slot.faculty ? ` | Faculty: ${slot.faculty}` : ''
     }`;
 
+    const slotIdentifier = slot.id || slot.subjectCode || 'class';
+    const startIdentifier = slot.startTime ? slot.startTime.replace(/[^a-zA-Z0-9]/g, '') : 'time';
+    const tag = `uniflow-reminder-${slotIdentifier}-${startIdentifier}`;
+
     const options = {
       body,
       icon: '/icons/icon-192x192.png',
       badge: '/favicon.svg',
-      tag: `uniflow-class-reminder-${slot.id || slot.subjectCode}-${slot.startTime}`,
+      tag,
       renotify: true,
       requireInteraction: true,
       data: {
@@ -354,6 +407,7 @@ export async function dispatchClassReminderNotification(
         classId: slot.id,
         startTime: slot.startTime,
         subjectCode: slot.subjectCode,
+        tag,
       },
     } as NotificationOptions & { renotify?: boolean };
 
@@ -598,15 +652,42 @@ export async function registerPushDeviceToken(uid: string): Promise<string | nul
       CANONICAL_VAPID_PUBLIC_KEY;
 
     // 1. Standard Web Push Subscription via PushManager
-    if ('pushManager' in reg) {
+    if ('pushManager' in reg && envVapid) {
       try {
         let sub = await reg.pushManager.getSubscription();
+        const targetServerKeyBytes = urlBase64ToUint8Array(envVapid);
 
-        if (!sub && envVapid) {
+        // Check if existing subscription was created with a different VAPID key
+        let needsResubscribe = false;
+        if (sub && sub.options && sub.options.applicationServerKey) {
+          const currentKeyBytes = new Uint8Array(sub.options.applicationServerKey);
+          if (currentKeyBytes.length !== targetServerKeyBytes.length) {
+            needsResubscribe = true;
+          } else {
+            for (let i = 0; i < currentKeyBytes.length; i++) {
+              if (currentKeyBytes[i] !== targetServerKeyBytes[i]) {
+                needsResubscribe = true;
+                break;
+              }
+            }
+          }
+        }
+
+        if (needsResubscribe && sub) {
+          console.info('[UniFlow] VAPID key changed; migrating Web Push subscription...');
+          try {
+            await sub.unsubscribe();
+            sub = null;
+          } catch (unsubErr) {
+            console.warn('[UniFlow] Failed to unsubscribe stale VAPID subscription:', unsubErr);
+          }
+        }
+
+        if (!sub) {
           try {
             sub = await reg.pushManager.subscribe({
               userVisibleOnly: true,
-              applicationServerKey: urlBase64ToUint8Array(envVapid),
+              applicationServerKey: targetServerKeyBytes,
             });
           } catch (subErr) {
             console.warn('Web pushManager.subscribe notice:', subErr);

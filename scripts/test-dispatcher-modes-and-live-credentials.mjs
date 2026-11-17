@@ -36,6 +36,8 @@ const {
   buildDeterministicNotificationId,
   isSlotIn10MinWindow,
   validateVapidKeypair,
+  normalizeBase64Key,
+  getIstParts,
   CANONICAL_VAPID_PUBLIC_KEY,
   CANONICAL_REMINDER_OFFSET,
 } = await import('./dispatch-class-reminders.mjs');
@@ -390,6 +392,149 @@ await runTest('Dry-run mode with live DB evaluates slots but never writes to not
   assert.equal(Object.keys(notifsObj).length, 0); // No write occurred
 });
 
+await runTest('Failed push delivery does NOT write notification record, enabling retry', async () => {
+  const slot = { id: 's-fail', startTime: '10:00', endTime: '10:50', dayOfWeek: 3, subjectName: 'Compilers', subjectCode: 'CS501' };
+  const now = new Date('2026-10-14T04:20:00.000Z'); // 09:50 IST
+  const notifsObj = {};
+
+  const mockDb = createMockFirestore({
+    users: [{ uid: 'user-retry' }],
+    subscriptionsByUser: {
+      'user-retry': [
+        {
+          id: 'sub-failing',
+          endpoint: 'https://push.example.com/wpush/v2/fail',
+          keys: { p256dh: 'test', auth: 'test' },
+        },
+      ],
+    },
+    timetableByUser: { 'user-retry': [slot] },
+    notificationsByUser: { 'user-retry': notifsObj },
+  });
+
+  const res = await runReminderDispatcher({
+    mode: 'live',
+    db: mockDb,
+    now,
+    vapidOptions: { publicKey: dynamicTestPub, privateKey: dynamicTestPriv },
+    sendWebPushFn: async () => {
+      const err = new Error('Gateway Timeout / Service Unavailable');
+      err.statusCode = 504;
+      throw err;
+    },
+  });
+
+  assert.equal(res.status, 'failed_all_pushes');
+  assert.equal(res.eligibleCount, 1);
+  assert.equal(res.pushAttempts, 1);
+  assert.equal(res.successfulSends, 0);
+  assert.equal(res.failedSends, 1);
+  assert.equal(Object.keys(notifsObj).length, 0, 'No notification doc should be saved on complete push failure');
+});
+
+await runTest('Web Push HTTP 410 / 404 prunes expired subscription from Firestore', async () => {
+  const slot = { id: 's-prune', startTime: '10:00', endTime: '10:50', dayOfWeek: 3, subjectName: 'Networks', subjectCode: 'CS502' };
+  const now = new Date('2026-10-14T04:20:00.000Z'); // 09:50 IST
+  const subsList = [
+    {
+      id: 'sub-expired-410',
+      endpoint: 'https://push.example.com/wpush/v2/gone',
+      keys: { p256dh: 'test', auth: 'test' },
+    },
+  ];
+
+  const mockDb = createMockFirestore({
+    users: [{ uid: 'user-prune' }],
+    subscriptionsByUser: { 'user-prune': subsList },
+    timetableByUser: { 'user-prune': [slot] },
+  });
+
+  const res = await runReminderDispatcher({
+    mode: 'live',
+    db: mockDb,
+    now,
+    vapidOptions: { publicKey: dynamicTestPub, privateKey: dynamicTestPriv },
+    sendWebPushFn: async () => {
+      const err = new Error('Subscription expired');
+      err.statusCode = 410;
+      throw err;
+    },
+  });
+
+  assert.equal(res.expiredSubscriptionsPruned, 1);
+  assert.equal(subsList.length, 0, 'Expired subscription should be deleted from Firestore');
+});
+
+await runTest('Web Push transient error (503) does NOT prune subscription', async () => {
+  const slot = { id: 's-transient', startTime: '10:00', endTime: '10:50', dayOfWeek: 3, subjectName: 'Networks', subjectCode: 'CS502' };
+  const now = new Date('2026-10-14T04:20:00.000Z');
+  const subsList = [
+    {
+      id: 'sub-active',
+      endpoint: 'https://push.example.com/wpush/v2/active',
+      keys: { p256dh: 'test', auth: 'test' },
+    },
+  ];
+
+  const mockDb = createMockFirestore({
+    users: [{ uid: 'user-transient' }],
+    subscriptionsByUser: { 'user-transient': subsList },
+    timetableByUser: { 'user-transient': [slot] },
+  });
+
+  const res = await runReminderDispatcher({
+    mode: 'live',
+    db: mockDb,
+    now,
+    vapidOptions: { publicKey: dynamicTestPub, privateKey: dynamicTestPriv },
+    sendWebPushFn: async () => {
+      const err = new Error('Service Unavailable');
+      err.statusCode = 503;
+      throw err;
+    },
+  });
+
+  assert.equal(res.expiredSubscriptionsPruned, 0);
+  assert.equal(subsList.length, 1, 'Subscription must remain stored after transient error');
+});
+
+await runTest('Dispatcher writes markdown summary table when GITHUB_STEP_SUMMARY is configured', async () => {
+  const tmpSummaryFile = path.join(rootDir, 'node_modules', '.tmp_test_step_summary.md');
+  process.env.GITHUB_STEP_SUMMARY = tmpSummaryFile;
+  try {
+    if (fs.existsSync(tmpSummaryFile)) fs.unlinkSync(tmpSummaryFile);
+
+    const slot = { id: 's-sum', startTime: '10:00', endTime: '10:50', dayOfWeek: 3, subjectName: 'OS', subjectCode: 'CS301' };
+    const now = new Date('2026-10-14T04:20:00.000Z');
+    const mockDb = createMockFirestore({
+      users: [{ uid: 'user-sum' }],
+      subscriptionsByUser: {
+        'user-sum': [
+          { id: 'sub-s', endpoint: 'https://push.example.com/wpush', keys: { p256dh: 'a', auth: 'b' } },
+        ],
+      },
+      timetableByUser: { 'user-sum': [slot] },
+    });
+
+    await runReminderDispatcher({
+      mode: 'live',
+      db: mockDb,
+      now,
+      vapidOptions: { publicKey: dynamicTestPub, privateKey: dynamicTestPriv },
+      sendWebPushFn: async () => ({ statusCode: 201 }),
+    });
+
+    assert.ok(fs.existsSync(tmpSummaryFile), 'Step summary file should be created');
+    const summaryContent = fs.readFileSync(tmpSummaryFile, 'utf8');
+    assert.ok(summaryContent.includes('### 🔔 UniFlow Class Reminders Dispatcher Summary'));
+    assert.ok(summaryContent.includes('| **Status** | `success` |'));
+    assert.ok(summaryContent.includes('| **Eligible Class Reminders** | 1 |'));
+  } finally {
+    delete process.env.GITHUB_STEP_SUMMARY;
+    if (fs.existsSync(tmpSummaryFile)) fs.unlinkSync(tmpSummaryFile);
+  }
+});
+
 // -----------------------------------------------------------------------------
 // 4. VAPID Key Security & Keypair Cryptographic Validation
 // -----------------------------------------------------------------------------
@@ -480,6 +625,79 @@ await runTest('DRY-RUN mode does NOT require VAPID_PRIVATE_KEY', async () => {
     vapidOptions: { privateKey: '' },
   });
   assert.equal(res.status, 'dry_run_complete');
+});
+
+await runTest('normalizeBase64Key sanitizes whitespace, quotes, url-unsafe chars, and padding', () => {
+  assert.equal(normalizeBase64Key(null), '');
+  assert.equal(normalizeBase64Key(''), '');
+  assert.equal(normalizeBase64Key('  " abc+def/ghi== "  '), 'abc-def_ghi');
+  assert.equal(normalizeBase64Key("'abc-def_ghi'"), 'abc-def_ghi');
+});
+
+await runTest('validateVapidKeypair explicitly flags 65-byte uncompressed public key supplied as private key', () => {
+  // Use dynamicTestPub (65 bytes) as the private key
+  const result = validateVapidKeypair(dynamicTestPub, dynamicTestPub);
+  assert.equal(result.valid, false);
+  assert.match(result.error, /Invalid VAPID private key length \(65 bytes, expected 32 bytes\)/);
+  assert.match(result.error, /A 65-byte uncompressed P-256 public key was mistakenly supplied/);
+  // Verify that error message never exposes the raw key
+  assert.ok(!result.error.includes(dynamicTestPub));
+});
+
+await runTest('validateVapidKeypair accepts valid keypair with surrounding quotes and whitespace', () => {
+  const quotedPriv = ` "${dynamicTestPriv}" `;
+  const quotedPub = ` '${dynamicTestPub}' `;
+  const result = validateVapidKeypair(quotedPub, quotedPriv);
+  assert.equal(result.valid, true);
+  assert.equal(result.error, null);
+});
+
+// -----------------------------------------------------------------------------
+// 4b. IST Timezone & Slot Window Mathematics
+// -----------------------------------------------------------------------------
+console.log('\n--- 4b. IST Timezone & Slot Window Mathematics ---');
+
+await runTest('getIstParts maps UTC across midnight boundary to next day in IST', () => {
+  // Sunday 19:00 UTC is Monday 00:30 IST (+5:30)
+  const utcDate = new Date('2026-10-18T19:00:00.000Z');
+  const ist = getIstParts(utcDate);
+  assert.equal(ist.dayOfWeek, 1, 'Sunday 19:00 UTC must be Monday in IST (dayOfWeek = 1)');
+  assert.equal(ist.dateKey, '2026-10-19');
+  assert.equal(ist.timeKey, '00:30');
+  assert.equal(Math.floor(ist.minutesIntoDay), 30);
+});
+
+await runTest('getIstParts maps UTC late evening correctly before IST midnight', () => {
+  // Sunday 18:29:00 UTC is Sunday 23:59:00 IST
+  const utcDate = new Date('2026-10-18T18:29:00.000Z');
+  const ist = getIstParts(utcDate);
+  assert.equal(ist.dayOfWeek, 0, 'Sunday 18:29:00 UTC must remain Sunday in IST (dayOfWeek = 0)');
+  assert.equal(ist.dateKey, '2026-10-18');
+  assert.equal(ist.timeKey, '23:59');
+  assert.equal(Math.floor(ist.minutesIntoDay), 23 * 60 + 59);
+});
+
+await runTest('isSlotIn10MinWindow evaluates IST class time against UTC Date instances', () => {
+  // Class at 10:00 IST.
+  // 10 minutes prior is 09:50 IST, which in UTC is 04:20 UTC.
+  const exactly10MinBeforeUtc = new Date('2026-10-14T04:20:00.000Z');
+  assert.equal(isSlotIn10MinWindow('10:00', exactly10MinBeforeUtc), true);
+
+  // 15 minutes prior (upper window bound) is 09:45 IST = 04:15 UTC.
+  const fifteenMinBeforeUtc = new Date('2026-10-14T04:15:00.000Z');
+  assert.equal(isSlotIn10MinWindow('10:00', fifteenMinBeforeUtc), true);
+
+  // 2 minutes prior (lower window bound) is 09:58 IST = 04:28 UTC.
+  const twoMinBeforeUtc = new Date('2026-10-14T04:28:00.000Z');
+  assert.equal(isSlotIn10MinWindow('10:00', twoMinBeforeUtc), true);
+
+  // 20 minutes prior (outside window) is 09:40 IST = 04:10 UTC.
+  const twentyMinBeforeUtc = new Date('2026-10-14T04:10:00.000Z');
+  assert.equal(isSlotIn10MinWindow('10:00', twentyMinBeforeUtc), false);
+
+  // 1 minute after class start (already started) is 10:01 IST = 04:31 UTC.
+  const afterStartUtc = new Date('2026-10-14T04:31:00.000Z');
+  assert.equal(isSlotIn10MinWindow('10:00', afterStartUtc), false);
 });
 
 // -----------------------------------------------------------------------------

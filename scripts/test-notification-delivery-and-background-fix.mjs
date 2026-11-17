@@ -280,12 +280,16 @@ runTest('runReminderDispatcher executes cleanly in test / dry-run mode without c
   assert.equal(typeof result.dispatchedCount, 'number');
 });
 
-runTest('GitHub Actions cron workflow is defined and runs every 10 min during college hours', () => {
+runTest('GitHub Actions cron workflow is defined and runs during college hours with concurrency protection', () => {
   const workflowPath = path.join(rootDir, '.github/workflows/scheduled-class-reminders.yml');
   assert.ok(fs.existsSync(workflowPath), '.github/workflows/scheduled-class-reminders.yml exists');
 
   const content = fs.readFileSync(workflowPath, 'utf8');
-  assert.ok(content.includes("cron: '*/10 3-12 * * 1-5'"), 'Workflow defines 10-minute weekday schedule');
+  assert.ok(
+    /cron:\s*['"]\*\/(?:5|10)\s+3-12\s+\*\s+\*\s+1-5['"]/.test(content),
+    'Workflow defines 5 or 10-minute weekday schedule during college hours'
+  );
+  assert.ok(content.includes('concurrency:'), 'Workflow configures concurrency group');
   assert.ok(content.includes('node scripts/dispatch-class-reminders.mjs'), 'Workflow calls dispatch-class-reminders.mjs');
   assert.ok(content.includes('FIREBASE_SERVICE_ACCOUNT_KEY'), 'Workflow securely maps service account key secret');
 });

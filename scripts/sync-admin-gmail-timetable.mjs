@@ -44,6 +44,9 @@ import {
 import {
   validateParsedTimetable,
   computeAttachmentHash,
+  isTimetableSubject,
+  isTimetableFilename,
+  NON_TIMETABLE_PATTERN,
 } from './lib/timetableValidation.mjs';
 
 import {
@@ -256,7 +259,10 @@ export async function runAdminGmailTimetableSync() {
       processedHashes = existingSyncState.processedAttachmentHashes || [];
       failedMessageRetries = { ...(existingSyncState.failedMessageRetries || {}) };
       storedQuarantinedMessageIds = existingSyncState.quarantinedMessageIds || [];
-      console.log(`[UniFlow Sync] Last sync: ${existingSyncState.lastSuccessAt?.toDate?.()?.toISOString() || 'never'}`);
+      const formattedLastSync = typeof existingSyncState.lastSuccessAt?.toDate === 'function'
+        ? existingSyncState.lastSuccessAt.toDate().toISOString()
+        : (existingSyncState.lastSuccessAt || 'never');
+      console.log(`[UniFlow Sync] Last sync: ${formattedLastSync}`);
       if (forceFullSearch) {
         console.log(`[UniFlow Sync] Stored cursor (historyId: ${lastHistoryId || 'none'}) will be bypassed for forced diagnostic search.`);
       } else if (lastHistoryId) {
@@ -375,8 +381,8 @@ export async function runAdminGmailTimetableSync() {
       succeededMessageIds.add(messageId);
       continue;
     }
-    if (env.subjectPrefix && messageInfo.subject && !messageInfo.subject.toLowerCase().includes(env.subjectPrefix.toLowerCase())) {
-      console.log(`[UniFlow Sync] Skipping message ${messageId}: subject "${messageInfo.subject}" does not match "${env.subjectPrefix}".`);
+    if (!isTimetableSubject(messageInfo.subject, env.subjectPrefix)) {
+      console.log(`[UniFlow Sync] Skipping message ${messageId}: subject "${messageInfo.subject}" does not match timetable subject criteria or indicates placement/non-academic content.`);
       succeededMessageIds.add(messageId);
       continue;
     }
@@ -390,6 +396,12 @@ export async function runAdminGmailTimetableSync() {
     for (const attachment of messageInfo.attachments) {
       let attachmentHadFailure = false;
       console.log(`\n[UniFlow Sync] Processing: ${attachment.filename} (${(attachment.size / 1024).toFixed(1)} KB)`);
+
+      // ── Filename classification: skip placement/non-timetable attachments ───
+      if (!isTimetableFilename(attachment.filename)) {
+        console.log(`[UniFlow Sync] Skipping non-timetable attachment: ${attachment.filename} (placement or non-timetable filename detected).`);
+        continue;
+      }
 
       // ── Download attachment ─────────────────────────────────────────────────
       let pdfBuffer;
@@ -443,12 +455,23 @@ export async function runAdminGmailTimetableSync() {
       console.log(`[UniFlow Sync] Parsed ${parseResult.totalLectures} lectures across sections: ${parseResult.sectionsFound?.join(', ') || 'unknown'}`);
       console.log(`[UniFlow Sync] Detected semester: ${parseResult.detectedSemester || 'unknown'}, batch: ${parseResult.detectedBatch || 'unknown'}, effective: ${parseResult.effectiveDate || 'unknown'}`);
 
-      const rawEffectiveDate = parseResult.effectiveDate;
-      const normalizedEffectiveDate = normalizeEffectiveDate(rawEffectiveDate);
-
       const allSectionLectures = parseResult.allSectionLectures || {
         [parseResult.selectedSection || 'unknown']: parseResult.lectures,
       };
+
+      const totalDocumentLectures = Object.values(allSectionLectures).reduce(
+        (acc, secLectures) => acc + (secLectures?.length || 0),
+        0
+      );
+
+      // ── Document classification: Skip if document has 0 lectures across all sections ──
+      if (totalDocumentLectures === 0) {
+        console.log(`[UniFlow Sync] Skipping non-timetable attachment: ${attachment.filename} (0 lectures parsed across all pages/sections).`);
+        continue;
+      }
+
+      const rawEffectiveDate = parseResult.effectiveDate;
+      const normalizedEffectiveDate = normalizeEffectiveDate(rawEffectiveDate);
 
       // ── Process each section found in the PDF ─────────────────────────────
       for (const [section, lectures] of Object.entries(allSectionLectures)) {

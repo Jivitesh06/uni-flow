@@ -115,7 +115,7 @@ export function FreeClassroomCard({
 
                     <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate pt-0.5 border-t border-emerald-100/60 dark:border-slate-800">
                       {nextCls ? (
-                        <span>Next: {nextCls.startTime}</span>
+                        <span>Next: {nextCls.startTime} ({nextCls.subjectCode})</span>
                       ) : freeMin && freeMin > 0 ? (
                         <span>Free {Math.floor(freeMin / 60) > 0 ? `${Math.floor(freeMin / 60)}h ` : ''}{freeMin % 60}m</span>
                       ) : (
@@ -163,7 +163,7 @@ export function FreeClassroomCard({
                   <DoorOpen className="w-4 h-4 text-blue-600" /> All Classroom Availability
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Verified across Semesters 1, 3 & 5 departmental timetables at {timeFormatted}
+                  Verified across {inspection.includedSections?.length ? `${inspection.includedSections.length} sections (${inspection.includedTimetableCount} timetables)` : 'latest departmental timetables'} at {timeFormatted}
                 </p>
               </div>
               <button
@@ -196,7 +196,7 @@ export function FreeClassroomCard({
                         <div>
                           <p className="font-bold text-sm text-slate-900 dark:text-white">{r.room}</p>
                           <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">
-                            {r.nextClass ? `Next class: ${r.nextClass.startTime}` : 'Free rest of day'}
+                            {r.nextClass ? `Next class: ${r.nextClass.startTime} (${r.nextClass.subjectCode})` : 'Free rest of day'}
                           </p>
                         </div>
                         <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
