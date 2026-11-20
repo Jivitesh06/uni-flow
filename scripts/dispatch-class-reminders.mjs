@@ -663,9 +663,14 @@ export async function runReminderDispatcher(options = {}) {
     let testPushAttempts = 0;
     let testSuccessfulSends = 0;
     let testFailedSends = 0;
+    let testSubscriptionsPruned = 0;
 
     for (const sub of pushSubscriptions) {
       testPushAttempts++;
+      // Derive a safe display label: provider hostname only (no tokens, no full URL)
+      let providerHost = 'unknown-provider';
+      try { providerHost = new URL(sub.endpoint).hostname; } catch (_) { /* non-fatal */ }
+
       try {
         await sendWebPushFn(
           { endpoint: sub.endpoint, keys: sub.keys },
@@ -673,11 +678,45 @@ export async function runReminderDispatcher(options = {}) {
           { ...vapidOptions, publicKey: vapidPub, privateKey: vapidPriv }
         );
         testSuccessfulSends++;
-        const endpointDisplay = sub.endpoint.split('?')[0].slice(0, 45);
-        console.log(`[UniFlow Dispatcher] Controlled test Web Push accepted by ${endpointDisplay}... (Platform: ${sub.platform || 'unknown'})`);
+        console.log(`[UniFlow Dispatcher] Controlled test Web Push accepted — provider: ${providerHost}, platform: ${sub.platform || 'unknown'}`);
       } catch (err) {
         testFailedSends++;
-        console.warn(`[UniFlow Dispatcher] Controlled test Web Push failed: ${err.message}`);
+
+        // Sanitize the provider's error body — truncate and strip tokens
+        const rawBody = typeof err.body === 'string' ? err.body : JSON.stringify(err.body ?? '');
+        const sanitizedBody = rawBody.slice(0, 200).replace(/"p256dh":"[^"]*"/g, '"p256dh":"[redacted]"')
+                                                   .replace(/"auth":"[^"]*"/g, '"auth":"[redacted]"');
+
+        // Log status code, provider hostname, and sanitized response — never log full endpoint or key material
+        console.warn(
+          `[UniFlow Dispatcher] Controlled test Web Push failed — ` +
+          `status: ${err.statusCode ?? 'n/a'}, ` +
+          `provider: ${providerHost}, ` +
+          `platform: ${sub.platform || 'unknown'}, ` +
+          `body: ${sanitizedBody || '(empty)'}`
+        );
+
+        // Diagnose common failure reasons to guide remediation
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          console.warn(
+            `[UniFlow Dispatcher] Subscription is expired/unregistered (${err.statusCode}). ` +
+            `Removing stale Firestore record for doc: ${sub.id}`
+          );
+          await db
+            .collection('users').doc(targetUid)
+            .collection('pushSubscriptions').doc(sub.id)
+            .delete()
+            .catch((delErr) => console.warn(`[UniFlow Dispatcher] Failed to delete stale subscription ${sub.id}:`, delErr.message));
+          testSubscriptionsPruned++;
+        } else if (err.statusCode === 401 || err.statusCode === 403) {
+          console.warn(
+            `[UniFlow Dispatcher] Subscription rejected by provider (${err.statusCode}) — ` +
+            `likely a VAPID public key mismatch. The browser subscription was registered with a ` +
+            `different applicationServerKey. Open the app while signed in to trigger automatic re-registration.`
+          );
+        } else if (!err.statusCode) {
+          console.warn(`[UniFlow Dispatcher] Network or timeout error — no HTTP status received.`);
+        }
       }
     }
 
@@ -711,6 +750,7 @@ export async function runReminderDispatcher(options = {}) {
       pushAttempts: testPushAttempts,
       successfulSends: testSuccessfulSends,
       failedSends: testFailedSends,
+      expiredSubscriptionsPruned: testSubscriptionsPruned,
       timestamp: now.toISOString(),
     };
   }
